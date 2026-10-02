@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+
+# Environment
+.env
+
+# Data files
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+
+# Build
+dist/
+build/
