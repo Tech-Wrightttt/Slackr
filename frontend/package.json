@@ -3,6 +3,11 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/react": "^19.3.0",
@@ -17,10 +22,19 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-table": "^9.2.4",
+    "@types/katex": "^0.16.8",
+    "dexie": "^4.4.6",
+    "dexie-react-hooks": "^4.4.0",
+    "katex": "^0.19.0",
+    "lucide-react": "^1.50.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.4",
+    "rehype-katex": "^7.0.1",
+    "remark-math": "^6.0.0",
     "zustand": "^5.0.15"
   }
 }
