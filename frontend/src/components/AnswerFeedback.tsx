@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import { CheckCircle2, XCircle, ArrowRight, Clock, Star, Calendar } from 'lucide-react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import type { SRScheduleRecord } from '../db/schema';
 
@@ -32,7 +31,6 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.code === 'Enter') {
-        // Prevent default scrolling when space is hit
         if (e.target === document.body || (e.target as HTMLElement).tagName === 'BUTTON') {
           e.preventDefault();
         }
@@ -44,88 +42,112 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
   }, [onNext]);
 
   return (
-    <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl backdrop-blur-sm animate-in fade-in slide-in-from-bottom-2 duration-200">
+    <div className="mt-6 rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 sm:p-6 shadow-xl animate-in fade-in slide-in-from-bottom-2 duration-200 flex flex-col gap-4">
       {/* Result Status Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-800">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-outline-variant/20">
         <div className="flex items-center gap-3">
-          {isCorrect ? (
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-              <CheckCircle2 className="h-7 w-7" />
-            </div>
-          ) : (
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/30">
-              <XCircle className="h-7 w-7" />
-            </div>
-          )}
+          <div
+            className={`w-10 h-10 rounded-xl flex items-center justify-center font-mono-code font-bold text-lg shrink-0 ${
+              isCorrect
+                ? 'bg-mastery-emerald/15 text-mastery-emerald border border-mastery-emerald/30'
+                : 'bg-error/15 text-error border border-error/30'
+            }`}
+          >
+            <span className="material-symbols-outlined text-2xl">
+              {isCorrect ? 'check_circle' : 'cancel'}
+            </span>
+          </div>
           <div>
-            <h3 className={`text-xl font-bold ${isCorrect ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {isCorrect ? 'Correct!' : 'Incorrect'}
-            </h3>
-            <p className="text-xs text-slate-400">
-              Your answer: <span className="font-semibold text-slate-200 uppercase">{selectedAnswer}</span>
+            <div className="flex items-center gap-2">
+              <h3 className={`font-title-sm text-lg font-bold ${isCorrect ? 'text-mastery-emerald' : 'text-error'}`}>
+                {isCorrect ? 'Correct Answer Verified' : 'Incorrect Choice'}
+              </h3>
+              <span
+                className={`px-2 py-0.5 rounded-full font-label-caps text-[10px] uppercase font-bold tracking-wider ${
+                  isCorrect
+                    ? 'bg-mastery-emerald/20 text-mastery-emerald'
+                    : 'bg-error/20 text-error'
+                }`}
+              >
+                {isCorrect ? 'Passed (+1.25 pts)' : 'Review Required'}
+              </span>
+            </div>
+            <p className="text-xs font-mono-code text-on-surface-variant mt-0.5">
+              Candidate choice: <span className="font-bold text-on-surface uppercase">{selectedAnswer}</span>
               {!isCorrect && (
                 <>
                   {' '}
-                  • Correct:{' '}
-                  <span className="font-semibold text-emerald-400">{correctDisplay || correctAnswer.toUpperCase()}</span>
+                  • Official key:{' '}
+                  <span className="font-bold text-primary">{correctDisplay || correctAnswer.toUpperCase()}</span>
                 </>
               )}
             </p>
           </div>
         </div>
 
-        {/* Quick metrics & Next button */}
+        {/* Action button */}
         <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
-          <div className="flex items-center gap-3 text-xs text-slate-400">
-            <span className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-md border border-slate-700/50">
-              <Clock className="h-3.5 w-3.5 text-sky-400" />
-              {timeSeconds.toFixed(1)}s
+          <div className="flex items-center gap-2 text-xs font-mono-code text-on-surface-variant">
+            <span className="flex items-center gap-1 bg-surface-container px-2 py-1 rounded border border-outline-variant/30">
+              <span className="material-symbols-outlined text-[14px] text-primary">timer</span>
+              <span>{timeSeconds.toFixed(1)}s</span>
             </span>
             {confidence !== undefined && (
-              <span className="flex items-center gap-1 bg-slate-800/80 px-2.5 py-1 rounded-md border border-slate-700/50">
-                <Star className="h-3.5 w-3.5 text-amber-400" />
-                Conf: {confidence}/5
+              <span className="flex items-center gap-1 bg-surface-container px-2 py-1 rounded border border-outline-variant/30 text-confidence-amber">
+                <span className="material-symbols-outlined text-[14px]">grade</span>
+                <span>L{confidence}</span>
               </span>
             )}
           </div>
 
           <button
             onClick={onNext}
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-indigo-500/20 hover:from-sky-400 hover:to-indigo-500 active:scale-95 transition-all"
+            className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary-fixed-dim px-5 py-2.5 text-sm font-body-bold text-on-primary shadow-lg shadow-primary/20 active:scale-95 transition-all cursor-pointer"
+            type="button"
           >
-            <span>{hasNext ? 'Next Question' : 'Finish Quiz'}</span>
-            <ArrowRight className="h-4 w-4" />
+            <span>{hasNext ? 'Proceed to Next' : 'Complete Session'}</span>
+            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
           </button>
         </div>
       </div>
 
-      {/* SRS Schedule Badge */}
+      {/* Spaced Repetition Telemetry Strip */}
       {schedule && (
-        <div className="my-4 flex items-center gap-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 px-4 py-2.5 text-xs text-indigo-300">
-          <Calendar className="h-4 w-4 text-indigo-400" />
+        <div className="flex items-center gap-2 rounded-lg bg-surface-container px-3.5 py-2 border border-outline-variant/20 font-mono-code text-xs text-on-surface-variant">
+          <span className="material-symbols-outlined text-primary text-[16px]">sync</span>
           <span>
-            <strong>Spaced Repetition ({schedule.algorithm}):</strong> Next review scheduled for{' '}
-            <strong>{new Date(schedule.nextReviewDate).toLocaleDateString()}</strong> (interval:{' '}
-            {schedule.intervalDays} {schedule.intervalDays === 1 ? 'day' : 'days'})
+            Leitner Deck Adjusted: Next revision scheduled on{' '}
+            <strong className="text-on-surface">{new Date(schedule.nextReviewDate).toLocaleDateString()}</strong> (
+            interval: {schedule.intervalDays} {schedule.intervalDays === 1 ? 'day' : 'days'})
           </span>
         </div>
       )}
 
-      {/* Explanation Section */}
-      <div className="mt-4">
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-          Step-by-Step Explanation
-        </h4>
-        {explanation ? (
-          <MarkdownRenderer content={explanation} className="text-sm text-slate-300" />
-        ) : (
-          <p className="text-sm italic text-slate-500">No additional explanation text recorded.</p>
-        )}
+      {/* Detailed Analytical Breakdown / Explanation */}
+      <div className="mt-1 flex flex-col gap-2">
+        <div className="flex items-center justify-between text-xs font-label-caps text-on-surface-variant uppercase tracking-wider">
+          <span className="flex items-center gap-1.5 text-primary">
+            <span className="material-symbols-outlined text-[15px]">school</span>
+            Official Analytical Breakdown
+          </span>
+          <span className="text-[11px] text-on-surface-variant/60 font-mono-code">IPA Syllabus Criteria</span>
+        </div>
+
+        <div className="rounded-lg bg-surface-container/60 p-4 border border-outline-variant/20 text-sm leading-relaxed text-on-surface font-body-base">
+          {explanation ? (
+            <MarkdownRenderer content={explanation} className="prose-p:my-1 text-sm text-on-surface" />
+          ) : (
+            <p className="italic text-on-surface-variant text-xs font-mono-code">
+              Official key verified. Detailed step-by-step derivation available in curriculum handbook.
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* Keyboard Shortcut Hint */}
-      <div className="mt-6 flex justify-end text-[11px] text-slate-500">
-        <span>Tip: Press <kbd className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-300 border border-slate-700">Space</kbd> or <kbd className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-slate-300 border border-slate-700">Enter</kbd> to advance</span>
+      {/* Keyboard Shortcut Accelerator Footer */}
+      <div className="flex items-center justify-between text-[11px] font-mono-code text-on-surface-variant/60 pt-1">
+        <span>Press <kbd className="px-1.5 py-0.5 rounded bg-surface-container font-bold text-on-surface">Enter</kbd> or <kbd className="px-1.5 py-0.5 rounded bg-surface-container font-bold text-on-surface">Space</kbd> to Advance</span>
+        <span>Telemetry Logged</span>
       </div>
     </div>
   );

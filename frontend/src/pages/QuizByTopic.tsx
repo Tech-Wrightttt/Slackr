@@ -1,16 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import {
-  Layers,
-  Play,
-  RotateCcw,
-  Award,
-  ArrowLeft,
-  Search,
-  Sparkles,
-  Calendar,
-  ChevronRight,
-} from 'lucide-react';
 import { QuestionsService } from '../services/questionsService';
 import { StatsDbService } from '../services/statsDb';
 import { AnalyticsEngine } from '../services/analyticsEngine';
@@ -83,7 +72,6 @@ export const QuizByTopic: React.FC = () => {
     setSessionStats({ correct: 0, incorrect: 0, totalTime: 0 });
 
     try {
-      // Questions returned here are strictly sorted: Year (desc) -> Season -> Paper -> Q#
       const qList = await QuestionsService.getQuestionsByTopic(selectedTopic, yearFilter);
       setQuestions(qList);
       setIsQuizActive(true);
@@ -138,75 +126,193 @@ export const QuizByTopic: React.FC = () => {
     t.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Active Quiz View
+  if (isQuizActive) {
+    const currentQ = questions[currentIndex];
+
+    if (sessionCompleted) {
+      const totalAnswered = sessionStats.correct + sessionStats.incorrect;
+      const accuracy = totalAnswered > 0 ? Math.round((sessionStats.correct / totalAnswered) * 100) : 0;
+
+      return (
+        <div className="max-w-3xl mx-auto px-4 py-12 text-center animate-in fade-in duration-300">
+          <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-8 shadow-2xl flex flex-col gap-6">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-mastery-emerald/15 text-mastery-emerald border border-mastery-emerald/30">
+              <span className="material-symbols-outlined text-4xl">emoji_events</span>
+            </div>
+
+            <div>
+              <span className="font-label-caps text-xs text-primary uppercase tracking-widest font-bold">
+                Domain Mastery Assessment
+              </span>
+              <h2 className="font-headline-md text-2xl sm:text-3xl font-bold text-on-surface mt-1 uppercase">
+                #{selectedTopic} Completed
+              </h2>
+              <p className="mt-1 text-sm font-mono-code text-on-surface-variant">
+                Filter: {selectedSubdeckYear === 'all' ? 'All Exam Years' : `Year ${selectedSubdeckYear}`}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 font-mono-code">
+              <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-4">
+                <span className="text-xs text-on-surface-variant uppercase">Accuracy</span>
+                <p className="mt-1 text-2xl font-bold text-mastery-emerald">{accuracy}%</p>
+              </div>
+              <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-4">
+                <span className="text-xs text-on-surface-variant uppercase">Score</span>
+                <p className="mt-1 text-2xl font-bold text-on-surface">
+                  {sessionStats.correct} / {totalAnswered}
+                </p>
+              </div>
+              <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-4">
+                <span className="text-xs text-on-surface-variant uppercase">Total Time</span>
+                <p className="mt-1 text-2xl font-bold text-interactive-sky">
+                  {Math.round(sessionStats.totalTime)}s
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <button
+                onClick={handleRestartQuiz}
+                className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary-fixed-dim px-6 py-3 text-sm font-body-bold text-on-primary shadow-lg transition-all active:scale-95 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">replay</span>
+                <span>Retry Domain Deck</span>
+              </button>
+              <button
+                onClick={() => setIsQuizActive(false)}
+                className="flex items-center gap-2 rounded-xl border border-outline-variant/30 bg-surface-container px-6 py-3 text-sm font-body-bold text-on-surface hover:bg-surface-container-high transition-all active:scale-95 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                <span>Explore Other Topics</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4">
+        {/* Back Link */}
+        <div className="flex items-center justify-between pb-1 border-b border-outline-variant/20">
+          <button
+            onClick={() => setIsQuizActive(false)}
+            className="flex items-center gap-1.5 text-xs font-mono-code text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+            <span>Exit Domain Drill (#{selectedTopic})</span>
+          </button>
+          <span className="font-mono-code text-xs text-on-surface-variant">
+            Question {currentIndex + 1} of {questions.length}
+          </span>
+        </div>
+
+        {currentQ ? (
+          <QuestionCard
+            question={currentQ}
+            questionNumber={currentIndex + 1}
+            totalQuestions={questions.length}
+            onAnswerSubmitted={handleAnswerSubmitted}
+            onNextQuestion={handleNextQuestion}
+            onPreviousQuestion={() => currentIndex > 0 && setCurrentIndex((p) => p - 1)}
+            onSkipQuestion={handleNextQuestion}
+            hasNext={currentIndex + 1 < questions.length}
+            hasPrevious={currentIndex > 0}
+            questions={questions}
+            currentIndex={currentIndex}
+            onSelectIndex={(idx) => setCurrentIndex(idx)}
+          />
+        ) : (
+          <div className="py-20 text-center text-on-surface-variant font-mono-code text-sm">
+            No questions found for this topic filter.
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // View 1: Topics Directory Hub
   if (!selectedTopic) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <span className="rounded bg-indigo-500/10 px-2 py-0.5 text-xs font-semibold text-indigo-400 border border-indigo-500/20">
-                Tab 2
-              </span>
-              <h1 className="text-2xl font-bold text-white sm:text-3xl">Browse by Topic Category</h1>
+      <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6 animate-in fade-in duration-300">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
+          <div className="flex flex-col gap-1 max-w-2xl">
+            <div className="flex items-center gap-2 font-mono-timer text-xs text-interactive-sky">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-interactive-sky animate-ping" />
+              <span>PHILNITS KNOWLEDGE DOMAINS // 29 SYLLABUS UNITS</span>
             </div>
-            <p className="text-sm text-slate-400">
-              PelNETS standardized categories with parent decks (#category) and yearly subdecks (#category/YYYY).
+            <h1 className="font-display-lg text-3xl sm:text-4xl font-bold text-on-surface tracking-tight">
+              By Topic Category
+            </h1>
+            <p className="font-body-base text-sm text-on-surface-variant leading-relaxed">
+              Target discrete syllabus curricula. Practice complete master decks or isolate specific temporal
+              cross-sections.
             </p>
           </div>
 
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+          {/* Search Input */}
+          <div className="relative w-full sm:w-80">
+            <span className="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-[18px]">
+              search
+            </span>
             <input
               type="text"
-              placeholder="Search 29 categories..."
+              placeholder="Search 29 domains..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-xl border border-slate-800 bg-slate-900/80 pl-9 pr-4 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low pl-9 pr-4 py-2 text-sm text-on-surface placeholder-on-surface-variant/60 focus:border-primary focus:outline-none font-mono-code"
             />
           </div>
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-20 text-slate-400">Loading topic decks...</div>
+          <div className="py-20 text-center font-mono-code text-sm text-on-surface-variant">
+            Loading topic decks...
+          </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredTopics.map((topic) => {
               const count = topicCounts[topic] || 0;
               const errorRate = topicErrorRates[topic];
+
               return (
                 <button
                   key={topic}
+                  type="button"
                   onClick={() => handleSelectTopic(topic)}
-                  className="group flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/60 p-5 text-left backdrop-blur-sm hover:border-indigo-500/50 hover:bg-slate-900 transition-all active:scale-[0.99]"
+                  className="group flex items-center justify-between rounded-xl border border-outline-variant/20 bg-surface-container-low p-5 text-left transition-all hover:bg-surface-container hover:border-outline-variant/40 shadow-sm cursor-pointer"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-xl bg-indigo-500/10 p-2.5 text-indigo-400 border border-indigo-500/20 group-hover:scale-110 transition-transform">
-                      <Layers className="h-5 w-5" />
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-interactive-sky text-on-surface group-hover:text-surface-container-lowest flex items-center justify-center transition-colors shrink-0">
+                      <span className="material-symbols-outlined text-[20px]">category</span>
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-100 group-hover:text-indigo-400 transition-colors uppercase text-sm">
+                      <h3 className="font-body-bold text-sm text-on-surface group-hover:text-interactive-sky transition-colors uppercase tracking-wide">
                         #{topic}
                       </h3>
-                      <p className="text-xs text-slate-400">{count} questions across all years</p>
+                      <p className="font-mono-code text-xs text-on-surface-variant mt-0.5">
+                        {count} verified questions
+                      </p>
                     </div>
                   </div>
 
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     {errorRate !== undefined ? (
                       <span
-                        className={`rounded-lg px-2 py-1 text-xs font-semibold ${
+                        className={`font-mono-timer text-xs px-2 py-0.5 rounded-full font-bold ${
                           errorRate >= 50
-                            ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                            ? 'bg-error/20 text-error'
                             : errorRate >= 25
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                            ? 'bg-confidence-amber/20 text-confidence-amber'
+                            : 'bg-mastery-emerald/20 text-mastery-emerald'
                         }`}
                       >
                         {errorRate}% err
                       </span>
                     ) : (
-                      <span className="text-xs text-slate-500">Unattempted</span>
+                      <span className="font-mono-code text-[11px] text-on-surface-variant/50">Unattempted</span>
                     )}
                   </div>
                 </button>
@@ -218,190 +324,90 @@ export const QuizByTopic: React.FC = () => {
     );
   }
 
-  // View 2: Topic Hub with 3-Way Subdeck Hierarchy (#topic vs #topic/YYYY)
-  if (!isQuizActive) {
-    const totalTopicQuestions = topicCounts[selectedTopic] || 0;
-    const subdecks = topicSubdecks[selectedTopic] || [];
-
-    return (
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 space-y-6 animate-in fade-in duration-200">
-        <button
-          onClick={() => setSelectedTopic(null)}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Back to All Categories</span>
-        </button>
-
-        <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-extrabold uppercase text-white">#{selectedTopic}</h1>
-            <span className="rounded-full bg-indigo-500/10 border border-indigo-500/20 px-3 py-1 text-xs font-semibold text-indigo-400">
-              {totalTopicQuestions} Questions Total
-            </span>
-          </div>
-          <p className="text-sm text-slate-400">
-            Practice the full topic deck across all 20 exam years, or select an individual yearly subdeck (e.g. #{selectedTopic}/YYYY).
-          </p>
-        </div>
-
-        {/* Master Deck Card */}
-        <div
-          onClick={() => handleStartTopicQuiz('all')}
-          className="group cursor-pointer rounded-3xl border border-indigo-500/40 bg-gradient-to-br from-indigo-500/15 via-slate-900 to-slate-900 p-6 backdrop-blur-sm hover:border-indigo-400 transition-all"
-        >
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              <div className="rounded-2xl bg-indigo-500/20 p-3 text-indigo-400 border border-indigo-500/30 group-hover:scale-105 transition-transform">
-                <Sparkles className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-white group-hover:text-indigo-300 transition-colors uppercase">
-                  Full #{selectedTopic} Master Deck
-                </h3>
-                <p className="text-xs text-slate-300 mt-0.5">
-                  Chronological progression across all exam years (2026 down to 2007) • {totalTopicQuestions} questions.
-                </p>
-              </div>
-            </div>
-
-            <span className="flex items-center gap-1 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-600/20 group-hover:bg-indigo-500 transition-colors">
-              <Play className="h-3.5 w-3.5" />
-              <span>Practice All</span>
-            </span>
-          </div>
-        </div>
-
-        {/* Subdecks Header */}
-        <div className="pt-2">
-          <h2 className="text-base font-bold text-white mb-1">Yearly Subdecks (#{selectedTopic}/YYYY)</h2>
-          <p className="text-xs text-slate-400 mb-4">
-            Isolate how this category appeared in a specific examination year.
-          </p>
-
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
-            {subdecks.map((sub) => (
-              <div
-                key={sub.year}
-                onClick={() => handleStartTopicQuiz(sub.year)}
-                className="group cursor-pointer rounded-2xl border border-slate-800 bg-slate-900/60 p-4 text-center backdrop-blur-sm hover:border-indigo-500/50 hover:bg-slate-900 transition-all"
-              >
-                <span className="text-lg font-bold text-white group-hover:text-indigo-400 transition-colors">
-                  {sub.year}
-                </span>
-                <p className="text-xs text-slate-400 mt-0.5">{sub.count} questions</p>
-                <span className="mt-2 inline-block font-mono text-[10px] text-indigo-400/80 bg-indigo-500/10 px-1.5 py-0.5 rounded">
-                  #{sub.subdeck}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // View 3: Session Completed
-  if (sessionCompleted) {
-    const totalAnswered = sessionStats.correct + sessionStats.incorrect;
-    const accuracy = totalAnswered > 0 ? Math.round((sessionStats.correct / totalAnswered) * 100) : 0;
-    const subdeckLabel =
-      selectedSubdeckYear === 'all'
-        ? `#${selectedTopic} (All Years)`
-        : `#${selectedTopic}/${selectedSubdeckYear}`;
-
-    return (
-      <div className="mx-auto max-w-2xl px-4 py-16 text-center animate-in fade-in duration-300">
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-md">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/30">
-            <Award className="h-8 w-8" />
-          </div>
-          <h2 className="text-2xl font-bold text-white sm:text-3xl uppercase">{subdeckLabel} Complete!</h2>
-          <p className="mt-2 text-sm text-slate-400">Here is your performance breakdown for this topic session:</p>
-
-          <div className="my-8 grid grid-cols-3 gap-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-              <span className="text-xs text-slate-400">Accuracy</span>
-              <p className="mt-1 text-2xl font-bold text-emerald-400">{accuracy}%</p>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-              <span className="text-xs text-slate-400">Score</span>
-              <p className="mt-1 text-2xl font-bold text-white">
-                {sessionStats.correct} / {totalAnswered}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-              <span className="text-xs text-slate-400">Total Time</span>
-              <p className="mt-1 text-2xl font-bold text-sky-400 font-mono">
-                {Math.round(sessionStats.totalTime)}s
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <button
-              onClick={handleRestartQuiz}
-              className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 hover:bg-indigo-500 active:scale-95 transition-all"
-            >
-              <RotateCcw className="h-4 w-4" />
-              <span>Retry Session</span>
-            </button>
-            <button
-              onClick={() => setIsQuizActive(false)}
-              className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-6 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-700 active:scale-95 transition-all"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Choose Another Subdeck</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // View 4: Active Topic Quiz Interface
-  const currentQ = questions[currentIndex];
-  const activeLabel =
-    selectedSubdeckYear === 'all'
-      ? `#${selectedTopic} (All Years)`
-      : `#${selectedTopic}/${selectedSubdeckYear}`;
+  // View 2: Topic Hub with Subdecks
+  const totalTopicQuestions = topicCounts[selectedTopic] || 0;
+  const subdecks = topicSubdecks[selectedTopic] || [];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => setIsQuizActive(false)}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Exit Deck ({activeLabel})</span>
-        </button>
+    <div className="relative w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6 animate-in fade-in duration-200">
+      <button
+        type="button"
+        onClick={() => setSelectedTopic(null)}
+        className="flex items-center gap-1.5 text-xs font-mono-code text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer w-fit"
+      >
+        <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+        <span>Back to All Categories</span>
+      </button>
 
+      <div className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
-          <div className="hidden sm:block text-xs text-slate-400">
-            Question {currentIndex + 1} of {questions.length}
-          </div>
-          <div className="h-2 w-32 sm:w-48 overflow-hidden rounded-full bg-slate-800">
-            <div
-              className="h-full bg-indigo-500 transition-all duration-300"
-              style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
-            />
-          </div>
+          <h1 className="font-headline-md text-3xl font-extrabold uppercase text-on-surface tracking-tight">
+            #{selectedTopic}
+          </h1>
+          <span className="font-mono-timer text-xs px-2.5 py-0.5 rounded-full bg-surface-container-high text-primary font-bold border border-outline-variant/30">
+            {totalTopicQuestions} Questions Total
+          </span>
         </div>
+        <p className="font-body-base text-sm text-on-surface-variant leading-relaxed">
+          Practice the complete master deck across all 19 exam years, or select a dedicated yearly cohort.
+        </p>
       </div>
 
-      {currentQ ? (
-        <QuestionCard
-          question={currentQ}
-          questionNumber={currentIndex + 1}
-          totalQuestions={questions.length}
-          onAnswerSubmitted={handleAnswerSubmitted}
-          onNextQuestion={handleNextQuestion}
-          hasNext={currentIndex + 1 < questions.length}
-        />
-      ) : (
-        <div className="py-20 text-center text-slate-400">No questions found in this subdeck.</div>
-      )}
+      {/* Master Deck Card */}
+      <div
+        onClick={() => handleStartTopicQuiz('all')}
+        className="group rounded-xl border border-primary/40 bg-surface-container-low p-6 shadow-md transition-all hover:bg-surface-container hover:border-primary cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+      >
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-xl bg-primary-container text-on-primary flex items-center justify-center shrink-0 shadow-sm">
+            <span className="material-symbols-outlined text-[24px]">dataset</span>
+          </div>
+          <div>
+            <h3 className="font-title-sm text-base font-bold text-on-surface group-hover:text-primary transition-colors">
+              Full #{selectedTopic} Master Deck
+            </h3>
+            <p className="font-mono-code text-xs text-on-surface-variant mt-0.5">
+              Comprehensive continuous set spanning all archived years ({totalTopicQuestions} questions).
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary-fixed-dim text-on-primary font-body-bold text-xs flex items-center gap-2 shadow-sm transition-all self-start sm:self-auto cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+          <span>Start Master Deck</span>
+        </button>
+      </div>
+
+      {/* Yearly Subdecks Grid */}
+      <div className="flex flex-col gap-3">
+        <h3 className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider font-semibold">
+          Yearly Cohort Sub-Decks
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          {subdecks.map((sub) => (
+            <button
+              key={sub.year}
+              type="button"
+              onClick={() => handleStartTopicQuiz(sub.year)}
+              className="flex items-center justify-between p-4 rounded-xl bg-surface-container-low border border-outline-variant/20 hover:bg-surface-container hover:border-interactive-sky/40 transition-all text-left shadow-sm cursor-pointer group"
+            >
+              <div className="flex flex-col">
+                <span className="font-mono-code text-sm font-bold text-on-surface group-hover:text-interactive-sky transition-colors">
+                  {sub.subdeck}
+                </span>
+                <span className="font-mono-code text-xs text-on-surface-variant">Year {sub.year}</span>
+              </div>
+              <span className="font-label-caps text-xs px-2 py-0.5 rounded bg-surface-container-high text-on-surface-variant">
+                {sub.count} Qs
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

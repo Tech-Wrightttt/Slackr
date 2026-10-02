@@ -1,12 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-  Maximize2,
-  X,
-} from 'lucide-react';
 
 interface ZoomableImageProps {
   src?: string;
@@ -21,7 +14,6 @@ export const ZoomableImage: React.FC<ZoomableImageProps> = ({
   className = '',
   title,
 }) => {
-  // Zoom level state (1.0 = 100%, 1.25 = 125%, 1.5 = 150%, 2.0 = 200%, etc.)
   const [scale, setScale] = useState<number>(1);
   const [hasError, setHasError] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -33,7 +25,6 @@ export const ZoomableImage: React.FC<ZoomableImageProps> = ({
   const [isModalDragging, setIsModalDragging] = useState(false);
   const modalDragRef = useRef({ startX: 0, startY: 0, posX: 0, posY: 0 });
 
-  // Reset inline zoom
   const handleResetZoom = useCallback(() => {
     setScale(1);
     if (containerRef.current) {
@@ -41,43 +32,16 @@ export const ZoomableImage: React.FC<ZoomableImageProps> = ({
     }
   }, []);
 
-  // Zoom In button click
   const handleZoomIn = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setScale((prev) => {
-      const next = Math.min(Number((prev + 0.25).toFixed(2)), 3);
-      return next;
-    });
+    setScale((prev) => Math.min(Number((prev + 0.25).toFixed(2)), 3));
   };
 
-  // Zoom Out button click
   const handleZoomOut = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setScale((prev) => {
-      const next = Math.max(Number((prev - 0.25).toFixed(2)), 1);
-      return next;
-    });
+    setScale((prev) => Math.max(Number((prev - 0.25).toFixed(2)), 0.75));
   };
 
-  // Modal helpers
-  const handleModalZoomIn = () => {
-    setModalScale((prev) => Math.min(Number((prev + 0.25).toFixed(2)), 5));
-  };
-
-  const handleModalZoomOut = () => {
-    setModalScale((prev) => {
-      const next = Math.max(Number((prev - 0.25).toFixed(2)), 0.5);
-      if (next <= 1) setModalPos({ x: 0, y: 0 });
-      return next;
-    });
-  };
-
-  const resetModalZoom = useCallback(() => {
-    setModalScale(1);
-    setModalPos({ x: 0, y: 0 });
-  }, []);
-
-  // Modal pointer events
   const handleModalPointerDown = (e: React.PointerEvent) => {
     e.preventDefault();
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -101,255 +65,170 @@ export const ZoomableImage: React.FC<ZoomableImageProps> = ({
   };
 
   const handleModalPointerUp = (e: React.PointerEvent) => {
-    if (isModalDragging) {
-      try {
-        (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
-      } catch {
-        // ignore
-      }
-      setIsModalDragging(false);
+    setIsModalDragging(false);
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch (err) {
+      // ignore
     }
   };
 
-  const handleModalWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const zoomDelta = e.deltaY < 0 ? 0.2 : -0.2;
-    setModalScale((prev) => {
-      const next = Math.min(Math.max(0.5, Number((prev + zoomDelta).toFixed(2))), 5);
-      if (next <= 1) setModalPos({ x: 0, y: 0 });
-      return next;
-    });
-  };
-
-  // Modal keyboard shortcuts
-  useEffect(() => {
-    if (!isModalOpen) return;
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsModalOpen(false);
-        resetModalZoom();
-      } else if (e.key === '+' || e.key === '=') {
-        handleModalZoomIn();
-      } else if (e.key === '-' || e.key === '_') {
-        handleModalZoomOut();
-      } else if (e.key === '0' || e.key === 'r' || e.key === 'R') {
-        resetModalZoom();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isModalOpen, resetModalZoom]);
-
-  if (!src) return null;
+  if (!src || hasError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6 rounded-xl border border-outline-variant/30 bg-surface-container-low text-on-surface-variant text-center font-mono-code text-xs">
+        <span className="material-symbols-outlined text-3xl mb-1 text-on-surface-variant/60">broken_image</span>
+        <span>Diagram visual asset not available for offline preview</span>
+      </div>
+    );
+  }
 
   return (
     <>
-      {/* Container: Image with dedicated control buttons positioned directly beside it */}
-      <div className="my-6 flex justify-center w-full">
-        <div className="inline-flex flex-col sm:flex-row items-center sm:items-center justify-center gap-3.5 max-w-full">
-          {/* Image Display Frame - Clean and completely devoid of hover animations */}
-          <div
-            ref={containerRef}
-            className="max-w-full overflow-auto rounded-2xl border border-slate-700/80 bg-slate-950 p-3 shadow-xl"
-            style={{ maxHeight: '72vh' }}
+      <div className={`relative w-full rounded-xl bg-obsidian-surface-dim overflow-hidden flex flex-col md:flex-row border border-outline-variant/30 shadow-md ${className}`}>
+        {/* Diagram Canvas Viewport */}
+        <div
+          ref={containerRef}
+          className="relative flex-1 p-4 overflow-auto min-h-[220px] max-h-[380px] flex items-center justify-center bg-obsidian-surface dark:bg-obsidian-surface bg-surface-container-lowest"
+        >
+          <img
+            src={src}
+            alt={alt}
+            onError={() => setHasError(true)}
+            style={{
+              transform: `scale(${scale})`,
+              transformOrigin: 'center center',
+            }}
+            className="max-h-[340px] w-auto max-w-full object-contain select-none transition-transform duration-75 cursor-grab active:cursor-grabbing"
+          />
+        </div>
+
+        {/* Docked Schematic Control Toolbar */}
+        <div className="flex md:flex-col items-center justify-between p-2 bg-surface-container-high/60 gap-2 shrink-0 border-t md:border-t-0 md:border-l border-outline-variant/30">
+          <button
+            onClick={handleZoomIn}
+            aria-label="Zoom In Schematic"
+            className="w-8 h-8 rounded bg-surface-container hover:bg-surface-bright flex items-center justify-center text-on-surface font-mono-code transition-colors cursor-pointer"
+            type="button"
+            title="Zoom In (+25%)"
           >
-            {hasError ? (
-              <div className="flex flex-col items-center justify-center py-10 px-8 text-slate-500">
-                <span className="text-sm font-medium">Unable to load diagram image</span>
-                <span className="font-mono text-xs text-slate-600 mt-1">{src}</span>
-              </div>
-            ) : (
-              <img
-                src={src}
-                alt={alt}
-                title={title || alt}
-                loading="lazy"
-                onError={() => setHasError(true)}
-                style={{
-                  // Smoothly and physically expand image dimensions when zooming in
-                  width: scale === 1 ? 'auto' : `${Math.round(scale * 100)}%`,
-                  maxWidth: scale === 1 ? '100%' : 'none',
-                  maxHeight: scale === 1 ? '440px' : `${Math.round(440 * scale)}px`,
-                  display: 'block',
-                }}
-                className={`rounded-xl object-contain transition-all duration-200 select-none ${className}`}
-                draggable={false}
-              />
-            )}
-          </div>
+            <span className="material-symbols-outlined text-[16px]">add</span>
+          </button>
 
-          {/* Control Buttons - Statically beside the image */}
-          <div className="flex sm:flex-col items-center justify-center gap-2 p-2 rounded-2xl border border-slate-800 bg-slate-900/95 shadow-xl shrink-0">
-            {/* Zoom In Button */}
-            <button
-              type="button"
-              onClick={handleZoomIn}
-              disabled={scale >= 3}
-              title="Zoom In (+)"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white disabled:opacity-35 disabled:cursor-not-allowed transition-colors active:scale-95"
-            >
-              <ZoomIn className="h-5 w-5" />
-            </button>
+          <span className="font-mono-code text-on-surface-variant text-[11px] px-1 select-none font-semibold">
+            {Math.round(scale * 100)}%
+          </span>
 
-            {/* Current Zoom Percentage */}
-            <div className="min-w-[46px] py-1 text-center font-mono text-xs font-bold text-sky-400 select-none">
-              {Math.round(scale * 100)}%
-            </div>
+          <button
+            onClick={handleZoomOut}
+            aria-label="Zoom Out Schematic"
+            className="w-8 h-8 rounded bg-surface-container hover:bg-surface-bright flex items-center justify-center text-on-surface font-mono-code transition-colors cursor-pointer"
+            type="button"
+            title="Zoom Out (-25%)"
+          >
+            <span className="material-symbols-outlined text-[16px]">remove</span>
+          </button>
 
-            {/* Zoom Out Button */}
-            <button
-              type="button"
-              onClick={handleZoomOut}
-              disabled={scale <= 1}
-              title="Zoom Out (-)"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 hover:text-white disabled:opacity-35 disabled:cursor-not-allowed transition-colors active:scale-95"
-            >
-              <ZoomOut className="h-5 w-5" />
-            </button>
+          <div className="h-px w-4 md:w-full bg-outline-variant/30 my-0.5" />
 
-            {/* Reset Button (only shown when zoomed in) */}
-            {scale > 1 && (
-              <button
-                type="button"
-                onClick={handleResetZoom}
-                title="Reset Zoom to 100%"
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition-colors active:scale-95"
-              >
-                <RotateCcw className="h-4 w-4" />
-              </button>
-            )}
+          <button
+            onClick={handleResetZoom}
+            aria-label="Reset Zoom"
+            className="w-8 h-8 rounded bg-surface-container hover:bg-surface-bright flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+            title="Reset Zoom to 100%"
+            type="button"
+          >
+            <span className="material-symbols-outlined text-[15px]">refresh</span>
+          </button>
 
-            <div className="h-px w-full bg-slate-800 my-0.5 hidden sm:block" />
-            <div className="w-px h-6 bg-slate-800 mx-0.5 sm:hidden" />
-
-            {/* Fullscreen Inspector Button */}
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              title="Open Fullscreen Viewer"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-sky-500/30 bg-sky-500/10 text-sky-400 hover:bg-sky-500/20 transition-colors active:scale-95"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setModalScale(1);
+              setModalPos({ x: 0, y: 0 });
+              setIsModalOpen(true);
+            }}
+            aria-label="Toggle Lightbox View"
+            className="w-8 h-8 rounded bg-surface-container hover:bg-surface-bright flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+            title="Open Fullscreen Lightbox"
+            type="button"
+          >
+            <span className="material-symbols-outlined text-[15px]">fullscreen</span>
+          </button>
         </div>
       </div>
 
-      {/* Fullscreen Inspector Lightbox Modal */}
+      {/* Fullscreen Lightbox Modal */}
       {isModalOpen &&
         createPortal(
           <div
-            className="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-md select-none"
-            onWheel={handleModalWheel}
+            className="fixed inset-0 z-[100] flex flex-col bg-black/90 backdrop-blur-xl animate-in fade-in duration-200"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setIsModalOpen(false);
+            }}
           >
-            {/* Header */}
-            <header className="flex h-14 shrink-0 items-center justify-between border-b border-slate-800 bg-slate-900 px-4 sm:px-6">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-3 border-b border-outline-variant/30 bg-surface-container-lowest/80">
               <div className="flex items-center gap-3">
-                <span className="rounded-md bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-400 border border-sky-500/20">
-                  Diagram Inspector
-                </span>
-                <span className="hidden font-mono text-xs text-slate-400 sm:inline max-w-xs truncate">
-                  {src.split('/').pop() || alt}
-                </span>
+                <span className="font-label-caps text-xs text-primary uppercase">SCHEMATIC LIGHTBOX</span>
+                <span className="font-mono-code text-xs text-on-surface">{title || alt}</span>
               </div>
 
-              {/* Controls */}
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 rounded-xl border border-slate-700 bg-slate-950 p-1">
+                <div className="flex items-center gap-1 bg-surface-container px-2 py-1 rounded-lg border border-outline-variant/30 font-mono-code text-xs">
                   <button
-                    type="button"
+                    onClick={() => setModalScale((p) => Math.max(0.5, p - 0.25))}
+                    className="p-1 hover:text-primary transition-colors cursor-pointer"
                     title="Zoom Out"
-                    onClick={handleModalZoomOut}
-                    disabled={modalScale <= 0.5}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 disabled:opacity-30"
                   >
-                    <ZoomOut className="h-4 w-4" />
+                    <span className="material-symbols-outlined text-[16px]">remove</span>
                   </button>
-
-                  <span className="min-w-[45px] text-center font-mono text-xs font-bold text-sky-400">
-                    {Math.round(modalScale * 100)}%
-                  </span>
-
+                  <span className="px-2 font-bold">{Math.round(modalScale * 100)}%</span>
                   <button
-                    type="button"
+                    onClick={() => setModalScale((p) => Math.min(5, p + 0.25))}
+                    className="p-1 hover:text-primary transition-colors cursor-pointer"
                     title="Zoom In"
-                    onClick={handleModalZoomIn}
-                    disabled={modalScale >= 5}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-300 disabled:opacity-30"
                   >
-                    <ZoomIn className="h-4 w-4" />
-                  </button>
-
-                  <div className="mx-1 h-4 w-px bg-slate-800" />
-
-                  <button
-                    type="button"
-                    title="Reset"
-                    onClick={resetModalZoom}
-                    className="flex h-8 items-center gap-1 rounded-lg px-2.5 text-xs text-slate-300 hover:text-white"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    <span>Reset</span>
+                    <span className="material-symbols-outlined text-[16px]">add</span>
                   </button>
                 </div>
 
                 <button
-                  type="button"
-                  title="Close (Esc)"
                   onClick={() => {
-                    setIsModalOpen(false);
-                    resetModalZoom();
+                    setModalScale(1);
+                    setModalPos({ x: 0, y: 0 });
                   }}
-                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-700"
+                  className="px-2.5 py-1 rounded-lg bg-surface-container hover:bg-surface-container-high text-xs font-mono-code text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
                 >
-                  <X className="h-5 w-5" />
+                  1:1
+                </button>
+
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="p-1.5 rounded-lg bg-surface-container hover:bg-error/20 hover:text-error transition-colors cursor-pointer"
+                  title="Close (Esc)"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
                 </button>
               </div>
-            </header>
+            </div>
 
-            {/* Canvas */}
+            {/* Modal Viewport Canvas */}
             <div
+              className="flex-1 overflow-hidden relative flex items-center justify-center p-4 cursor-grab active:cursor-grabbing select-none"
               onPointerDown={handleModalPointerDown}
               onPointerMove={handleModalPointerMove}
               onPointerUp={handleModalPointerUp}
               onPointerCancel={handleModalPointerUp}
-              className={`relative flex flex-1 items-center justify-center overflow-hidden p-4 select-none ${
-                isModalDragging
-                  ? 'cursor-grabbing'
-                  : modalScale > 1
-                  ? 'cursor-grab'
-                  : 'cursor-default'
-              }`}
             >
               <img
                 src={src}
                 alt={alt}
-                draggable={false}
                 style={{
                   transform: `translate(${modalPos.x}px, ${modalPos.y}px) scale(${modalScale})`,
                   transformOrigin: 'center center',
                 }}
-                className="max-h-[85vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
+                className="max-h-[85vh] max-w-[90vw] object-contain transition-transform duration-75 pointer-events-none"
               />
             </div>
-
-            {/* Footer */}
-            <footer className="flex h-10 shrink-0 items-center justify-center border-t border-slate-800 bg-slate-900/60 px-4 text-xs text-slate-400">
-              <div className="flex items-center gap-3 text-[11px] text-slate-500">
-                <span>Mouse Wheel: Zoom</span>
-                <span>•</span>
-                <span>Drag: Pan</span>
-                <span>•</span>
-                <span>Esc: Close</span>
-              </div>
-            </footer>
           </div>,
           document.body
         )}

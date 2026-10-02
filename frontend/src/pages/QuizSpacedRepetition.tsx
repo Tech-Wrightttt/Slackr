@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Repeat, CheckCircle, Clock, Calendar, ArrowRight, Award, RotateCcw, AlertCircle } from 'lucide-react';
 import { QuestionsService } from '../services/questionsService';
 import { StatsDbService } from '../services/statsDb';
 import { QuestionCard } from '../components/QuestionCard';
@@ -8,7 +7,7 @@ import type { QuestionData, SRScheduleRecord } from '../db/schema';
 import { useStore } from '../store/useStore';
 
 export const QuizSpacedRepetition: React.FC = () => {
-  const { currentAlgo } = useStore();
+  const { currentAlgo, theme } = useStore();
   const [dueSchedules, setDueSchedules] = useState<SRScheduleRecord[]>([]);
   const [questions, setQuestions] = useState<QuestionData[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
@@ -24,7 +23,6 @@ export const QuizSpacedRepetition: React.FC = () => {
     const loadDue = async () => {
       try {
         const dueList = await StatsDbService.getDueReviews();
-        // Sort by earliest nextReviewDate
         dueList.sort((a, b) => a.nextReviewDate.localeCompare(b.nextReviewDate));
         setDueSchedules(dueList);
 
@@ -83,36 +81,58 @@ export const QuizSpacedRepetition: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="flex justify-center py-20 text-slate-400">Checking scheduled reviews...</div>;
+    return (
+      <div className="py-24 text-center font-mono-code text-sm text-on-surface-variant">
+        Synchronizing SRS Leitner telemetry...
+      </div>
+    );
   }
 
-  // No reviews due
+  // View 1: Zero reviews due / All caught up
   if (questions.length === 0 && !sessionCompleted) {
     return (
-      <div className="mx-auto max-w-2xl px-4 py-16 text-center animate-in fade-in duration-300">
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8 shadow-2xl backdrop-blur-md">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/30">
-            <CheckCircle className="h-8 w-8" />
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center animate-in fade-in duration-300">
+        <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-8 shadow-2xl flex flex-col items-center gap-5">
+          <div className="w-16 h-16 rounded-2xl bg-surface-container-high flex items-center justify-center p-2 border border-outline-variant/30 shadow-inner">
+            <img
+              src={theme === 'dark' ? '/koala-mascot.png' : '/koala-mascot-light.png'}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/slackr-logo.svg';
+              }}
+              alt="Slackr Koala Resting"
+              className="w-full h-full object-contain"
+            />
           </div>
-          <h2 className="text-2xl font-bold text-white sm:text-3xl">All Caught Up!</h2>
-          <p className="mt-2 text-sm text-slate-400">
-            There are no spaced repetition reviews currently due. The {currentAlgo} scheduler has queued all
-            your flashcards for future dates.
-          </p>
 
-          <div className="mt-8 flex flex-wrap justify-center gap-4">
+          <div>
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <span className="w-2 h-2 rounded-full bg-mastery-emerald inline-block" />
+              <span className="font-label-caps text-xs text-primary uppercase font-bold tracking-widest">
+                Deck Fully Synchronized
+              </span>
+            </div>
+            <h2 className="font-headline-md text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
+              All Caught Up!
+            </h2>
+            <p className="mt-2 text-sm font-body-base text-on-surface-variant leading-relaxed max-w-md">
+              There are no spaced repetition reviews currently due. The {currentAlgo} scheduler has calculated that
+              all practiced cards remain within safe retention thresholds.
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-wrap justify-center gap-3">
             <Link
               to="/quiz/year"
-              className="flex items-center gap-2 rounded-xl bg-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 hover:bg-sky-400 active:scale-95 transition-all"
+              className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary-fixed-dim px-6 py-3 text-sm font-body-bold text-on-primary shadow-lg transition-all active:scale-95"
             >
-              <span>Practice New Questions</span>
-              <ArrowRight className="h-4 w-4" />
+              <span>Practice New Exam Questions</span>
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </Link>
             <Link
               to="/analytics"
-              className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-6 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-700 active:scale-95 transition-all"
+              className="flex items-center gap-2 rounded-xl border border-outline-variant/30 bg-surface-container px-6 py-3 text-sm font-body-bold text-on-surface hover:bg-surface-container-high transition-all active:scale-95"
             >
-              <span>View Weak Spots</span>
+              <span>Inspect Weak Spots</span>
             </Link>
           </div>
         </div>
@@ -120,94 +140,107 @@ export const QuizSpacedRepetition: React.FC = () => {
     );
   }
 
-  // Completed session
+  // View 2: Session Completed
   if (sessionCompleted) {
     const totalAnswered = sessionStats.correct + sessionStats.incorrect;
     const accuracy = totalAnswered > 0 ? Math.round((sessionStats.correct / totalAnswered) * 100) : 0;
 
     return (
-      <div className="mx-auto max-w-2xl px-4 py-16 text-center animate-in fade-in duration-300">
-        <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-md">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/30">
-            <Award className="h-8 w-8" />
+      <div className="max-w-3xl mx-auto px-4 py-12 text-center animate-in fade-in duration-300">
+        <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-8 shadow-2xl flex flex-col gap-6">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-mastery-emerald/15 text-mastery-emerald border border-mastery-emerald/30">
+            <span className="material-symbols-outlined text-4xl">verified</span>
           </div>
-          <h2 className="text-2xl font-bold text-white sm:text-3xl">SRS Review Complete!</h2>
-          <p className="mt-2 text-sm text-slate-400">
-            Great work! All due reviews have been answered and rescheduled using the {currentAlgo} algorithm.
-          </p>
 
-          <div className="my-8 grid grid-cols-3 gap-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-              <span className="text-xs text-slate-400">Retention</span>
-              <p className="mt-1 text-2xl font-bold text-purple-400">{accuracy}%</p>
+          <div>
+            <span className="font-label-caps text-xs text-primary uppercase tracking-widest font-bold">
+              Cognitive Retention Cycle Complete
+            </span>
+            <h2 className="font-headline-md text-2xl sm:text-3xl font-bold text-on-surface mt-1">
+              SRS Due Deck Cleared
+            </h2>
+            <p className="mt-1 text-sm font-mono-code text-on-surface-variant">
+              {questions.length} Items Reviewed via {currentAlgo} Algorithm
+            </p>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 font-mono-code">
+            <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-4">
+              <span className="text-xs text-on-surface-variant uppercase">Accuracy</span>
+              <p className="mt-1 text-2xl font-bold text-mastery-emerald">{accuracy}%</p>
             </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-              <span className="text-xs text-slate-400">Reviewed</span>
-              <p className="mt-1 text-2xl font-bold text-white">
+            <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-4">
+              <span className="text-xs text-on-surface-variant uppercase">Score</span>
+              <p className="mt-1 text-2xl font-bold text-on-surface">
                 {sessionStats.correct} / {totalAnswered}
               </p>
             </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
-              <span className="text-xs text-slate-400">Total Time</span>
-              <p className="mt-1 text-2xl font-bold text-sky-400 font-mono">
+            <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-4">
+              <span className="text-xs text-on-surface-variant uppercase">Total Time</span>
+              <p className="mt-1 text-2xl font-bold text-interactive-sky">
                 {Math.round(sessionStats.totalTime)}s
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            <Link
-              to="/analytics"
-              className="flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-600/25 hover:bg-purple-500 active:scale-95 transition-all"
-            >
-              <span>View Updated Analytics</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
             <button
               onClick={handleRestartQuiz}
-              className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-6 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-700 active:scale-95 transition-all"
+              className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary-fixed-dim px-6 py-3 text-sm font-body-bold text-on-primary shadow-lg transition-all active:scale-95 cursor-pointer"
             >
-              <RotateCcw className="h-4 w-4" />
-              <span>Review Again</span>
+              <span className="material-symbols-outlined text-[18px]">replay</span>
+              <span>Re-run Review Set</span>
             </button>
+            <Link
+              to="/"
+              className="flex items-center gap-2 rounded-xl border border-outline-variant/30 bg-surface-container px-6 py-3 text-sm font-body-bold text-on-surface hover:bg-surface-container-high transition-all active:scale-95"
+            >
+              <span className="material-symbols-outlined text-[18px]">dashboard</span>
+              <span>Return to Dashboard</span>
+            </Link>
           </div>
         </div>
       </div>
     );
   }
 
+  // View 3: Active SRS Review Interface
   const currentQ = questions[currentIndex];
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 space-y-4">
-      {/* Top Banner */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="rounded-full bg-purple-500/10 px-2.5 py-1 text-xs font-semibold text-purple-400 border border-purple-500/20">
-            SRS Mode: {currentAlgo}
-          </span>
-          <span className="text-xs text-slate-400">
-            Card {currentIndex + 1} of {questions.length} due
-          </span>
-        </div>
-
-        <div className="h-2 w-32 sm:w-48 overflow-hidden rounded-full bg-slate-800">
-          <div
-            className="h-full bg-purple-500 transition-all duration-300"
-            style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
-          />
-        </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4">
+      <div className="flex items-center justify-between pb-1 border-b border-outline-variant/20">
+        <Link
+          to="/"
+          className="flex items-center gap-1.5 text-xs font-mono-code text-on-surface-variant hover:text-on-surface transition-colors"
+        >
+          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+          <span>Exit SRS Queue ({currentAlgo})</span>
+        </Link>
+        <span className="font-mono-code text-xs text-on-surface-variant">
+          SRS Card {currentIndex + 1} of {questions.length}
+        </span>
       </div>
 
-      {currentQ && (
+      {currentQ ? (
         <QuestionCard
           question={currentQ}
           questionNumber={currentIndex + 1}
           totalQuestions={questions.length}
           onAnswerSubmitted={handleAnswerSubmitted}
           onNextQuestion={handleNextQuestion}
+          onPreviousQuestion={() => currentIndex > 0 && setCurrentIndex((p) => p - 1)}
+          onSkipQuestion={handleNextQuestion}
           hasNext={currentIndex + 1 < questions.length}
+          hasPrevious={currentIndex > 0}
+          questions={questions}
+          currentIndex={currentIndex}
+          onSelectIndex={(idx) => setCurrentIndex(idx)}
         />
+      ) : (
+        <div className="py-20 text-center text-on-surface-variant font-mono-code text-sm">
+          No questions ready for review.
+        </div>
       )}
     </div>
   );

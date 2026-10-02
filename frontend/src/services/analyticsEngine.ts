@@ -1,5 +1,47 @@
 import { db } from '../db';
 import type { AttemptRecord } from '../db/schema';
+import { QuestionsService } from './questionsService';
+
+export interface ExamTypeBucket {
+  totalAttempts: number;
+  correctAttempts: number;
+  accuracy: number;
+  avgTimeSeconds: number;
+  recentAccuracy: number;
+  earlierAccuracy: number;
+  improvementDelta: number;
+  passReadiness: 'passed' | 'approaching' | 'needs_work';
+  topHardTopics: Array<{ topic: string; errorRate: number; total: number }>;
+}
+
+export interface ExamTypeTimelinePoint {
+  id: string;
+  date: string;
+  time: string;
+  timestamp: string;
+  feAAccuracy: number | null;
+  feBAccuracy: number | null;
+  feACount: number;
+  feBCount: number;
+  feAPace: number;
+  feBPace: number;
+  feARolling: number;
+  feBRolling: number;
+  feAImprovement: number;
+  feBImprovement: number;
+}
+
+export interface ExamTypeImprovementData {
+  hasRealData: boolean;
+  feA: ExamTypeBucket;
+  feB: ExamTypeBucket;
+  difficultyGap: {
+    accuracyGap: number;
+    paceRatio: number;
+    feBHarderPercent: number;
+  };
+  timeline: ExamTypeTimelinePoint[];
+}
 
 export const REGISTERED_TOPICS = [
   'accounting',
@@ -307,6 +349,272 @@ export class AnalyticsEngine {
       interval,
       periods: sortedPeriods,
       matrix,
+    };
+  }
+
+  static async getExamTypeImprovementStats(): Promise<ExamTypeImprovementData> {
+    const [allQuestions, attempts] = await Promise.all([
+      QuestionsService.loadAllQuestions(),
+      db.attempts.orderBy('timestamp').toArray(),
+    ]);
+
+    const feAAttempts: AttemptRecord[] = [];
+    const feBAttempts: AttemptRecord[] = [];
+
+    for (const a of attempts) {
+      const q = allQuestions[a.questionId];
+      const isB =
+        q?.paper === 'FE-B' ||
+        q?.paper === 'PM' ||
+        a.questionId.includes('FE-B') ||
+        a.questionId.includes('_PM') ||
+        a.questionId.includes('PM-');
+      if (isB) {
+        feBAttempts.push(a);
+      } else {
+        feAAttempts.push(a);
+      }
+    }
+
+    const computeBucket = (list: AttemptRecord[]): ExamTypeBucket => {
+      if (list.length === 0) {
+        return {
+          totalAttempts: 0,
+          correctAttempts: 0,
+          accuracy: 0,
+          avgTimeSeconds: 0,
+          recentAccuracy: 0,
+          earlierAccuracy: 0,
+          improvementDelta: 0,
+          passReadiness: 'needs_work',
+          topHardTopics: [],
+        };
+      }
+
+      const totalAttempts = list.length;
+      const correctAttempts = list.filter((a) => a.isCorrect).length;
+      const accuracy = Math.round((correctAttempts / totalAttempts) * 1000) / 10;
+      const avgTimeSeconds =
+        Math.round((list.reduce((s, a) => s + (a.timeSeconds || 0), 0) / totalAttempts) * 10) / 10;
+
+      // Improvement Delta: compare recent half with earlier half
+      const half = Math.max(1, Math.floor(list.length / 2));
+      const earlier = list.slice(0, half);
+      const recent = list.slice(half);
+
+      const earlierAcc =
+        earlier.length > 0 ? (earlier.filter((a) => a.isCorrect).length / earlier.length) * 100 : accuracy;
+      const recentAcc =
+        recent.length > 0 ? (recent.filter((a) => a.isCorrect).length / recent.length) * 100 : accuracy;
+
+      const improvementDelta = Math.round((recentAcc - earlierAcc) * 10) / 10;
+
+      let passReadiness: 'passed' | 'approaching' | 'needs_work' = 'needs_work';
+      if (recentAcc >= 60) passReadiness = 'passed';
+      else if (recentAcc >= 50) passReadiness = 'approaching';
+
+      // Hardest topics for this exam type
+      const topicCount: Record<string, { total: number; incorrect: number }> = {};
+      for (const a of list) {
+        const top = a.topic || 'general';
+        if (!topicCount[top]) topicCount[top] = { total: 0, incorrect: 0 };
+        topicCount[top].total++;
+        if (!a.isCorrect) topicCount[top].incorrect++;
+      }
+
+      const topHardTopics = Object.entries(topicCount)
+        .map(([topic, c]) => ({
+          topic,
+          errorRate: Math.round((c.incorrect / c.total) * 1000) / 10,
+          total: c.total,
+        }))
+        .filter((t) => t.total >= 1)
+        .sort((a, b) => b.errorRate - a.errorRate || b.total - a.total)
+        .slice(0, 3);
+
+      return {
+        totalAttempts,
+        correctAttempts,
+        accuracy,
+        avgTimeSeconds,
+        recentAccuracy: Math.round(recentAcc * 10) / 10,
+        earlierAccuracy: Math.round(earlierAcc * 10) / 10,
+        improvementDelta,
+        passReadiness,
+        topHardTopics,
+      };
+    };
+
+    const feABucket = computeBucket(feAAttempts);
+    const feBBucket = computeBucket(feBAttempts);
+
+    // Difficulty Gap calculation
+    const accuracyGap = Math.round((feABucket.accuracy - feBBucket.accuracy) * 10) / 10;
+    const paceRatio =
+      feABucket.avgTimeSeconds > 0
+        ? Math.round((feBBucket.avgTimeSeconds / feABucket.avgTimeSeconds) * 10) / 10
+        : 1.0;
+    const feBHarderPercent = Math.max(0, accuracyGap);
+
+    // Build timeline points: Group attempts into date slices
+    const timeline: ExamTypeTimelinePoint[] = [];
+
+    if (attempts.length >= 2) {
+      const groups = new Map<string, { feA: AttemptRecord[]; feB: AttemptRecord[]; ts: number; dt: Date }>();
+      for (const a of attempts) {
+        const dt = new Date(a.timestamp);
+        const key = dt.toISOString().split('T')[0];
+        if (!groups.has(key)) {
+          groups.set(key, { feA: [], feB: [], ts: dt.getTime(), dt });
+        }
+        const g = groups.get(key)!;
+        const q = allQuestions[a.questionId];
+        const isB =
+          q?.paper === 'FE-B' ||
+          q?.paper === 'PM' ||
+          a.questionId.includes('FE-B') ||
+          a.questionId.includes('_PM') ||
+          a.questionId.includes('PM-');
+        if (isB) g.feB.push(a);
+        else g.feA.push(a);
+      }
+
+      let runningACount = 0;
+      let runningACorrect = 0;
+      let runningBCount = 0;
+      let runningBCorrect = 0;
+      let initialARolling = 0;
+      let initialBRolling = 0;
+
+      const sortedEntries = Array.from(groups.entries()).sort((a, b) => a[1].ts - b[1].ts);
+
+      sortedEntries.forEach(([key, g], idx) => {
+        const aCount = g.feA.length;
+        const aCorrect = g.feA.filter((a) => a.isCorrect).length;
+        const aAcc = aCount > 0 ? Math.round((aCorrect / aCount) * 1000) / 10 : null;
+        const aPace =
+          aCount > 0 ? Math.round((g.feA.reduce((s, a) => s + (a.timeSeconds || 0), 0) / aCount) * 10) / 10 : 0;
+
+        const bCount = g.feB.length;
+        const bCorrect = g.feB.filter((a) => a.isCorrect).length;
+        const bAcc = bCount > 0 ? Math.round((bCorrect / bCount) * 1000) / 10 : null;
+        const bPace =
+          bCount > 0 ? Math.round((g.feB.reduce((s, a) => s + (a.timeSeconds || 0), 0) / bCount) * 10) / 10 : 0;
+
+        runningACount += aCount;
+        runningACorrect += aCorrect;
+        runningBCount += bCount;
+        runningBCorrect += bCorrect;
+
+        const aRolling = runningACount > 0 ? Math.round((runningACorrect / runningACount) * 1000) / 10 : 0;
+        const bRolling = runningBCount > 0 ? Math.round((runningBCorrect / runningBCount) * 1000) / 10 : 0;
+
+        if (idx === 0) {
+          initialARolling = aRolling;
+          initialBRolling = bRolling;
+        }
+
+        timeline.push({
+          id: key,
+          date: g.dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          time: g.dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+          timestamp: g.dt.toISOString(),
+          feAAccuracy: aAcc,
+          feBAccuracy: bAcc,
+          feACount: aCount,
+          feBCount: bCount,
+          feAPace: aPace,
+          feBPace: bPace,
+          feARolling: aRolling,
+          feBRolling: bRolling,
+          feAImprovement: Math.round((aRolling - initialARolling) * 10) / 10,
+          feBImprovement: Math.round((bRolling - initialBRolling) * 10) / 10,
+        });
+      });
+    }
+
+    const hasRealData = attempts.length >= 3;
+    if (!hasRealData) {
+      const now = Date.now();
+      const demoDays = [
+        { d: 14, aAcc: 52, bAcc: 30, aPace: 78, bPace: 180, aC: 15, bC: 5 },
+        { d: 11, aAcc: 58, bAcc: 36, aPace: 70, bPace: 165, aC: 20, bC: 8 },
+        { d: 8, aAcc: 64, bAcc: 42, aPace: 62, bPace: 155, aC: 25, bC: 10 },
+        { d: 6, aAcc: 68, bAcc: 48, aPace: 55, bPace: 145, aC: 30, bC: 12 },
+        { d: 4, aAcc: 72, bAcc: 52, aPace: 50, bPace: 135, aC: 25, bC: 10 },
+        { d: 2, aAcc: 76, bAcc: 56, aPace: 46, bPace: 128, aC: 35, bC: 15 },
+        { d: 0, aAcc: 80, bAcc: 62, aPace: 42, bPace: 120, aC: 40, bC: 20 },
+      ];
+
+      return {
+        hasRealData: false,
+        feA: {
+          totalAttempts: 185,
+          correctAttempts: 139,
+          accuracy: 75.1,
+          avgTimeSeconds: 52.4,
+          recentAccuracy: 80.0,
+          earlierAccuracy: 55.0,
+          improvementDelta: 25.0,
+          passReadiness: 'passed',
+          topHardTopics: [
+            { topic: 'digital-logic', errorRate: 34.2, total: 38 },
+            { topic: 'operating-systems', errorRate: 28.5, total: 42 },
+            { topic: 'math', errorRate: 25.0, total: 24 },
+          ],
+        },
+        feB: {
+          totalAttempts: 80,
+          correctAttempts: 44,
+          accuracy: 55.0,
+          avgTimeSeconds: 138.6,
+          recentAccuracy: 62.0,
+          earlierAccuracy: 33.0,
+          improvementDelta: 29.0,
+          passReadiness: 'passed',
+          topHardTopics: [
+            { topic: 'algorithms', errorRate: 52.6, total: 38 },
+            { topic: 'cybersecurity', errorRate: 46.2, total: 26 },
+            { topic: 'data-structures', errorRate: 41.7, total: 24 },
+          ],
+        },
+        difficultyGap: {
+          accuracyGap: 20.1,
+          paceRatio: 2.6,
+          feBHarderPercent: 20.1,
+        },
+        timeline: demoDays.map((dm, idx) => {
+          const dt = new Date(now - dm.d * 86400000);
+          return {
+            id: `demo-${idx}`,
+            date: dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+            time: dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
+            timestamp: dt.toISOString(),
+            feAAccuracy: dm.aAcc,
+            feBAccuracy: dm.bAcc,
+            feACount: dm.aC,
+            feBCount: dm.bC,
+            feAPace: dm.aPace,
+            feBPace: dm.bPace,
+            feARolling: dm.aAcc,
+            feBRolling: dm.bAcc,
+            feAImprovement: dm.aAcc - 52,
+            feBImprovement: dm.bAcc - 30,
+          };
+        }),
+      };
+    }
+
+    return {
+      hasRealData: true,
+      feA: feABucket,
+      feB: feBBucket,
+      difficultyGap: {
+        accuracyGap,
+        paceRatio,
+        feBHarderPercent,
+      },
+      timeline,
     };
   }
 }

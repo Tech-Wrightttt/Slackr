@@ -1,40 +1,228 @@
 @import "tailwindcss";
 @import "katex/dist/katex.min.css";
 
-/* Custom utility & theme defaults */
+@theme {
+  --color-primary: var(--color-primary);
+  --color-primary-container: var(--color-primary-container);
+  --color-on-primary: var(--color-on-primary);
+  --color-on-primary-container: var(--color-on-primary-container);
+  --color-primary-fixed: #b9f396;
+  --color-primary-fixed-dim: #9ed67c;
+  
+  --color-secondary: var(--color-secondary);
+  --color-secondary-container: var(--color-secondary-container);
+  --color-on-secondary: var(--color-on-secondary);
+  --color-on-secondary-container: var(--color-on-secondary-container);
+  
+  --color-tertiary: var(--color-tertiary);
+  --color-tertiary-container: var(--color-tertiary-container);
+  --color-on-tertiary: var(--color-on-tertiary);
+  --color-on-tertiary-container: var(--color-on-tertiary-container);
+  
+  --color-background: var(--color-background);
+  --color-on-background: var(--color-on-background);
+  --color-surface: var(--color-surface);
+  --color-surface-dim: var(--color-surface-dim);
+  --color-surface-bright: var(--color-surface-bright);
+  --color-surface-variant: var(--color-surface-variant);
+  
+  --color-surface-container-lowest: var(--color-surface-container-lowest);
+  --color-surface-container-low: var(--color-surface-container-low);
+  --color-surface-container: var(--color-surface-container);
+  --color-surface-container-high: var(--color-surface-container-high);
+  --color-surface-container-highest: var(--color-surface-container-highest);
+  
+  --color-on-surface: var(--color-on-surface);
+  --color-on-surface-variant: var(--color-on-surface-variant);
+  --color-outline: var(--color-outline);
+  --color-outline-variant: var(--color-outline-variant);
+  
+  --color-obsidian-surface: #090D16;
+  --color-obsidian-surface-dim: #070A11;
+  --color-obsidian-surface-card: #0F172A;
+  --color-obsidian-surface-elevated: #1E293B;
+  --color-obsidian-outline: #334155;
+  
+  --color-mastery-emerald: #10B981;
+  --color-mastery-emerald-glow: rgba(16, 185, 129, 0.20);
+  
+  --color-confidence-amber: #F59E0B;
+  --color-confidence-amber-glow: rgba(245, 158, 11, 0.20);
+  
+  --color-interactive-sky: #38BDF8;
+  --color-interactive-sky-glow: rgba(56, 189, 248, 0.25);
+  
+  --color-badge-indigo: #6366F1;
+  
+  --color-error: var(--color-error);
+  --color-error-container: var(--color-error-container);
+  --color-on-error: var(--color-on-error);
+  --color-on-error-container: var(--color-on-error-container);
+
+  --font-mono-code: "JetBrains Mono", monospace;
+  --font-mono-timer: "JetBrains Mono", monospace;
+  --font-label-caps: "JetBrains Mono", monospace;
+  --font-code-id: "JetBrains Mono", monospace;
+  --font-body-base: "Inter", sans-serif;
+  --font-body-stem: "Inter", sans-serif;
+  --font-body-bold: "Inter", sans-serif;
+  --font-headline-md: "Plus Jakarta Sans", sans-serif;
+  --font-display-lg: "Plus Jakarta Sans", sans-serif;
+  --font-title-sm: "Plus Jakarta Sans", sans-serif;
+}
+
 :root {
-  color-scheme: dark;
+  /* Light theme values */
+  --color-background: #f8faf4;
+  --color-on-background: #191c19;
+  --color-surface: #f8faf4;
+  --color-surface-dim: #d9dbd5;
+  --color-surface-bright: #f8faf4;
+  --color-surface-variant: #e1e3de;
+
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f3f4ef;
+  --color-surface-container: #edeee9;
+  --color-surface-container-high: #e7e9e3;
+  --color-surface-container-highest: #e1e3de;
+
+  --color-on-surface: #191c19;
+  --color-on-surface-variant: #42493c;
+  --color-outline: #72796b;
+  --color-outline-variant: #c2c9b8;
+
+  --color-primary: #215105;
+  --color-primary-container: #396a1e;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #afe88d;
+
+  --color-secondary: #56624c;
+  --color-secondary-container: #d7e4c8;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #131F0E;
+
+  --color-tertiary: #1f4e4f;
+  --color-tertiary-container: #396667;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #b3e2e3;
+
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+}
+
+.dark {
+  /* Dark theme values */
+  --color-background: #0f131c;
+  --color-on-background: #dfe2ef;
+  --color-surface: #0f131c;
+  --color-surface-dim: #0f131c;
+  --color-surface-bright: #353943;
+  --color-surface-variant: #31353f;
+
+  --color-surface-container-lowest: #0a0e17;
+  --color-surface-container-low: #181b25;
+  --color-surface-container: #1c1f29;
+  --color-surface-container-high: #262a34;
+  --color-surface-container-highest: #31353f;
+
+  --color-on-surface: #dfe2ef;
+  --color-on-surface-variant: #c2c9b8;
+  --color-outline: #8c9384;
+  --color-outline-variant: #42493c;
+
+  --color-primary: #9ed67c;
+  --color-primary-container: #396a1e;
+  --color-on-primary: #133800;
+  --color-on-primary-container: #afe88d;
+
+  --color-secondary: #becbb0;
+  --color-secondary-container: #414d38;
+  --color-on-secondary: #293421;
+  --color-on-secondary-container: #b0bda2;
+
+  --color-tertiary: #a0cfd0;
+  --color-tertiary-container: #396667;
+  --color-on-tertiary: #003738;
+  --color-on-tertiary-container: #002020;
+
+  --color-error: #B91A19;
+  --color-error-container: #FEDAD6;
+  --color-on-error: #690005;
+  --color-on-error-container: #ffdad6;
 }
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-  background-color: #090d16;
-  color: #f1f5f9;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--color-surface-container-lowest);
+  color: var(--color-on-surface);
 }
 
-/* Custom scrollbar for dark UI */
+/* Material Symbols alignment helper */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbars */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: var(--color-surface-container-lowest);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 4px;
+  background: var(--color-surface-container-high);
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: var(--color-outline);
 }
 
-/* Ensure images never have hover animations or hover scale transitions */
+/* Styled horizontal scrollbar with visible thumb and smooth touch */
+.styled-horizontal-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-outline-variant) var(--color-surface-container);
+  -webkit-overflow-scrolling: touch;
+}
+
+.styled-horizontal-scrollbar::-webkit-scrollbar {
+  height: 8px;
+}
+
+.styled-horizontal-scrollbar::-webkit-scrollbar-track {
+  background: var(--color-surface-container-lowest);
+  border-radius: 9999px;
+}
+
+.styled-horizontal-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant);
+  border-radius: 9999px;
+  border: 1px solid var(--color-surface-container);
+}
+
+.styled-horizontal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* Ensure images never have unwanted transitions */
 img {
   transition: none !important;
 }
-

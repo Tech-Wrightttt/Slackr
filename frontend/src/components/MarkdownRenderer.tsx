@@ -11,7 +11,7 @@ interface MarkdownRendererProps {
 
 export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, className = '' }) => {
   return (
-    <div className={`prose prose-invert prose-slate max-w-none break-words ${className}`}>
+    <div className={`prose dark:prose-invert max-w-none break-words text-on-surface ${className}`}>
       <ReactMarkdown
         remarkPlugins={[remarkMath]}
         rehypePlugins={[rehypeKatex]}
@@ -31,24 +31,24 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content, cla
             />
           ),
           table: ({ node, ...props }) => (
-            <div className="my-3 overflow-x-auto rounded-md border border-slate-800">
-              <table className="min-w-full divide-y divide-slate-800 text-left text-sm" {...props} />
+            <div className="my-3 overflow-x-auto rounded-xl border border-outline-variant/30">
+              <table className="min-w-full divide-y divide-outline-variant/30 text-left text-sm" {...props} />
             </div>
           ),
           th: ({ node, ...props }) => (
-            <th className="bg-slate-800/80 px-3 py-2 font-semibold text-slate-200" {...props} />
+            <th className="bg-surface-container px-3 py-2 font-headline font-semibold text-on-surface text-xs" {...props} />
           ),
           td: ({ node, ...props }) => (
-            <td className="px-3 py-2 text-slate-300 border-t border-slate-800/50" {...props} />
+            <td className="px-3 py-2 text-on-surface-variant border-t border-outline-variant/20 text-xs" {...props} />
           ),
           code: ({ node, className, children, ...props }: any) => {
             const isInline = !className?.includes('language-');
             return isInline ? (
-              <code className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-xs text-sky-300" {...props}>
+              <code className="rounded bg-surface-container-high px-1.5 py-0.5 font-mono-code text-xs text-primary font-medium" {...props}>
                 {children}
               </code>
             ) : (
-              <pre className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900/90 p-4 font-mono text-xs text-slate-200">
+              <pre className="overflow-x-auto rounded-xl border border-outline-variant/30 bg-surface-container p-4 font-mono-code text-xs text-on-surface">
                 <code {...props}>{children}</code>
               </pre>
             );

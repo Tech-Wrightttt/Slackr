@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Clock, Star, AlertCircle, HelpCircle, Check, ZoomIn } from 'lucide-react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { ZoomableImage } from './ZoomableImage';
 import { AnswerFeedback } from './AnswerFeedback';
@@ -19,7 +18,14 @@ interface QuestionCardProps {
     confidence: number
   ) => Promise<{ schedule: SRScheduleRecord }>;
   onNextQuestion: () => void;
+  onPreviousQuestion?: () => void;
+  onSkipQuestion?: () => void;
   hasNext: boolean;
+  hasPrevious?: boolean;
+  questions?: QuestionData[];
+  currentIndex?: number;
+  onSelectIndex?: (index: number) => void;
+  attemptStatusMap?: Record<string, { isCorrect: boolean }>;
 }
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({
@@ -28,17 +34,27 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   totalQuestions,
   onAnswerSubmitted,
   onNextQuestion,
+  onPreviousQuestion,
+  onSkipQuestion,
   hasNext,
+  hasPrevious = false,
+  questions = [],
+  currentIndex = 0,
+  onSelectIndex,
+  attemptStatusMap = {},
 }) => {
   const { confidenceTracking, showTimer } = useStore();
 
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
-  const [confidence, setConfidence] = useState<number>(3);
+  const [confidence, setConfidence] = useState<number>(4);
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
   const [isCorrect, setIsCorrect] = useState<boolean>(false);
   const [schedule, setSchedule] = useState<SRScheduleRecord | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
-  const [timerRunning, setTimerRunning] = useState<boolean>(true);
+  const [bookmarked, setBookmarked] = useState<boolean>(false);
+
+  // Local answer record cache for grid pills
+  const [sessionAnswerMap, setSessionAnswerMap] = useState<Record<string, { isCorrect: boolean }>>({});
 
   // Timer reference
   const startTimeRef = useRef<number>(Date.now());
@@ -47,13 +63,16 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   // Reset state when new question loads
   useEffect(() => {
     setSelectedChoice(null);
-    setConfidence(3);
+    setConfidence(4);
     setIsSubmitted(false);
     setIsCorrect(false);
     setSchedule(null);
     setElapsedTime(0);
-    setTimerRunning(true);
     startTimeRef.current = Date.now();
+
+    // Check if bookmarked
+    const savedBookmarks = JSON.parse(localStorage.getItem('slackr_bookmarks') || '[]');
+    setBookmarked(savedBookmarks.includes(question.id));
 
     timerIntervalRef.current = setInterval(() => {
       setElapsedTime((Date.now() - startTimeRef.current) / 1000);
@@ -69,16 +88,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     if (!selectedChoice || isSubmitted) return;
 
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    setTimerRunning(false);
     const finalTime = (Date.now() - startTimeRef.current) / 1000;
 
     // Check correctness:
-    // Normalize both user choice and question.correct
     const cleanUserChoice = selectedChoice.trim().toLowerCase();
     const cleanCorrect = (question.correct || '').trim().toLowerCase();
-    
-    // For single letters: e.g. "c" == "c"
-    // For multi-answers: e.g. user answered "c", correct is "c) 291.25"
+
     let correct = cleanUserChoice === cleanCorrect;
     if (!correct && cleanCorrect.startsWith(cleanUserChoice + ')')) {
       correct = true;
@@ -88,6 +103,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
     setIsCorrect(correct);
     setIsSubmitted(true);
+    setSessionAnswerMap((prev) => ({
+      ...prev,
+      [question.id]: { isCorrect: correct },
+    }));
 
     const topic = question.topics?.[0] || 'software';
     const result = await onAnswerSubmitted(
@@ -104,22 +123,32 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     }
   };
 
-  // Keyboard shortcut handler for 1-4, A-D, and Enter
+  const toggleBookmark = () => {
+    const savedBookmarks: string[] = JSON.parse(localStorage.getItem('slackr_bookmarks') || '[]');
+    let updated: string[];
+    if (savedBookmarks.includes(question.id)) {
+      updated = savedBookmarks.filter((id) => id !== question.id);
+      setBookmarked(false);
+    } else {
+      updated = [...savedBookmarks, question.id];
+      setBookmarked(true);
+    }
+    localStorage.setItem('slackr_bookmarks', JSON.stringify(updated));
+  };
+
+  // Keyboard shortcut handler for 1-4, A-D, Enter, Arrows
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (isSubmitted) return;
 
       const key = e.key.toLowerCase();
-      // Handle letter keys A, B, C, D, E, F
       if (['a', 'b', 'c', 'd', 'e', 'f'].includes(key)) {
         setSelectedChoice(key);
       }
-      // Handle number keys 1=A, 2=B, 3=C, 4=D
       if (['1', '2', '3', '4'].includes(key)) {
         const mapNumToLetter: Record<string, string> = { '1': 'a', '2': 'b', '3': 'c', '4': 'd' };
         setSelectedChoice(mapNumToLetter[key]);
       }
-      // Submit on Enter if a choice is picked
       if (e.key === 'Enter' && selectedChoice) {
         handleSubmit();
       }
@@ -135,204 +164,448 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     : (question.fallback_choices || ['a', 'b', 'c', 'd']).map((ch) => [ch, '']);
 
   const confidenceLevels = [
-    { value: 1, label: 'Wild Guess', desc: '10-20% sure' },
-    { value: 2, label: 'Low', desc: '30-40% sure' },
-    { value: 3, label: 'Moderate', desc: '50-60% sure' },
-    { value: 4, label: 'Confident', desc: '70-80% sure' },
-    { value: 5, label: '100% Certain', desc: '90-100% sure' },
+    { value: 1, label: 'Guess', desc: 'L1' },
+    { value: 2, label: 'Unsure', desc: 'L2' },
+    { value: 3, label: 'Moderate', desc: 'L3' },
+    { value: 4, label: 'Solid', desc: 'L4' },
+    { value: 5, label: 'Certain', desc: 'L5' },
   ];
 
-  return (
-    <div className="mx-auto max-w-4xl animate-in fade-in duration-300">
-      {/* Question Header & Meta */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-4 backdrop-blur-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-lg bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-400 border border-sky-500/20">
-            {question.id}
-          </span>
-          <span className="rounded-lg bg-slate-800 px-2.5 py-1 text-xs font-medium text-slate-300">
-            Year {question.year}
-          </span>
-          {question.paper && (
-            <span className="rounded-lg bg-slate-800/80 px-2 py-1 text-xs text-slate-400">
-              {question.paper}
-            </span>
-          )}
-          {question.topics?.map((top) => (
-            <span
-              key={top}
-              className="rounded-lg bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-300 border border-indigo-500/20"
-            >
-              {top}
-            </span>
-          ))}
-        </div>
+  // Helper for timer format MMm SSs
+  const formatTimer = (sec: number) => {
+    const mins = String(Math.floor(sec / 60)).padStart(2, '0');
+    const secs = String(Math.floor(sec % 60)).padStart(2, '0');
+    return `${mins}m ${secs}s`;
+  };
 
-        <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
-          {showTimer && (
-            <div className="flex items-center gap-1.5 rounded-lg bg-slate-800/80 px-3 py-1.5 text-slate-300 border border-slate-700/50">
-              <Clock className="h-3.5 w-3.5 text-sky-400" />
-              <span className="font-mono">{elapsedTime.toFixed(1)}s</span>
+  // Build list of all question items for the navigator
+  const totalItemCount = totalQuestions || questions.length || 80;
+  const combinedAnswerMap = { ...attemptStatusMap, ...sessionAnswerMap };
+
+  // Calculate stats for right-hand ticker
+  const answeredKeys = Object.keys(combinedAnswerMap);
+  const correctCount = answeredKeys.filter((k) => combinedAnswerMap[k]?.isCorrect).length;
+  const incorrectCount = answeredKeys.filter((k) => combinedAnswerMap[k] && !combinedAnswerMap[k]?.isCorrect).length;
+  const pendingCount = Math.max(0, totalItemCount - correctCount - incorrectCount);
+  const progressPercent = Math.min(100, Math.round((questionNumber / totalItemCount) * 100));
+
+  return (
+    <div className="w-full flex flex-col gap-4 animate-in fade-in duration-300">
+      {/* Telemetry Bar & Context Rail */}
+      <div className="w-full rounded-xl bg-surface-container-low border border-outline-variant/30 px-4 py-2.5 shadow-sm">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container font-mono-code text-xs text-on-surface-variant">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              {question.year} {question.season_title || question.season || 'Annual'}
+            </span>
+            <span className="text-on-surface-variant/40 font-mono-code text-xs">•</span>
+            <span className="px-2 py-0.5 rounded bg-surface-container-high text-primary font-label-caps text-xs uppercase tracking-wider">
+              {question.paper || 'Subject A'}
+            </span>
+            <span className="text-on-surface-variant/40 font-mono-code text-xs">•</span>
+            <span className="font-mono-code text-xs text-on-surface font-semibold">
+              Question {questionNumber} of {totalItemCount}
+            </span>
+            <div className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded bg-surface-container-high/60 font-label-caps text-[10px] text-secondary">
+              <span className="material-symbols-outlined text-[13px]">verified</span>
+              PHILNITS FE / AP
             </div>
-          )}
-          <div className="rounded-lg bg-slate-800 px-3 py-1.5 text-slate-300">
-            Question <span className="font-bold text-white">{questionNumber}</span> of {totalQuestions}
+          </div>
+
+          <div className="flex items-center gap-3 self-end md:self-auto">
+            {/* Elapsed Timer */}
+            {showTimer && (
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded bg-surface-container font-mono-timer text-xs text-confidence-amber border border-outline-variant/20">
+                <span className="material-symbols-outlined text-[15px]">timer</span>
+                <span>{formatTimer(elapsedTime)}</span>
+              </div>
+            )}
+
+            {/* Target Pace Pacer */}
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-low font-mono-code text-xs text-on-surface-variant border border-outline-variant/20">
+              <span className="text-on-surface-variant/60">Pace:</span>
+              <span className="text-mastery-emerald font-body-bold">
+                {elapsedTime < 90 ? 'Optimal (+25s)' : elapsedTime < 150 ? 'On Track' : 'Caution'}
+              </span>
+            </div>
+
+            {/* Bookmark Trigger */}
+            <button
+              type="button"
+              onClick={toggleBookmark}
+              aria-label="Bookmark Question"
+              className={`p-1.5 rounded bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-center cursor-pointer ${
+                bookmarked ? 'text-confidence-amber' : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+              title={bookmarked ? 'Remove Bookmark' : 'Bookmark Question'}
+            >
+              <span
+                className="material-symbols-outlined text-[18px]"
+                style={bookmarked ? { fontVariationSettings: "'FILL' 1" } : {}}
+              >
+                bookmark
+              </span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Main Question Body */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-2xl backdrop-blur-md">
-        {/* Render question stem */}
-        {question.question && (
-          <div className="text-base leading-relaxed text-slate-100 sm:text-lg mb-6">
-            <MarkdownRenderer content={question.question} />
+      {/* Primary Assessment Workspace Layout (2 Columns) */}
+      <div className="w-full flex flex-col lg:flex-row gap-6 items-start">
+        {/* Left Column: Core Focus Canvas (Stem, Schematic, Choices, Action Bar) (8 cols / 65%) */}
+        <div className="w-full lg:w-8/12 flex flex-col gap-4">
+          {/* Metadata Tag Strip & Paper Subheader */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container font-mono-code text-xs text-secondary border border-outline-variant/20">
+              <span className="material-symbols-outlined text-[15px] text-primary">calendar_month</span>
+              {question.year} {question.season_title || question.season || 'Examination Paper'}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-widest">
+                Category:
+              </span>
+              <span className="px-2 py-0.5 rounded bg-surface-container-high text-tertiary font-mono-code text-xs capitalize">
+                {question.topics?.[0] || 'Computer Architecture'}
+              </span>
+            </div>
           </div>
-        )}
 
-        {/* If question has diagrams not already embedded in the markdown text */}
-        {question.image_paths?.length > 0 && !question.question.includes('/files/') && (
-          <div className="my-6 space-y-4">
-            {question.image_paths.map((imgUrl, idx) => (
-              <div key={idx} className="flex justify-center">
-                <ZoomableImage
-                  src={imgUrl}
-                  alt={`Question Diagram ${idx + 1}`}
-                  className="max-h-[500px]"
-                />
+          {/* Question Card Container */}
+          <div className="w-full rounded-xl bg-obsidian-surface-card dark:bg-obsidian-surface-card bg-surface-container-low p-5 sm:p-6 flex flex-col gap-5 shadow-xl border border-outline-variant/20">
+            {/* Question Stem Heading */}
+            <div className="flex items-start gap-3">
+              <span className="px-2.5 py-1 rounded bg-surface-container-high text-primary font-mono-code text-xs font-body-bold shrink-0">
+                Q{question.number || questionNumber}
+              </span>
+              <div className="font-body-stem text-base sm:text-[17px] text-on-surface leading-relaxed flex-1">
+                {question.question && <MarkdownRenderer content={question.question} />}
               </div>
-            ))}
-          </div>
-        )}
+            </div>
 
-        {/* Options Selection */}
-        <div className="mt-6 space-y-3">
-          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-            <span>Select Your Answer</span>
-            <span className="text-[11px] lowercase text-slate-500">Keyboard: 1-4 or A-D</span>
-          </div>
+            {/* Technical Schematic Diagram Viewport (Zoomable Box) */}
+            {question.image_paths?.length > 0 && !question.question.includes('/files/') && (
+              <div className="my-2 space-y-3">
+                {question.image_paths.map((imgUrl, idx) => (
+                  <ZoomableImage
+                    key={idx}
+                    src={imgUrl}
+                    alt={`Question Schematic Diagram ${idx + 1}`}
+                    title={`Question ${question.number || questionNumber} Diagram`}
+                  />
+                ))}
+              </div>
+            )}
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {choicesList.map(([key, optText]) => {
-              const isSelected = selectedChoice === key;
-              const isChoiceCorrect = isSubmitted && (
-                question.correct.toLowerCase() === key ||
-                question.correct.toLowerCase().startsWith(key + ')') ||
-                question.correct.toLowerCase().startsWith(key + '.')
-              );
-              const isChoiceWrong = isSubmitted && isSelected && !isCorrect;
+            {/* Multiple Choice Options Matrix */}
+            <div className="flex flex-col gap-3 pt-2">
+              <div className="flex items-center justify-between">
+                <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">
+                  Select Candidate Answer
+                </span>
+                <span className="font-mono-code text-on-surface-variant/70 text-xs hidden sm:inline">
+                  Shortcut: Keys 1 to 4 or A to D
+                </span>
+              </div>
 
-              let styleClasses = 'border-slate-800 bg-slate-950/60 hover:bg-slate-800 hover:border-slate-700 text-slate-200';
-              if (isSelected && !isSubmitted) {
-                styleClasses = 'border-sky-500 bg-sky-500/10 text-sky-300 ring-2 ring-sky-500/30';
-              } else if (isChoiceCorrect) {
-                styleClasses = 'border-emerald-500 bg-emerald-500/15 text-emerald-300 ring-2 ring-emerald-500/40';
-              } else if (isChoiceWrong) {
-                styleClasses = 'border-rose-500 bg-rose-500/15 text-rose-300 ring-2 ring-rose-500/40';
-              }
+              <div className="flex flex-col gap-2.5">
+                {choicesList.map(([key, optText], idx) => {
+                  const isSelected = selectedChoice === key;
+                  const isChoiceCorrect =
+                    isSubmitted &&
+                    (question.correct.toLowerCase() === key ||
+                      question.correct.toLowerCase().startsWith(key + ')') ||
+                      question.correct.toLowerCase().startsWith(key + '.'));
+                  const isChoiceWrong = isSubmitted && isSelected && !isCorrect;
 
-              return (
-                <button
-                  key={key}
-                  disabled={isSubmitted}
-                  onClick={() => setSelectedChoice(key)}
-                  className={`flex items-start gap-3 rounded-xl border p-4 text-left transition-all active:scale-[0.99] disabled:cursor-default ${styleClasses}`}
-                >
-                  <div
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold uppercase transition-colors ${
-                      isSelected && !isSubmitted
-                        ? 'bg-sky-500 text-white'
-                        : isChoiceCorrect
-                        ? 'bg-emerald-500 text-white'
-                        : isChoiceWrong
-                        ? 'bg-rose-500 text-white'
-                        : 'bg-slate-800 text-slate-300'
-                    }`}
+                  let cardStyle =
+                    'bg-surface-container-low hover:bg-surface-container text-on-surface-variant border border-outline-variant/20';
+
+                  if (isChoiceCorrect) {
+                    cardStyle =
+                      'bg-primary-container text-on-primary shadow-lg border border-primary-container ring-1 ring-primary/40';
+                  } else if (isChoiceWrong) {
+                    cardStyle =
+                      'bg-error/15 text-error shadow-md border border-error/30 ring-1 ring-error/40';
+                  } else if (isSelected && !isSubmitted) {
+                    cardStyle =
+                      'bg-surface-container-high text-on-surface ring-2 ring-primary/50 border border-primary/40';
+                  }
+
+                  return (
+                    <div
+                      key={key}
+                      onClick={() => !isSubmitted && setSelectedChoice(key)}
+                      className={`group relative flex items-center gap-3.5 p-3.5 rounded-lg cursor-pointer transition-all ${cardStyle}`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded flex items-center justify-center font-mono-code text-sm font-bold uppercase shrink-0 transition-colors ${
+                          isChoiceCorrect
+                            ? 'bg-on-primary-container text-primary-container'
+                            : isChoiceWrong
+                            ? 'bg-error text-white'
+                            : isSelected && !isSubmitted
+                            ? 'bg-primary text-on-primary'
+                            : 'bg-surface-container-high text-on-surface group-hover:bg-surface-variant'
+                        }`}
+                      >
+                        {key}
+                      </div>
+
+                      <div className="flex-1 font-mono-code text-sm">
+                        {optText ? (
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                            <MarkdownRenderer content={optText} className="prose-p:my-0 text-sm" />
+                            {isChoiceCorrect && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-fixed-dim/20 text-primary-fixed font-label-caps text-[10px] uppercase tracking-wider shrink-0 w-fit">
+                                <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                                Key Verified Answer
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between">
+                            <span>Option {key.toUpperCase()}</span>
+                            {isChoiceCorrect && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-fixed-dim/20 text-primary-fixed font-label-caps text-[10px] uppercase tracking-wider shrink-0">
+                                <span className="material-symbols-outlined text-[13px]">check_circle</span>
+                                Key Verified Answer
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <span className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-surface-container font-mono-code text-[11px] text-on-surface-variant/60">
+                        [{idx + 1}]
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Confidence Calibration Strip */}
+            {confidenceTracking && !isSubmitted && (
+              <div className="pt-2 flex flex-col gap-2">
+                <div className="flex items-center justify-between text-on-surface-variant font-label-caps text-xs uppercase tracking-wider">
+                  <span>Metacognitive Calibration</span>
+                  <span className="text-confidence-amber flex items-center gap-1 font-mono-code">
+                    <span className="material-symbols-outlined text-[14px]">grade</span>
+                    Level {confidence}: {confidenceLevels.find((l) => l.value === confidence)?.label}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                  {confidenceLevels.map((lvl) => {
+                    const isSelected = confidence === lvl.value;
+                    return (
+                      <button
+                        key={lvl.value}
+                        type="button"
+                        onClick={() => setConfidence(lvl.value)}
+                        className={`py-2 px-1 rounded font-mono-code text-xs flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-confidence-amber/20 text-confidence-amber font-body-bold shadow-[0_0_12px_rgba(245,158,11,0.2)] border border-confidence-amber/40 ring-1 ring-confidence-amber/30'
+                            : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant/20'
+                        }`}
+                      >
+                        <span className={`text-[10px] ${isSelected ? 'text-confidence-amber font-bold' : 'text-on-surface-variant/60'}`}>
+                          {lvl.value}
+                        </span>
+                        <span className="truncate text-[11px]">{lvl.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Navigation Action Footer */}
+            <div className="flex items-center justify-between pt-2 gap-3 border-t border-outline-variant/20">
+              <button
+                type="button"
+                onClick={onPreviousQuestion}
+                disabled={!hasPrevious && currentIndex === 0}
+                className="px-4 py-2.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-body-bold text-sm flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                <span>Previous</span>
+              </button>
+
+              <div className="flex items-center gap-2 sm:gap-3">
+                {onSkipQuestion && !isSubmitted && (
+                  <button
+                    type="button"
+                    onClick={onSkipQuestion}
+                    className="px-4 py-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface font-body-base text-sm transition-colors cursor-pointer border border-outline-variant/20"
                   >
-                    {key}
-                  </div>
-                  <div className="min-w-0 flex-1 pt-1 text-sm font-medium">
-                    {optText ? (
-                      <MarkdownRenderer content={optText} className="prose-p:my-0 text-sm" />
-                    ) : (
-                      <span className="font-semibold text-slate-300">Option {key.toUpperCase()}</span>
-                    )}
-                  </div>
-                  {isChoiceCorrect && (
-                    <Check className="h-5 w-5 text-emerald-400 shrink-0 self-center" />
-                  )}
-                </button>
-              );
-            })}
+                    <span>Skip</span>
+                  </button>
+                )}
+
+                {!isSubmitted ? (
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={!selectedChoice}
+                    className="px-5 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary-fixed-dim font-body-bold text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    <span>Submit &amp; Proceed</span>
+                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={onNextQuestion}
+                    className="px-5 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary-fixed-dim font-body-bold text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-[0.98] cursor-pointer"
+                  >
+                    <span>{hasNext ? 'Next Question' : 'Finish Quiz'}</span>
+                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Feedback & Explanation Section */}
+            {isSubmitted && (
+              <AnswerFeedback
+                isCorrect={isCorrect}
+                selectedAnswer={selectedChoice || ''}
+                correctAnswer={question.correct}
+                correctDisplay={question.correct_display}
+                explanation={question.explanation}
+                schedule={schedule}
+                timeSeconds={elapsedTime}
+                confidence={confidenceTracking ? confidence : undefined}
+                onNext={onNextQuestion}
+                hasNext={hasNext}
+              />
+            )}
           </div>
         </div>
 
-        {/* Pre-Reveal Confidence Calibration Selector */}
-        {confidenceTracking && !isSubmitted && (
-          <div className="mt-8 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <label className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-300">
-                <Star className="h-4 w-4 text-amber-400" />
-                <span>Pre-Answer Confidence Rating</span>
-              </label>
-              <span className="text-[11px] text-slate-500">Rate your certainty before submitting</span>
+        {/* Right Column: Chronological 80-Question Rail (4 cols / 35%) */}
+        <div className="w-full lg:w-4/12 flex flex-col gap-4">
+          {/* Session Telemetry Summary Card */}
+          <div className="rounded-xl bg-obsidian-surface-card dark:bg-obsidian-surface-card bg-surface-container-low p-4 flex flex-col gap-3 shadow-xl border border-outline-variant/20">
+            <div className="flex items-center justify-between pb-1">
+              <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">
+                Exam Progress Gauge
+              </span>
+              <span className="font-mono-code text-xs text-primary font-body-bold">
+                {questionNumber} / {totalItemCount} ({progressPercent}%)
+              </span>
             </div>
 
-            <div className="grid grid-cols-5 gap-2">
-              {confidenceLevels.map((lvl) => {
-                const isSelected = confidence === lvl.value;
+            {/* Progress Bar Meter */}
+            <div className="w-full h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+              <div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${progressPercent}%` }} />
+            </div>
+
+            {/* Score & Precision Ticker Grid */}
+            <div className="grid grid-cols-3 gap-2 pt-1 font-mono-code text-center">
+              <div className="p-2 rounded bg-surface-container-low border border-outline-variant/20 flex flex-col">
+                <span className="text-mastery-emerald font-body-bold text-sm">{correctCount}</span>
+                <span className="text-[10px] text-on-surface-variant/70 uppercase">Correct</span>
+              </div>
+              <div className="p-2 rounded bg-surface-container-low border border-outline-variant/20 flex flex-col">
+                <span className="text-error font-body-bold text-sm">{incorrectCount}</span>
+                <span className="text-[10px] text-on-surface-variant/70 uppercase">Review</span>
+              </div>
+              <div className="p-2 rounded bg-surface-container-low border border-outline-variant/20 flex flex-col">
+                <span className="text-on-surface-variant font-body-bold text-sm">{pendingCount}</span>
+                <span className="text-[10px] text-on-surface-variant/70 uppercase">Pending</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Chronological Question Navigator Strip (1 - N) */}
+          <div className="rounded-xl bg-obsidian-surface-card dark:bg-obsidian-surface-card bg-surface-container-low p-4 flex flex-col gap-3 shadow-xl border border-outline-variant/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px] text-tertiary">grid_view</span>
+                <h2 className="font-title-sm text-sm font-bold text-on-surface">Question Grid</h2>
+              </div>
+              <span className="font-mono-code text-xs text-on-surface-variant">
+                Q1 – Q{totalItemCount}
+              </span>
+            </div>
+
+            {/* Legend Pill Drawer */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 py-1 font-mono-code text-[11px] text-on-surface-variant">
+              <div className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-mastery-emerald inline-block" />
+                <span>Correct</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-error inline-block" />
+                <span>Incorrect</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-primary inline-block" />
+                <span>Current</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-surface-container-high inline-block" />
+                <span>Pending</span>
+              </div>
+            </div>
+
+            {/* Compact Numerical Grid (8 columns) */}
+            <div className="grid grid-cols-8 gap-1.5 max-h-[440px] overflow-y-auto pr-1">
+              {Array.from({ length: totalItemCount }).map((_, idx) => {
+                const qNum = idx + 1;
+                const isCurrent = idx === currentIndex || qNum === questionNumber;
+                const qObj = questions[idx];
+                const qId = qObj?.id || String(qNum);
+                const attStatus = combinedAnswerMap[qId];
+
+                let pillClass =
+                  'bg-surface-container-low text-on-surface-variant/60 hover:bg-surface-container border border-outline-variant/10';
+
+                if (isCurrent) {
+                  pillClass =
+                    'bg-primary text-on-primary font-body-bold shadow-[0_0_12px_rgba(158,214,124,0.35)] scale-105 z-10';
+                } else if (attStatus?.isCorrect === true) {
+                  pillClass =
+                    'bg-mastery-emerald/15 text-mastery-emerald hover:bg-mastery-emerald/25 border border-mastery-emerald/20';
+                } else if (attStatus?.isCorrect === false) {
+                  pillClass =
+                    'bg-error/20 text-error hover:bg-error/30 border border-error/20';
+                }
+
                 return (
                   <button
-                    key={lvl.value}
+                    key={idx}
                     type="button"
-                    onClick={() => setConfidence(lvl.value)}
-                    className={`flex flex-col items-center justify-center rounded-lg border py-2.5 px-1 text-center transition-all ${
-                      isSelected
-                        ? 'border-amber-500/60 bg-amber-500/15 text-amber-300 ring-2 ring-amber-500/30'
-                        : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                    }`}
+                    onClick={() => {
+                      if (onSelectIndex) {
+                        onSelectIndex(idx);
+                      }
+                    }}
+                    className={`h-8 rounded font-mono-code text-xs flex items-center justify-center transition-all cursor-pointer ${pillClass}`}
+                    title={`Question ${qNum}`}
                   >
-                    <div className="flex items-center gap-0.5 text-xs font-bold">
-                      <span>{lvl.value}</span>
-                      <Star className={`h-3 w-3 ${isSelected ? 'fill-amber-400 text-amber-400' : 'text-slate-500'}`} />
-                    </div>
-                    <span className="text-[11px] font-medium leading-tight mt-1">{lvl.label}</span>
-                    <span className="text-[9px] text-slate-500 leading-tight hidden sm:block">{lvl.desc}</span>
+                    {String(qNum).padStart(2, '0')}
                   </button>
                 );
               })}
             </div>
           </div>
-        )}
 
-        {/* Submit Action Button */}
-        {!isSubmitted && (
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={handleSubmit}
-              disabled={!selectedChoice}
-              className="flex items-center gap-2 rounded-xl bg-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 hover:bg-sky-400 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 transition-all"
-            >
-              <span>Submit Answer</span>
-            </button>
+          {/* Quick Analysis Callout Card */}
+          <div className="rounded-xl bg-surface-container p-4 flex flex-col gap-2 border border-outline-variant/20 shadow-sm">
+            <div className="flex items-center gap-1.5 font-label-caps text-xs text-tertiary uppercase">
+              <span className="material-symbols-outlined text-[15px]">tips_and_updates</span>
+              <span>PHILNITS Exam Tip</span>
+            </div>
+            <p className="font-body-base text-on-surface-variant text-xs leading-relaxed">
+              For Morning Exam questions, allocate ~100 seconds per question. Calibrate your confidence rating honestly
+              to optimize your personalized Spaced Repetition queue.
+            </p>
           </div>
-        )}
-
-        {/* Feedback Section (Shown after submission) */}
-        {isSubmitted && (
-          <AnswerFeedback
-            isCorrect={isCorrect}
-            selectedAnswer={selectedChoice || ''}
-            correctAnswer={question.correct}
-            correctDisplay={question.correct_display}
-            explanation={question.explanation}
-            schedule={schedule}
-            timeSeconds={elapsedTime}
-            confidence={confidenceTracking ? confidence : undefined}
-            onNext={onNextQuestion}
-            hasNext={hasNext}
-          />
-        )}
+        </div>
       </div>
     </div>
   );
