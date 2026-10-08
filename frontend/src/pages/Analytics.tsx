@@ -27,10 +27,11 @@ export const Analytics: React.FC = () => {
   const [sortAsc, setSortAsc] = useState<boolean>(false);
 
   const [loading, setLoading] = useState<boolean>(true);
+  const [completionRates, setCompletionRates] = useState<any>(null);
 
   const loadAnalytics = async () => {
     try {
-      const [rates, weak, cons, calib, hmap, atts, exStats] = await Promise.all([
+      const [rates, weak, cons, calib, hmap, atts, exStats, completionData] = await Promise.all([
         AnalyticsEngine.getErrorRates(),
         AnalyticsEngine.getPriorityWeakSpots(),
         AnalyticsEngine.getConsistencyScore(),
@@ -38,6 +39,7 @@ export const Analytics: React.FC = () => {
         AnalyticsEngine.getHeatmap(heatmapInterval),
         db.attempts.orderBy('timestamp').reverse().limit(15).toArray(),
         AnalyticsEngine.getExamTypeImprovementStats(),
+        AnalyticsEngine.getCompletionRates(),
       ]);
 
       setErrorRates(rates);
@@ -47,6 +49,7 @@ export const Analytics: React.FC = () => {
       setHeatmapData(hmap);
       setRecentAttempts(atts);
       setExamTypeStats(exStats);
+      setCompletionRates(completionData);
     } catch (err) {
       console.error('Failed to load analytics:', err);
     } finally {
@@ -247,6 +250,109 @@ export const Analytics: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* ========================================================================= */}
+      {/* COMPLETION RATE TRACKING SECTION */}
+      {/* ========================================================================= */}
+      {completionRates && (
+        <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-6 sm:p-8 shadow-xl flex flex-col gap-6 relative overflow-hidden animate-in fade-in duration-300">
+          <div className="flex flex-col gap-1 pb-4 border-b border-outline-variant/20">
+            <div className="flex items-center gap-2 font-mono-timer text-xs text-primary font-bold">
+              <span className="material-symbols-outlined text-[16px]">task_alt</span>
+              <span>CURRICULUM COMPLETION TRACKING</span>
+            </div>
+            <h2 className="font-display-lg text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
+              Curriculum Progress
+            </h2>
+            <p className="font-body-base text-xs sm:text-sm text-on-surface-variant leading-relaxed">
+              Track your journey through the entire PHILNITS question bank. A comprehensive approach ensures you encounter all possible problem permutations.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Overall Completion</span>
+              <span className="text-xl font-headline-md font-bold text-primary">{completionRates.overall.completionPercent}%</span>
+            </div>
+            <div className="w-full h-3 bg-surface-container-high rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-primary transition-all duration-500 ease-out" 
+                style={{ width: `${completionRates.overall.completionPercent}%` }} 
+              />
+            </div>
+            <div className="flex items-center justify-between text-xs font-mono-code text-on-surface-variant">
+              <span>{completionRates.overall.attempted} of {completionRates.overall.total} questions attempted</span>
+              <span>Overall Accuracy: {completionRates.overall.accuracyPercent}%</span>
+            </div>
+          </div>
+
+          <h3 className="font-title-sm text-lg font-bold text-on-surface mt-4">Progress by Exam Year</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {completionRates.byYear.map((yr: any) => (
+              <div key={yr.year} className="rounded-xl border border-outline-variant/30 bg-surface-container p-4 shadow-sm flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-on-surface">{yr.year}</span>
+                  <span className="text-sm font-bold text-primary">{yr.completionPercent}%</span>
+                </div>
+                <div className="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-primary transition-all duration-500" 
+                    style={{ width: `${yr.completionPercent}%` }} 
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[10px] text-on-surface-variant font-mono-code">
+                  <span>{yr.attempted} / {yr.total}</span>
+                  <span>Acc: {yr.accuracyPercent}%</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <h3 className="font-title-sm text-lg font-bold text-on-surface mt-4">Progress by Topic</h3>
+          <div className="overflow-x-auto rounded-xl border border-outline-variant/20">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface-container-high border-b border-outline-variant/20 font-label-caps text-[10px] uppercase text-on-surface-variant tracking-wider">
+                  <th className="p-3 font-semibold">Topic Category</th>
+                  <th className="p-3 font-semibold text-right">Completion</th>
+                  <th className="p-3 font-semibold text-right">Questions</th>
+                  <th className="p-3 font-semibold text-right">Accuracy</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant/10 font-mono-code text-xs">
+                {completionRates.byTopic.map((t: any) => (
+                  <tr key={t.topic} className="hover:bg-surface-container-high/50 transition-colors">
+                    <td className="p-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-on-surface truncate max-w-[150px] sm:max-w-[300px]">{t.topic}</span>
+                      </div>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <span className="text-on-surface-variant w-8 text-right">{t.completionPercent}%</span>
+                        <div className="w-16 sm:w-24 h-1.5 bg-surface-container-highest rounded-full overflow-hidden hidden sm:block">
+                          <div 
+                            className="h-full bg-primary transition-all duration-500" 
+                            style={{ width: `${t.completionPercent}%` }} 
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-3 text-right text-on-surface-variant">
+                      {t.attempted} / {t.total}
+                    </td>
+                    <td className="p-3 text-right">
+                      <span className={t.accuracyPercent >= 60 ? 'text-mastery-emerald' : t.accuracyPercent > 0 ? 'text-confidence-amber' : 'text-on-surface-variant'}>
+                        {t.accuracyPercent}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* FE-A vs FE-B EXAM TYPE IMPROVEMENT INTELLIGENCE (INTERACTIVE MATRIX)     */}

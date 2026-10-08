@@ -11,6 +11,7 @@ interface AppState {
   showTimer: boolean;
   autoAdvance: boolean;
   sessionLength: number;
+  hideAnswersInCustomQuiz: boolean;
   installPrompt: any | null;
   toggleTheme: () => void;
   setTheme: (theme: ThemeMode) => void;
@@ -20,6 +21,7 @@ interface AppState {
   setShowTimer: (val: boolean) => void;
   setAutoAdvance: (val: boolean) => void;
   setSessionLength: (val: number) => void;
+  setHideAnswersInCustomQuiz: (val: boolean) => void;
   setInstallPrompt: (evt: any) => void;
 }
 
@@ -52,6 +54,7 @@ export const useStore = create<AppState>((set, get) => ({
   showTimer: true,
   autoAdvance: false,
   sessionLength: 20,
+  hideAnswersInCustomQuiz: false,
   installPrompt: null,
 
   toggleTheme: () => {
@@ -73,5 +76,6 @@ export const useStore = create<AppState>((set, get) => ({
   setShowTimer: (val) => set({ showTimer: val }),
   setAutoAdvance: (val) => set({ autoAdvance: val }),
   setSessionLength: (val) => set({ sessionLength: val }),
+  setHideAnswersInCustomQuiz: (val) => set({ hideAnswersInCustomQuiz: val }),
   setInstallPrompt: (evt) => set({ installPrompt: evt }),
 }));

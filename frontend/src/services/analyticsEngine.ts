@@ -617,4 +617,78 @@ export class AnalyticsEngine {
       timeline,
     };
   }
+
+  static async getCompletionRates(): Promise<{
+    byYear: Array<{ year: string; total: number; attempted: number; correct: number; completionPercent: number; accuracyPercent: number }>;
+    byTopic: Array<{ topic: string; total: number; attempted: number; correct: number; completionPercent: number; accuracyPercent: number }>;
+    overall: { total: number; attempted: number; completionPercent: number; accuracyPercent: number };
+  }> {
+    const allQuestions = await QuestionsService.loadAllQuestions();
+    const attempts = await db.attempts.toArray();
+    
+    // Build set of attempted question IDs and their correctness
+    const attemptedMap = new Map<string, { attempted: boolean; correct: boolean }>();
+    for (const a of attempts) {
+      const existing = attemptedMap.get(a.questionId);
+      if (!existing || (!existing.correct && a.isCorrect)) {
+        attemptedMap.set(a.questionId, { attempted: true, correct: a.isCorrect });
+      }
+    }
+    
+    // Group questions by year
+    const yearGroups = new Map<string, { total: number; attempted: number; correct: number }>();
+    const topicGroups = new Map<string, { total: number; attempted: number; correct: number }>();
+    
+    for (const q of Object.values(allQuestions)) {
+      // Year grouping
+      const yearEntry = yearGroups.get(q.year) || { total: 0, attempted: 0, correct: 0 };
+      yearEntry.total++;
+      const attemptInfo = attemptedMap.get(q.id);
+      if (attemptInfo?.attempted) {
+        yearEntry.attempted++;
+        if (attemptInfo.correct) yearEntry.correct++;
+      }
+      yearGroups.set(q.year, yearEntry);
+      
+      // Topic grouping
+      for (const topic of (q.topics || [])) {
+        const topicEntry = topicGroups.get(topic) || { total: 0, attempted: 0, correct: 0 };
+        topicEntry.total++;
+        if (attemptInfo?.attempted) {
+          topicEntry.attempted++;
+          if (attemptInfo.correct) topicEntry.correct++;
+        }
+        topicGroups.set(topic, topicEntry);
+      }
+    }
+    
+    const totalAll = Object.keys(allQuestions).length;
+    const attemptedAll = attemptedMap.size;
+    const correctAll = Array.from(attemptedMap.values()).filter(v => v.correct).length;
+    
+    return {
+      byYear: Array.from(yearGroups.entries())
+        .map(([year, data]) => ({
+          year,
+          ...data,
+          completionPercent: Math.round((data.attempted / Math.max(1, data.total)) * 100),
+          accuracyPercent: data.attempted > 0 ? Math.round((data.correct / data.attempted) * 100) : 0,
+        }))
+        .sort((a, b) => b.year.localeCompare(a.year)),
+      byTopic: Array.from(topicGroups.entries())
+        .map(([topic, data]) => ({
+          topic,
+          ...data,
+          completionPercent: Math.round((data.attempted / Math.max(1, data.total)) * 100),
+          accuracyPercent: data.attempted > 0 ? Math.round((data.correct / data.attempted) * 100) : 0,
+        }))
+        .sort((a, b) => b.completionPercent - a.completionPercent),
+      overall: {
+        total: totalAll,
+        attempted: attemptedAll,
+        completionPercent: Math.round((attemptedAll / Math.max(1, totalAll)) * 100),
+        accuracyPercent: attemptedAll > 0 ? Math.round((correctAll / attemptedAll) * 100) : 0,
+      },
+    };
+  }
 }

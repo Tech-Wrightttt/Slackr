@@ -60,3 +60,25 @@ export interface QuestionData {
   is_image_based: boolean;
   created?: string;
 }
+
+export interface DeferredRecord {
+  id?: number;
+  questionId: string;
+  topic: string;
+  reason: string; // e.g. 'cant_answer_now', 'need_more_study', 'revisit_later'
+  deferredAt: string; // ISO timestamp
+  resolvedAt?: string; // ISO timestamp when user comes back to it
+  sessionContext?: string; // which quiz mode they were in
+}
+
+export interface SessionRecord {
+  id?: number;
+  sessionType: 'year' | 'topic' | 'combined' | 'custom' | 'srs';
+  filterKey: string; // e.g. '2024' for year, 'networking' for topic
+  totalQuestions: number;
+  answeredQuestions: number;
+  correctAnswers: number;
+  startedAt: string;
+  completedAt?: string;
+  isCompleted: boolean;
+}

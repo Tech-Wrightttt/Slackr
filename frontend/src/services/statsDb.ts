@@ -1,5 +1,5 @@
 import { db } from '../db';
-import type { AttemptRecord, SRScheduleRecord, TopicStatRecord } from '../db/schema';
+import type { AttemptRecord, SRScheduleRecord, TopicStatRecord, DeferredRecord, SessionRecord } from '../db/schema';
 import { SRSEngine, type SRAlgorithm } from './srsEngine';
 
 export class StatsDbService {
@@ -117,4 +117,57 @@ export class StatsDbService {
     const schedule = await db.srSchedules.get(questionId);
     return { attempts, schedule };
   }
+
+  static async deferQuestion(questionId: string, topic: string, reason: string = 'cant_answer_now', sessionContext?: string): Promise<DeferredRecord> {
+    const record: DeferredRecord = {
+      questionId, topic, reason, deferredAt: new Date().toISOString(), sessionContext
+    };
+    const id = await db.deferred.add(record);
+    record.id = id;
+    return record;
+  }
+
+  static async getDeferredQuestions(): Promise<DeferredRecord[]> {
+    return db.deferred.where('resolvedAt').equals('').or('resolvedAt').equals(undefined as any).toArray();
+  }
+
+  static async resolveDeferredQuestion(questionId: string): Promise<void> {
+    await db.deferred.where('questionId').equals(questionId).modify({ resolvedAt: new Date().toISOString() });
+  }
+
+  static async startSession(sessionType: string, filterKey: string, totalQuestions: number): Promise<number> {
+    return db.sessions.add({
+      sessionType: sessionType as any,
+      filterKey,
+      totalQuestions,
+      answeredQuestions: 0,
+      correctAnswers: 0,
+      startedAt: new Date().toISOString(),
+      isCompleted: false,
+    });
+  }
+
+  static async updateSessionProgress(sessionId: number, answeredQuestions: number, correctAnswers: number): Promise<void> {
+    await db.sessions.update(sessionId, { answeredQuestions, correctAnswers });
+  }
+
+  static async completeSession(sessionId: number, answeredQuestions: number, correctAnswers: number): Promise<void> {
+    await db.sessions.update(sessionId, {
+      answeredQuestions,
+      correctAnswers,
+      completedAt: new Date().toISOString(),
+      isCompleted: true,
+    });
+  }
+
+  static async getSessionsByFilter(sessionType?: string, filterKey?: string): Promise<SessionRecord[]> {
+    let collection = db.sessions.orderBy('startedAt').reverse();
+    const all = await collection.toArray();
+    return all.filter(s => {
+      if (sessionType && s.sessionType !== sessionType) return false;
+      if (filterKey && s.filterKey !== filterKey) return false;
+      return true;
+    });
+  }
 }
+

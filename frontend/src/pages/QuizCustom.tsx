@@ -4,8 +4,10 @@ import { StatsDbService } from '../services/statsDb';
 import { db } from '../db';
 import { QuestionCard } from '../components/QuestionCard';
 import type { QuestionData, SRScheduleRecord } from '../db/schema';
+import { useStore } from '../store/useStore';
 
 export const QuizCustom: React.FC = () => {
+  const { hideAnswersInCustomQuiz, setHideAnswersInCustomQuiz } = useStore();
   const [allQuestions, setAllQuestions] = useState<QuestionData[]>([]);
   const [attemptedMap, setAttemptedMap] = useState<Record<string, boolean>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -68,6 +70,7 @@ export const QuizCustom: React.FC = () => {
         return (
           q.id.toLowerCase().includes(s) ||
           q.question.toLowerCase().includes(s) ||
+          (!!q.explanation && q.explanation.toLowerCase().includes(s)) ||
           q.topics?.some((t) => t.toLowerCase().includes(s))
         );
       }
@@ -265,6 +268,7 @@ export const QuizCustom: React.FC = () => {
             questions={quizQuestions}
             currentIndex={currentIndex}
             onSelectIndex={(idx) => setCurrentIndex(idx)}
+            hideAnswers={hideAnswersInCustomQuiz}
           />
         ) : (
           <div className="py-20 text-center text-on-surface-variant font-mono-code text-sm">
@@ -296,6 +300,21 @@ export const QuizCustom: React.FC = () => {
 
         {/* Action Button & Staged Count */}
         <div className="flex items-center gap-3 shrink-0">
+          <button
+            type="button"
+            onClick={() => setHideAnswersInCustomQuiz(!hideAnswersInCustomQuiz)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-mono-code font-semibold transition-all cursor-pointer border ${
+              hideAnswersInCustomQuiz
+                ? 'bg-confidence-amber/15 border-confidence-amber/30 text-confidence-amber'
+                : 'bg-surface-container-low border-outline-variant/30 text-on-surface-variant hover:text-on-surface'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[16px]">
+              {hideAnswersInCustomQuiz ? 'visibility_off' : 'visibility'}
+            </span>
+            <span>{hideAnswersInCustomQuiz ? 'Answers Hidden' : 'Show Answers'}</span>
+          </button>
+
           {selectedIds.size > 0 && (
             <button
               type="button"
@@ -375,7 +394,7 @@ export const QuizCustom: React.FC = () => {
       )}
 
       {/* Filter Toolbar */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
         <div className="relative sm:col-span-1">
           <span className="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-[16px]">
             search
@@ -414,6 +433,23 @@ export const QuizCustom: React.FC = () => {
               .map((y) => (
                 <option key={y} value={y}>
                   Year {y}
+                </option>
+              ))}
+          </select>
+        </div>
+
+        <div>
+          <select
+            value={topicFilter}
+            onChange={(e) => setTopicFilter(e.target.value)}
+            className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 py-2 text-xs font-mono-code text-on-surface focus:border-primary focus:outline-none cursor-pointer"
+          >
+            <option value="all">Topic: All Topics</option>
+            {Array.from(new Set(allQuestions.flatMap((q) => q.topics || [])))
+              .sort()
+              .map((t) => (
+                <option key={t} value={t}>
+                  {t}
                 </option>
               ))}
           </select>

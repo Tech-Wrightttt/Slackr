@@ -3,6 +3,7 @@ import { MarkdownRenderer } from './MarkdownRenderer';
 import { ZoomableImage } from './ZoomableImage';
 import { AnswerFeedback } from './AnswerFeedback';
 import type { QuestionData, SRScheduleRecord } from '../db/schema';
+import { StatsDbService } from '../services/statsDb';
 import { useStore } from '../store/useStore';
 
 interface QuestionCardProps {
@@ -20,6 +21,8 @@ interface QuestionCardProps {
   onNextQuestion: () => void;
   onPreviousQuestion?: () => void;
   onSkipQuestion?: () => void;
+  onDeferQuestion?: (questionId: string, topic: string) => void;
+  hideAnswers?: boolean;
   hasNext: boolean;
   hasPrevious?: boolean;
   questions?: QuestionData[];
@@ -36,6 +39,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   onNextQuestion,
   onPreviousQuestion,
   onSkipQuestion,
+  onDeferQuestion,
+  hideAnswers,
   hasNext,
   hasPrevious = false,
   questions = [],
@@ -55,6 +60,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
   // Local answer record cache for grid pills
   const [sessionAnswerMap, setSessionAnswerMap] = useState<Record<string, { isCorrect: boolean }>>({});
+  const [isDeferring, setIsDeferring] = useState<boolean>(false);
 
   // Timer reference
   const startTimeRef = useRef<number>(Date.now());
@@ -444,6 +450,45 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   </button>
                 )}
 
+                {!isSubmitted && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      setIsDeferring(true);
+                      const topic = question.topics?.[0] || 'software';
+                      if (onDeferQuestion) {
+                        onDeferQuestion(question.id, topic);
+                      } else {
+                        await StatsDbService.deferQuestion(
+                          question.id,
+                          topic,
+                          'cant_answer_now',
+                          question.session_id || question.year
+                        );
+                      }
+                      setTimeout(() => {
+                        setIsDeferring(false);
+                        if (onSkipQuestion) {
+                          onSkipQuestion();
+                        } else if (onNextQuestion) {
+                          onNextQuestion();
+                        }
+                      }, 400);
+                    }}
+                    className={`px-4 py-2.5 rounded-lg font-body-base text-sm transition-all cursor-pointer border flex items-center gap-2 ${
+                      isDeferring 
+                        ? 'bg-confidence-amber text-on-primary border-confidence-amber scale-95 shadow-inner' 
+                        : 'bg-confidence-amber/10 hover:bg-confidence-amber/20 text-confidence-amber border-confidence-amber/30 active:scale-95'
+                    }`}
+                    title="I can't answer this right now (Defer and revisit later)"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      {isDeferring ? 'check' : 'schedule_send'}
+                    </span>
+                    <span>{isDeferring ? 'Deferred' : 'Defer'}</span>
+                  </button>
+                )}
+
                 {!isSubmitted ? (
                   <button
                     type="button"
@@ -480,6 +525,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 confidence={confidenceTracking ? confidence : undefined}
                 onNext={onNextQuestion}
                 hasNext={hasNext}
+                hideExplanation={hideAnswers ?? false}
+                questionTopics={question.topics}
+                questionYear={question.year}
               />
             )}
           </div>

@@ -3,44 +3,38 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 
-// Handle Service Worker registration
-const isLocalhost = Boolean(
-  window.location.hostname === 'localhost' ||
-  window.location.hostname === '127.0.0.1' ||
-  window.location.hostname === '[::1]'
-);
-
-if (isLocalhost) {
-  // In local development, proactively unregister any service workers and clear caches
-  // so that code changes (like removing hover animations) update instantly without caching
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then((registrations) => {
-      for (const registration of registrations) {
-        registration.unregister().then(() => {
-          console.log('[Dev] Unregistered stale service worker:', registration.scope);
-        });
-      }
-    });
-  }
-  if ('caches' in window) {
-    caches.keys().then((names) => {
-      for (const name of names) {
-        if (name.includes('slackr-app')) {
-          caches.delete(name);
-          console.log('[Dev] Evicted stale app cache:', name);
-        }
-      }
-    });
-  }
-} else if ('serviceWorker' in navigator) {
+// Register PWA Service Worker
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    // Only unregister in Vite HMR development server mode
+    if (import.meta.env.DEV && window.location.port === '5173') {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (const registration of registrations) {
+          registration.unregister();
+        }
+      });
+      return;
+    }
+
     navigator.serviceWorker
-      .register('/sw.js')
-      .then((reg) => {
-        console.log('SLACKR Service Worker registered:', reg.scope);
+      .register('/sw.js', { scope: '/' })
+      .then((registration) => {
+        console.log('[SLACKR PWA] ServiceWorker registered with scope:', registration.scope);
+
+        // Check for service worker updates
+        registration.addEventListener('updatefound', () => {
+          const installingWorker = registration.installing;
+          if (installingWorker) {
+            installingWorker.addEventListener('statechange', () => {
+              if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                console.log('[SLACKR PWA] New content is available; please refresh.');
+              }
+            });
+          }
+        });
       })
-      .catch((err) => {
-        console.warn('Service Worker registration failed:', err);
+      .catch((error) => {
+        console.warn('[SLACKR PWA] ServiceWorker registration failed:', error);
       });
   });
 }

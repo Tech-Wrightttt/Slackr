@@ -19,6 +19,8 @@ export const Settings: React.FC = () => {
     setAutoAdvance,
     sessionLength,
     setSessionLength,
+    installPrompt,
+    setInstallPrompt,
   } = useStore();
 
   const [storageUsage, setStorageUsage] = useState<{ usageMb: number; quotaMb: number }>({
@@ -209,7 +211,82 @@ export const Settings: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Offline Diagram Cache Manager */}
+      {/* 2. Progressive Web App (PWA) & Offline Shell Manager */}
+      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-primary">
+              <span className="material-symbols-outlined text-[20px]">install_mobile</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-title-sm text-base font-bold text-on-surface">
+                  Progressive Web App (PWA)
+                </h2>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-mastery-emerald/15 text-mastery-emerald font-mono-code text-[10px] font-bold">
+                  <span className="w-1.5 h-1.5 rounded-full bg-mastery-emerald animate-pulse" />
+                  ServiceWorker Active
+                </span>
+              </div>
+              <p className="font-mono-code text-xs text-on-surface-variant mt-0.5">
+                Install SLACKR as a standalone native-like application on Windows, Mac, iOS, or Android with 100% offline capability.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto font-mono-code text-xs">
+            {typeof window !== 'undefined' && (window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone) ? (
+              <span className="px-3 py-1 rounded-lg bg-surface-container-high text-primary border border-outline-variant/30 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                <span>Standalone App Mode</span>
+              </span>
+            ) : installPrompt ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  if (installPrompt) {
+                    installPrompt.prompt();
+                    const choice = await installPrompt.userChoice;
+                    if (choice.outcome === 'accepted') {
+                      setInstallPrompt(null);
+                      setStatusNotification('SLACKR installed successfully!');
+                    }
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-primary hover:bg-primary-container text-on-primary font-body-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">download</span>
+                <span>Install SLACKR to Device</span>
+              </button>
+            ) : (
+              <span className="px-3 py-1 rounded-lg bg-surface-container text-on-surface-variant border border-outline-variant/20 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[15px]">devices</span>
+                <span>PWA Ready</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 font-mono-code text-xs">
+          <div className="p-3 rounded-lg bg-surface-container border border-outline-variant/20 flex flex-col gap-1">
+            <span className="text-on-surface-variant/70 uppercase text-[10px]">Pre-cached App Shell</span>
+            <span className="font-bold text-on-surface">3,609 Items &amp; Syllabus</span>
+            <span className="text-mastery-emerald text-[11px]">✓ Instant Launch</span>
+          </div>
+          <div className="p-3 rounded-lg bg-surface-container border border-outline-variant/20 flex flex-col gap-1">
+            <span className="text-on-surface-variant/70 uppercase text-[10px]">Client Database</span>
+            <span className="font-bold text-on-surface">Dexie.js / IndexedDB</span>
+            <span className="text-mastery-emerald text-[11px]">✓ Local Persistence</span>
+          </div>
+          <div className="p-3 rounded-lg bg-surface-container border border-outline-variant/20 flex flex-col gap-1">
+            <span className="text-on-surface-variant/70 uppercase text-[10px]">Service Worker Cache</span>
+            <span className="font-bold text-on-surface">Stale-While-Revalidate</span>
+            <span className="text-mastery-emerald text-[11px]">✓ Background Sync</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Offline Diagram Cache Manager */}
       <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col gap-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

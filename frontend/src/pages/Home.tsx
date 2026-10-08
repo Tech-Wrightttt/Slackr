@@ -6,6 +6,7 @@ import { AnalyticsEngine } from '../services/analyticsEngine';
 import { db } from '../db';
 import type { SRScheduleRecord, AttemptRecord } from '../db/schema';
 import { useStore } from '../store/useStore';
+import { SpotlightCard, DecryptedText, ShinyText, CountUp, TiltedCard } from '../components/reactbits';
 
 export const Home: React.FC = () => {
   const { theme } = useStore();
@@ -140,14 +141,19 @@ export const Home: React.FC = () => {
         <div className="flex flex-col gap-2 max-w-2xl">
           <div className="flex items-center gap-2 font-label-caps text-xs text-primary tracking-widest uppercase">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-            <span>Engine Status // Telemetry Online</span>
+            <DecryptedText
+              text="Engine Status // Telemetry Online"
+              speed={40}
+              className="text-primary font-mono-code text-xs font-semibold"
+              animateOn="view"
+            />
             <span className="text-on-surface-variant/40">/</span>
             <span className="text-on-surface-variant">Dexie.js Offline Cache</span>
           </div>
           <h1 className="font-display-lg text-4xl sm:text-5xl font-extrabold text-on-surface tracking-tight leading-none">
             Master the{' '}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-on-surface via-primary to-primary-fixed-dim">
-              PHILNITS
+              <ShinyText text="PHILNITS" speed={3} className="font-extrabold" />
             </span>{' '}
             Exam.
           </h1>
@@ -179,7 +185,7 @@ export const Home: React.FC = () => {
             <span className="material-symbols-outlined text-confidence-amber text-lg">schedule</span>
             <span className="font-body-bold text-sm">Review Due</span>
             <span className="px-2 py-0.5 rounded-full bg-confidence-amber/15 text-confidence-amber font-mono-timer text-xs font-bold">
-              {dueReviews.length}
+              <CountUp to={dueReviews.length} duration={0.8} />
             </span>
           </Link>
 
@@ -194,57 +200,65 @@ export const Home: React.FC = () => {
       </section>
 
       {/* Study Companion Banner */}
-      <section className="w-full rounded-xl bg-surface-container-low border border-outline-variant/30 p-4 sm:p-6 flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden shadow-md">
-        <div className="flex items-center gap-4 relative z-10">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-surface-container-high/80 border border-outline-variant/30 p-2 shrink-0 flex items-center justify-center shadow-inner">
-            <img
-              src={theme === 'dark' ? '/koala-mascot.png' : '/koala-mascot-light.png'}
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/slackr-logo.svg';
-              }}
-              alt="Slackr Koala Study Companion"
-              className="w-full h-full object-contain"
-            />
-          </div>
-          <div className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-2">
-              <span className="font-label-caps text-xs text-primary uppercase tracking-wider">Study Companion</span>
-              <span className="w-2 h-2 rounded-full bg-mastery-emerald inline-block" />
-              <span className="font-mono-timer text-xs text-confidence-amber font-bold">14D STREAK</span>
+      <TiltedCard maxAngle={6} scale={1.01} className="w-full">
+        <section className="w-full rounded-xl bg-surface-container-low border border-outline-variant/30 p-4 sm:p-6 flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden shadow-md">
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-surface-container-high/80 border border-outline-variant/30 p-2 shrink-0 flex items-center justify-center shadow-inner">
+              <img
+                src={theme === 'dark' ? '/koala-mascot.png' : '/koala-mascot-light.png'}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = '/slackr-logo.svg';
+                }}
+                alt="Slackr Koala Study Companion"
+                className="w-full h-full object-contain"
+              />
             </div>
-            <h2 className="font-title-sm text-lg font-bold text-on-surface">
-              Slackr Koala: Resting between sprint reps
-            </h2>
-            <p className="font-mono-code text-xs text-on-surface-variant">
-              Pencil ready, spaced repetition queue synchronized • Keep pace for the next{' '}
-              {dueReviews.length > 0 ? dueReviews.length : '42'} items
-            </p>
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-2">
+                <span className="font-label-caps text-xs text-primary uppercase tracking-wider">Study Companion</span>
+                <span className="w-2 h-2 rounded-full bg-mastery-emerald inline-block" />
+                <span className="font-mono-timer text-xs text-confidence-amber font-bold">
+                  <ShinyText text="14D STREAK" speed={3} />
+                </span>
+              </div>
+              <h2 className="font-title-sm text-lg font-bold text-on-surface">
+                Slackr Koala: Resting between sprint reps
+              </h2>
+              <p className="font-mono-code text-xs text-on-surface-variant">
+                Pencil ready, spaced repetition queue synchronized • Keep pace for the next{' '}
+                {dueReviews.length > 0 ? dueReviews.length : '42'} items
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2 shrink-0 relative z-10">
-          <button
-            type="button"
-            onClick={() => setNapActive(!napActive)}
-            className="px-3.5 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-primary font-mono-code text-xs font-semibold flex items-center gap-1.5 transition-all border border-outline-variant/20"
-          >
-            <span className="material-symbols-outlined text-[15px]">hotel</span>
-            <span>{napActive ? `Nap Mode Active (${napMinutes}m)` : 'Nap Timer: 15m'}</span>
-          </button>
-          <Link
-            to="/quiz/srs"
-            className="px-4 py-2 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-mono-code text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
-          >
-            <span className="material-symbols-outlined text-[15px]">play_arrow</span>
-            <span>Resume Reps</span>
-          </Link>
-        </div>
-      </section>
+          <div className="flex items-center gap-2 shrink-0 relative z-10">
+            <button
+              type="button"
+              onClick={() => setNapActive(!napActive)}
+              className="px-3.5 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-primary font-mono-code text-xs font-semibold flex items-center gap-1.5 transition-all border border-outline-variant/20"
+            >
+              <span className="material-symbols-outlined text-[15px]">hotel</span>
+              <span>{napActive ? `Nap Mode Active (${napMinutes}m)` : 'Nap Timer: 15m'}</span>
+            </button>
+            <Link
+              to="/quiz/srs"
+              className="px-4 py-2 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-mono-code text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
+            >
+              <span className="material-symbols-outlined text-[15px]">play_arrow</span>
+              <span>Resume Reps</span>
+            </Link>
+          </div>
+        </section>
+      </TiltedCard>
 
       {/* KPI Metric Cards Grid */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* KPI 1: Item Bank */}
-        <div className="relative overflow-hidden rounded-xl bg-surface-container-low p-6 flex flex-col justify-between shadow-md border border-outline-variant/20 transition-all hover:bg-surface-container">
+        <SpotlightCard
+          spotlightColor="rgba(158, 214, 124, 0.15)"
+          borderColor="rgba(158, 214, 124, 0.35)"
+          className="p-6 flex flex-col justify-between shadow-md"
+        >
           <div className="flex items-center justify-between">
             <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">Item Bank</span>
             <span className="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
@@ -253,7 +267,7 @@ export const Home: React.FC = () => {
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="font-headline-md text-3xl font-extrabold text-on-surface tracking-tight">
-              {meta?.total_questions?.toLocaleString() || '3,609'}
+              <CountUp to={meta?.total_questions || 3609} duration={1.2} separator="," />
             </span>
             <span className="font-label-caps text-primary text-[10px]">VERIFIED</span>
           </div>
@@ -264,10 +278,14 @@ export const Home: React.FC = () => {
           <div className="w-full bg-surface-container-highest h-1 rounded-full mt-2 overflow-hidden">
             <div className="bg-primary h-full rounded-full" style={{ width: '100%' }} />
           </div>
-        </div>
+        </SpotlightCard>
 
         {/* KPI 2: Attempts Logged */}
-        <div className="relative overflow-hidden rounded-xl bg-surface-container-low p-6 flex flex-col justify-between shadow-md border border-outline-variant/20 transition-all hover:bg-surface-container">
+        <SpotlightCard
+          spotlightColor="rgba(56, 189, 248, 0.15)"
+          borderColor="rgba(56, 189, 248, 0.35)"
+          className="p-6 flex flex-col justify-between shadow-md"
+        >
           <div className="flex items-center justify-between">
             <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">Attempts Logged</span>
             <span className="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-interactive-sky">
@@ -276,7 +294,7 @@ export const Home: React.FC = () => {
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="font-headline-md text-3xl font-extrabold text-on-surface tracking-tight">
-              {totalAttempts.toLocaleString()}
+              <CountUp to={totalAttempts} duration={1.2} separator="," />
             </span>
             <span className="font-mono-code text-xs text-interactive-sky">
               {todayAttempts > 0 ? `+${todayAttempts} today` : '+64 recent'}
@@ -289,10 +307,14 @@ export const Home: React.FC = () => {
           <div className="w-full bg-surface-container-highest h-1 rounded-full mt-2 overflow-hidden">
             <div className="bg-interactive-sky h-full rounded-full" style={{ width: `${Math.min(100, Math.max(15, (totalAttempts / 500) * 100))}%` }} />
           </div>
-        </div>
+        </SpotlightCard>
 
         {/* KPI 3: Overall Accuracy */}
-        <div className="relative overflow-hidden rounded-xl bg-surface-container-low p-6 flex flex-col justify-between shadow-md border border-outline-variant/20 transition-all hover:bg-surface-container">
+        <SpotlightCard
+          spotlightColor="rgba(16, 185, 129, 0.15)"
+          borderColor="rgba(16, 185, 129, 0.35)"
+          className="p-6 flex flex-col justify-between shadow-md"
+        >
           <div className="flex items-center justify-between">
             <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">Overall Accuracy</span>
             <span className="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-mastery-emerald">
@@ -301,7 +323,7 @@ export const Home: React.FC = () => {
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="font-headline-md text-3xl font-extrabold text-on-surface tracking-tight">
-              {totalAttempts > 0 ? `${overallAccuracy}%` : '78.4%'}
+              <CountUp to={totalAttempts > 0 ? overallAccuracy : 78.4} decimals={1} suffix="%" duration={1.2} />
             </span>
             <span className="font-mono-code text-xs text-mastery-emerald">Passing ≥60%</span>
           </div>
@@ -315,10 +337,14 @@ export const Home: React.FC = () => {
               style={{ width: `${totalAttempts > 0 ? overallAccuracy : 78.4}%` }}
             />
           </div>
-        </div>
+        </SpotlightCard>
 
         {/* KPI 4: SRS Due Deck */}
-        <div className="relative overflow-hidden rounded-xl bg-surface-container-low p-6 flex flex-col justify-between shadow-md border border-outline-variant/20 transition-all hover:bg-surface-container">
+        <SpotlightCard
+          spotlightColor="rgba(245, 158, 11, 0.15)"
+          borderColor="rgba(245, 158, 11, 0.35)"
+          className="p-6 flex flex-col justify-between shadow-md"
+        >
           <div className="flex items-center justify-between">
             <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">SRS Due Deck</span>
             <span className="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-confidence-amber">
@@ -327,7 +353,7 @@ export const Home: React.FC = () => {
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="font-headline-md text-3xl font-extrabold text-confidence-amber tracking-tight">
-              {dueReviews.length}
+              <CountUp to={dueReviews.length} duration={1.0} />
             </span>
             <span className="font-label-caps text-on-surface-variant text-[10px]">CARDS READY</span>
           </div>
@@ -338,7 +364,7 @@ export const Home: React.FC = () => {
           <div className="w-full bg-surface-container-highest h-1 rounded-full mt-2 overflow-hidden">
             <div className="bg-confidence-amber h-full rounded-full" style={{ width: '65%' }} />
           </div>
-        </div>
+        </SpotlightCard>
       </section>
 
       {/* Visual Anchor / Telemetry Sparkline & Priority Weak Spots */}
@@ -545,122 +571,134 @@ export const Home: React.FC = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Mode 1: Exam Year */}
-          <Link
-            to="/quiz/year"
-            className="group rounded-xl bg-surface-container-low p-6 flex flex-col justify-between shadow-md transition-all hover:bg-surface-container border border-outline-variant/20 relative overflow-hidden"
-          >
-            <div className="flex items-start justify-between">
-              <span className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-primary-container text-on-surface group-hover:text-primary-fixed flex items-center justify-center transition-colors">
-                <span className="material-symbols-outlined text-[20px]">calendar_month</span>
-              </span>
-              <span className="font-mono-code text-xs px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
-                2007-2026
-              </span>
-            </div>
-            <div className="my-4">
-              <h3 className="font-title-sm text-base font-bold text-on-surface group-hover:text-primary transition-colors">
-                By Exam Year
-              </h3>
-              <p className="font-body-base text-sm text-on-surface-variant mt-1 leading-relaxed">
-                Standard 80-question continuous timed simulation mimicking the strict PhilNITS Morning Session test
-                environment.
-              </p>
-            </div>
-            <div className="pt-1 flex items-center justify-between text-on-surface-variant group-hover:text-on-surface font-mono-code text-xs">
-              <span>{meta?.years?.length || 19} Exam Years</span>
-              <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">
-                east
-              </span>
-            </div>
+          <Link to="/quiz/year" className="group block">
+            <SpotlightCard
+              spotlightColor="rgba(158, 214, 124, 0.18)"
+              borderColor="rgba(158, 214, 124, 0.4)"
+              className="p-6 h-full flex flex-col justify-between shadow-md group-hover:scale-[1.01] transition-transform"
+            >
+              <div className="flex items-start justify-between">
+                <span className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-primary-container text-on-surface group-hover:text-primary-fixed flex items-center justify-center transition-colors">
+                  <span className="material-symbols-outlined text-[20px]">calendar_month</span>
+                </span>
+                <span className="font-mono-code text-xs px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
+                  2007-2026
+                </span>
+              </div>
+              <div className="my-4">
+                <h3 className="font-title-sm text-base font-bold text-on-surface group-hover:text-primary transition-colors">
+                  By Exam Year
+                </h3>
+                <p className="font-body-base text-sm text-on-surface-variant mt-1 leading-relaxed">
+                  Standard 80-question continuous timed simulation mimicking the strict PhilNITS Morning Session test
+                  environment.
+                </p>
+              </div>
+              <div className="pt-1 flex items-center justify-between text-on-surface-variant group-hover:text-on-surface font-mono-code text-xs">
+                <span>{meta?.years?.length || 19} Exam Years</span>
+                <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">
+                  east
+                </span>
+              </div>
+            </SpotlightCard>
           </Link>
 
           {/* Mode 2: Topic Category */}
-          <Link
-            to="/quiz/topic"
-            className="group rounded-xl bg-surface-container-low p-6 flex flex-col justify-between shadow-md transition-all hover:bg-surface-container border border-outline-variant/20 relative overflow-hidden"
-          >
-            <div className="flex items-start justify-between">
-              <span className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-interactive-sky text-on-surface group-hover:text-surface-container-lowest flex items-center justify-center transition-colors">
-                <span className="material-symbols-outlined text-[20px]">category</span>
-              </span>
-              <span className="font-mono-code text-xs px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
-                29 Domains
-              </span>
-            </div>
-            <div className="my-4">
-              <h3 className="font-title-sm text-base font-bold text-on-surface group-hover:text-interactive-sky transition-colors">
-                By Topic Category
-              </h3>
-              <p className="font-body-base text-sm text-on-surface-variant mt-1 leading-relaxed">
-                Isolate discrete curriculum units: Discrete Math, Computer Systems, Software Development, Databases,
-                and Security.
-              </p>
-            </div>
-            <div className="pt-1 flex items-center justify-between text-on-surface-variant group-hover:text-on-surface font-mono-code text-xs">
-              <span>Detailed Mastery Breakdown</span>
-              <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">
-                east
-              </span>
-            </div>
+          <Link to="/quiz/topic" className="group block">
+            <SpotlightCard
+              spotlightColor="rgba(56, 189, 248, 0.18)"
+              borderColor="rgba(56, 189, 248, 0.4)"
+              className="p-6 h-full flex flex-col justify-between shadow-md group-hover:scale-[1.01] transition-transform"
+            >
+              <div className="flex items-start justify-between">
+                <span className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-interactive-sky text-on-surface group-hover:text-surface-container-lowest flex items-center justify-center transition-colors">
+                  <span className="material-symbols-outlined text-[20px]">category</span>
+                </span>
+                <span className="font-mono-code text-xs px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
+                  29 Domains
+                </span>
+              </div>
+              <div className="my-4">
+                <h3 className="font-title-sm text-base font-bold text-on-surface group-hover:text-interactive-sky transition-colors">
+                  By Topic Category
+                </h3>
+                <p className="font-body-base text-sm text-on-surface-variant mt-1 leading-relaxed">
+                  Isolate discrete curriculum units: Discrete Math, Computer Systems, Software Development, Databases,
+                  and Security.
+                </p>
+              </div>
+              <div className="pt-1 flex items-center justify-between text-on-surface-variant group-hover:text-on-surface font-mono-code text-xs">
+                <span>Detailed Mastery Breakdown</span>
+                <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">
+                  east
+                </span>
+              </div>
+            </SpotlightCard>
           </Link>
 
           {/* Mode 3: Combined Filters */}
-          <Link
-            to="/quiz/combined"
-            className="group rounded-xl bg-surface-container-low p-6 flex flex-col justify-between shadow-md transition-all hover:bg-surface-container border border-outline-variant/20 relative overflow-hidden"
-          >
-            <div className="flex items-start justify-between">
-              <span className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-confidence-amber text-on-surface group-hover:text-surface-container-lowest flex items-center justify-center transition-colors">
-                <span className="material-symbols-outlined text-[20px]">filter_alt</span>
-              </span>
-              <span className="font-mono-code text-xs px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
-                Matrix
-              </span>
-            </div>
-            <div className="my-4">
-              <h3 className="font-title-sm text-base font-bold text-on-surface group-hover:text-confidence-amber transition-colors">
-                Combined Filters
-              </h3>
-              <p className="font-body-base text-sm text-on-surface-variant mt-1 leading-relaxed">
-                Intersect difficulty tiers, question flags, and unattempted sets with multi-year temporal cross-sections.
-              </p>
-            </div>
-            <div className="pt-1 flex items-center justify-between text-on-surface-variant group-hover:text-on-surface font-mono-code text-xs">
-              <span>Precision Query Engine</span>
-              <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">
-                east
-              </span>
-            </div>
+          <Link to="/quiz/combined" className="group block">
+            <SpotlightCard
+              spotlightColor="rgba(245, 158, 11, 0.18)"
+              borderColor="rgba(245, 158, 11, 0.4)"
+              className="p-6 h-full flex flex-col justify-between shadow-md group-hover:scale-[1.01] transition-transform"
+            >
+              <div className="flex items-start justify-between">
+                <span className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-confidence-amber text-on-surface group-hover:text-surface-container-lowest flex items-center justify-center transition-colors">
+                  <span className="material-symbols-outlined text-[20px]">filter_alt</span>
+                </span>
+                <span className="font-mono-code text-xs px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
+                  Matrix
+                </span>
+              </div>
+              <div className="my-4">
+                <h3 className="font-title-sm text-base font-bold text-on-surface group-hover:text-confidence-amber transition-colors">
+                  Combined Filters
+                </h3>
+                <p className="font-body-base text-sm text-on-surface-variant mt-1 leading-relaxed">
+                  Intersect difficulty tiers, question flags, and unattempted sets with multi-year temporal cross-sections.
+                </p>
+              </div>
+              <div className="pt-1 flex items-center justify-between text-on-surface-variant group-hover:text-on-surface font-mono-code text-xs">
+                <span>Precision Query Engine</span>
+                <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">
+                  east
+                </span>
+              </div>
+            </SpotlightCard>
           </Link>
 
           {/* Mode 4: Custom Builder */}
-          <Link
-            to="/quiz/custom"
-            className="group rounded-xl bg-surface-container-low p-6 flex flex-col justify-between shadow-md transition-all hover:bg-surface-container border border-outline-variant/20 relative overflow-hidden"
-          >
-            <div className="flex items-start justify-between">
-              <span className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-badge-indigo text-on-surface group-hover:text-white flex items-center justify-center transition-colors">
-                <span className="material-symbols-outlined text-[20px]">architecture</span>
-              </span>
-              <span className="font-mono-code text-xs px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
-                Bespoke
-              </span>
-            </div>
-            <div className="my-4">
-              <h3 className="font-title-sm text-base font-bold text-on-surface group-hover:text-badge-indigo transition-colors">
-                Custom Builder
-              </h3>
-              <p className="font-body-base text-sm text-on-surface-variant mt-1 leading-relaxed">
-                Assemble specialized sprint sets: 20-minute rapid bursts, math-only calculations, or diagram intensive
-                schematics.
-              </p>
-            </div>
-            <div className="pt-1 flex items-center justify-between text-on-surface-variant group-hover:text-on-surface font-mono-code text-xs">
-              <span>Dynamic Question Staging</span>
-              <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">
-                east
-              </span>
-            </div>
+          <Link to="/quiz/custom" className="group block">
+            <SpotlightCard
+              spotlightColor="rgba(99, 102, 241, 0.18)"
+              borderColor="rgba(99, 102, 241, 0.4)"
+              className="p-6 h-full flex flex-col justify-between shadow-md group-hover:scale-[1.01] transition-transform"
+            >
+              <div className="flex items-start justify-between">
+                <span className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-badge-indigo text-on-surface group-hover:text-white flex items-center justify-center transition-colors">
+                  <span className="material-symbols-outlined text-[20px]">architecture</span>
+                </span>
+                <span className="font-mono-code text-xs px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
+                  Bespoke
+                </span>
+              </div>
+              <div className="my-4">
+                <h3 className="font-title-sm text-base font-bold text-on-surface group-hover:text-badge-indigo transition-colors">
+                  Custom Builder
+                </h3>
+                <p className="font-body-base text-sm text-on-surface-variant mt-1 leading-relaxed">
+                  Assemble specialized sprint sets: 20-minute rapid bursts, math-only calculations, or diagram intensive
+                  schematics.
+                </p>
+              </div>
+              <div className="pt-1 flex items-center justify-between text-on-surface-variant group-hover:text-on-surface font-mono-code text-xs">
+                <span>Dynamic Question Staging</span>
+                <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">
+                  east
+                </span>
+              </div>
+            </SpotlightCard>
           </Link>
         </div>
       </section>
