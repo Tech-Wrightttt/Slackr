@@ -73,12 +73,8 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center gap-3 shrink-0">
           <Link to="/" className="flex items-center gap-2 text-on-surface decoration-0 group">
             <img
-              src={theme === 'dark' ? '/koala-mascot.png' : '/koala-mascot-light.png'}
-              onError={(e) => {
-                // Fallback to local SVG if PNG error
-                (e.target as HTMLImageElement).src = '/slackr-logo.svg';
-              }}
-              alt="Slackr Koala Mascot"
+              src="/SlackrLogo.png"
+              alt="Slackr Logo"
               className="w-8 h-8 rounded-lg object-contain shrink-0 group-hover:scale-105 transition-transform"
             />
             <span className="font-headline-md text-xl sm:text-2xl font-bold tracking-tight text-on-surface">

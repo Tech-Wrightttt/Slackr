@@ -278,13 +278,13 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           </div>
 
           {/* Question Card Container */}
-          <div className="w-full rounded-xl bg-obsidian-surface-card dark:bg-obsidian-surface-card bg-surface-container-low p-5 sm:p-6 flex flex-col gap-5 shadow-xl border border-outline-variant/20">
+          <div className="w-full rounded-xl sm:rounded-2xl bg-obsidian-surface-card dark:bg-obsidian-surface-card bg-surface-container-low p-4 sm:p-6 flex flex-col gap-4 sm:gap-5 shadow-xl border border-outline-variant/20">
             {/* Question Stem Heading */}
-            <div className="flex items-start gap-3">
-              <span className="px-2.5 py-1 rounded bg-surface-container-high text-primary font-mono-code text-xs font-body-bold shrink-0">
+            <div className="flex items-start gap-2.5 sm:gap-3">
+              <span className="px-2.5 py-1 rounded-lg bg-surface-container-high text-primary font-mono-code text-xs font-body-bold shrink-0">
                 Q{question.number || questionNumber}
               </span>
-              <div className="font-body-stem text-base sm:text-[17px] text-on-surface leading-relaxed flex-1">
+              <div className="font-body-stem text-base sm:text-[17px] text-on-surface leading-relaxed flex-1 break-words">
                 {question.question && <MarkdownRenderer content={question.question} />}
               </div>
             </div>
@@ -342,7 +342,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     <div
                       key={key}
                       onClick={() => !isSubmitted && setSelectedChoice(key)}
-                      className={`group relative flex items-center gap-3.5 p-3.5 rounded-lg cursor-pointer transition-all ${cardStyle}`}
+                      className={`group relative flex items-center gap-3 sm:gap-3.5 p-3 sm:p-3.5 rounded-xl cursor-pointer min-h-[48px] transition-all active:scale-[0.99] ${cardStyle}`}
                     >
                       <div
                         className={`w-8 h-8 rounded flex items-center justify-center font-mono-code text-sm font-bold uppercase shrink-0 transition-colors ${
@@ -428,23 +428,23 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             )}
 
             {/* Navigation Action Footer */}
-            <div className="flex items-center justify-between pt-2 gap-3 border-t border-outline-variant/20">
+            <div className="flex flex-wrap sm:flex-nowrap items-center justify-between pt-3 gap-2.5 sm:gap-3 border-t border-outline-variant/20">
               <button
                 type="button"
                 onClick={onPreviousQuestion}
                 disabled={!hasPrevious && currentIndex === 0}
-                className="px-4 py-2.5 rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-body-bold text-sm flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="px-3.5 sm:px-4 py-2.5 min-h-[44px] rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-body-bold text-sm flex items-center justify-center gap-1.5 sm:gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                 <span>Previous</span>
               </button>
 
-              <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 ml-auto">
                 {onSkipQuestion && !isSubmitted && (
                   <button
                     type="button"
                     onClick={onSkipQuestion}
-                    className="px-4 py-2.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface font-body-base text-sm transition-colors cursor-pointer border border-outline-variant/20"
+                    className="px-3.5 sm:px-4 py-2.5 min-h-[44px] rounded-lg bg-surface-container-low hover:bg-surface-container text-on-surface-variant hover:text-on-surface font-body-base text-sm transition-colors cursor-pointer border border-outline-variant/20 flex items-center justify-center"
                   >
                     <span>Skip</span>
                   </button>
@@ -475,7 +475,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                         }
                       }, 400);
                     }}
-                    className={`px-4 py-2.5 rounded-lg font-body-base text-sm transition-all cursor-pointer border flex items-center gap-2 ${
+                    className={`px-3.5 sm:px-4 py-2.5 min-h-[44px] rounded-lg font-body-base text-sm transition-all cursor-pointer border flex items-center justify-center gap-2 ${
                       isDeferring 
                         ? 'bg-confidence-amber text-on-primary border-confidence-amber scale-95 shadow-inner' 
                         : 'bg-confidence-amber/10 hover:bg-confidence-amber/20 text-confidence-amber border-confidence-amber/30 active:scale-95'
@@ -494,7 +494,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     type="button"
                     onClick={handleSubmit}
                     disabled={!selectedChoice}
-                    className="px-5 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary-fixed-dim font-body-bold text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                    className="px-5 py-2.5 min-h-[46px] rounded-lg bg-primary text-on-primary hover:bg-primary-fixed-dim font-body-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
                     <span>Submit &amp; Proceed</span>
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -503,7 +503,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   <button
                     type="button"
                     onClick={onNextQuestion}
-                    className="px-5 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary-fixed-dim font-body-bold text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-[0.98] cursor-pointer"
+                    className="px-5 py-2.5 min-h-[46px] rounded-lg bg-primary text-on-primary hover:bg-primary-fixed-dim font-body-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-[0.98] cursor-pointer"
                   >
                     <span>{hasNext ? 'Next Question' : 'Finish Quiz'}</span>
                     <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
@@ -528,6 +528,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 hideExplanation={hideAnswers ?? false}
                 questionTopics={question.topics}
                 questionYear={question.year}
+                questionId={question.id}
+                questionText={question.question}
               />
             )}
           </div>

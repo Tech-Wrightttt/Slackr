@@ -17,6 +17,10 @@ node_modules/
 !package.json
 !package-lock.json
 !tsconfig.json
+!frontend/public/data/analytical_breakdowns.json
+!frontend/public/data/learning_resources.json
+!backend/data/analytical_breakdowns.json
+!backend/data/learning_resources.json
 
 # Build
 dist/

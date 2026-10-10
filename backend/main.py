@@ -350,3 +350,69 @@ async def import_user_data(
     else:
         res = stats_service.sync_from_client(parsed)
         return {"status": "success", "message": "Statistics merged successfully.", "details": res}
+
+
+# ==========================================
+# Learning Resources Endpoints
+# ==========================================
+
+LEARNING_RESOURCES_PATH = DATA_DIR / "learning_resources.json"
+FRONTEND_LEARNING_RESOURCES_PATH = BASE_DIR / "../frontend/public/data/learning_resources.json"
+
+
+@app.get("/api/learning-resources")
+def get_learning_resources():
+    if LEARNING_RESOURCES_PATH.exists():
+        with open(LEARNING_RESOURCES_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    elif FRONTEND_LEARNING_RESOURCES_PATH.exists():
+        with open(FRONTEND_LEARNING_RESOURCES_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"topics": {}, "questions": {}}
+
+
+@app.post("/api/learning-resources")
+def save_learning_resources(payload: Dict[str, Any]):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(LEARNING_RESOURCES_PATH, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+
+    if FRONTEND_LEARNING_RESOURCES_PATH.parent.exists():
+        with open(FRONTEND_LEARNING_RESOURCES_PATH, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+
+    return {"status": "success", "message": "Saved to learning_resources.json"}
+
+
+# ==========================================
+# Analytical Breakdowns Endpoints
+# ==========================================
+
+ANALYTICAL_BREAKDOWNS_PATH = DATA_DIR / "analytical_breakdowns.json"
+FRONTEND_ANALYTICAL_BREAKDOWNS_PATH = BASE_DIR / "../frontend/public/data/analytical_breakdowns.json"
+
+
+@app.get("/api/analytical-breakdowns")
+def get_analytical_breakdowns():
+    if ANALYTICAL_BREAKDOWNS_PATH.exists():
+        with open(ANALYTICAL_BREAKDOWNS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    elif FRONTEND_ANALYTICAL_BREAKDOWNS_PATH.exists():
+        with open(FRONTEND_ANALYTICAL_BREAKDOWNS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"questions": {}}
+
+
+@app.post("/api/analytical-breakdowns")
+def save_analytical_breakdowns(payload: Dict[str, Any]):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    with open(ANALYTICAL_BREAKDOWNS_PATH, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+
+    if FRONTEND_ANALYTICAL_BREAKDOWNS_PATH.parent.exists():
+        with open(FRONTEND_ANALYTICAL_BREAKDOWNS_PATH, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+
+    return {"status": "success", "message": "Saved to analytical_breakdowns.json"}
+
+

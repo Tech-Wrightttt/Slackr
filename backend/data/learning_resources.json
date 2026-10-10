@@ -1,0 +1,101 @@
+{
+  "topics": {
+    "networking": [
+      { "id": "net-1", "label": "OSI 7-Layer Model", "url": "https://www.youtube.com/results?search_query=OSI+model+7+layers+explained" },
+      { "id": "net-2", "label": "TCP/IP Protocol Suite & Subnetting", "url": "https://www.youtube.com/results?search_query=TCP+IP+subnetting+CIDR+tutorial" },
+      { "id": "net-3", "label": "DNS, DHCP, HTTP/HTTPS Protocols", "url": "https://www.youtube.com/results?search_query=DNS+DHCP+HTTP+protocols+networking" }
+    ],
+    "data-structures": [
+      { "id": "ds-1", "label": "Data Structures Overview", "url": "https://www.youtube.com/results?search_query=data+structures+explained+algorithms" },
+      { "id": "ds-2", "label": "Binary Search Trees & Heaps", "url": "https://www.youtube.com/results?search_query=binary+search+tree+heap+data+structure" },
+      { "id": "ds-3", "label": "Hash Tables & Collisions", "url": "https://www.youtube.com/results?search_query=hash+table+collision+resolution" }
+    ],
+    "algorithms": [
+      { "id": "algo-1", "label": "Sorting Algorithms Visualized", "url": "https://www.youtube.com/results?search_query=sorting+algorithms+quicksort+mergesort" },
+      { "id": "algo-2", "label": "Big-O Notation & Complexity", "url": "https://www.youtube.com/results?search_query=Big+O+notation+time+space+complexity" },
+      { "id": "algo-3", "label": "Graph Algorithms (Dijkstra, BFS/DFS)", "url": "https://www.youtube.com/results?search_query=Dijkstra+BFS+DFS+graph+algorithms" }
+    ],
+    "database": [
+      { "id": "db-1", "label": "SQL Fundamentals & Joins", "url": "https://www.youtube.com/results?search_query=SQL+database+tutorial+beginner+joins" },
+      { "id": "db-2", "label": "Database Normalization (1NF to BCNF)", "url": "https://www.youtube.com/results?search_query=database+normalization+1NF+2NF+3NF+BCNF" },
+      { "id": "db-3", "label": "ACID Properties & Transactions", "url": "https://www.youtube.com/results?search_query=database+transactions+ACID+properties" }
+    ],
+    "information-management": [
+      { "id": "im-1", "label": "Relational Database Design", "url": "https://www.youtube.com/results?search_query=relational+database+ER+diagram+design" },
+      { "id": "im-2", "label": "SQL Indexing & Query Optimization", "url": "https://www.youtube.com/results?search_query=SQL+indexing+query+execution+plan" }
+    ],
+    "software-engineering": [
+      { "id": "se-1", "label": "SDLC Models (Agile, Waterfall, Scrum)", "url": "https://www.youtube.com/results?search_query=software+development+life+cycle+agile+waterfall" },
+      { "id": "se-2", "label": "Design Patterns (GoF Overview)", "url": "https://www.youtube.com/results?search_query=software+design+patterns+GoF+explained" },
+      { "id": "se-3", "label": "Software Testing (White-box, Black-box)", "url": "https://www.youtube.com/results?search_query=software+testing+white+box+black+box" }
+    ],
+    "digital-logic": [
+      { "id": "dl-1", "label": "Boolean Algebra & Karnaugh Maps", "url": "https://www.youtube.com/results?search_query=boolean+algebra+K-map+simplification" },
+      { "id": "dl-2", "label": "Logic Gates & Truth Tables", "url": "https://www.youtube.com/results?search_query=logic+gates+truth+tables+tutorial" },
+      { "id": "dl-3", "label": "Flip-Flops, Registers & Counters", "url": "https://www.youtube.com/results?search_query=flip+flops+registers+digital+circuits" }
+    ],
+    "operating-systems": [
+      { "id": "os-1", "label": "Process Scheduling & Deadlocks", "url": "https://www.youtube.com/results?search_query=operating+system+CPU+scheduling+deadlock" },
+      { "id": "os-2", "label": "Virtual Memory & Paging Algorithms", "url": "https://www.youtube.com/results?search_query=virtual+memory+page+replacement+LRU" },
+      { "id": "os-3", "label": "File Systems & Storage Management", "url": "https://www.youtube.com/results?search_query=operating+system+file+systems+inode" }
+    ],
+    "computer-architecture": [
+      { "id": "ca-1", "label": "CPU Pipelining & Hazards", "url": "https://www.youtube.com/results?search_query=CPU+pipelining+structural+data+hazards" },
+      { "id": "ca-2", "label": "Cache Memory & Cache Coherence", "url": "https://www.youtube.com/results?search_query=cache+memory+mapping+direct+associative" },
+      { "id": "ca-3", "label": "Von Neumann vs Harvard Architecture", "url": "https://www.youtube.com/results?search_query=Von+Neumann+Harvard+architecture+differences" }
+    ],
+    "computer-systems": [
+      { "id": "cs-1", "label": "Computer System Components", "url": "https://www.youtube.com/results?search_query=computer+architecture+system+components+bus" },
+      { "id": "cs-2", "label": "Interrupts & DMA (Direct Memory Access)", "url": "https://www.youtube.com/results?search_query=interrupts+DMA+I/O+hardware+architecture" }
+    ],
+    "security": [
+      { "id": "sec-1", "label": "Symmetric vs Asymmetric Cryptography", "url": "https://www.youtube.com/results?search_query=symmetric+asymmetric+encryption+RSA+AES" },
+      { "id": "sec-2", "label": "Public Key Infrastructure (PKI) & TLS", "url": "https://www.youtube.com/results?search_query=PKI+digital+certificates+TLS+handshake" },
+      { "id": "sec-3", "label": "Cyber Attacks & Defense Mechanisms", "url": "https://www.youtube.com/results?search_query=cybersecurity+attacks+XSS+SQLi+CSRF+defense" }
+    ],
+    "mathematics": [
+      { "id": "math-1", "label": "Discrete Mathematics Fundamentals", "url": "https://www.youtube.com/results?search_query=discrete+mathematics+logic+set+theory" },
+      { "id": "math-2", "label": "Probability & Permutations/Combinations", "url": "https://www.youtube.com/results?search_query=probability+permutations+combinations+engineering" },
+      { "id": "math-3", "label": "Number Systems & Floating Point (IEEE 754)", "url": "https://www.youtube.com/results?search_query=binary+hex+IEEE+754+floating+point" }
+    ],
+    "discrete-math": [
+      { "id": "dm-1", "label": "Set Theory & Propositional Logic", "url": "https://www.youtube.com/results?search_query=propositional+logic+truth+tables+discrete+math" },
+      { "id": "dm-2", "label": "Combinatorics & Graph Theory", "url": "https://www.youtube.com/results?search_query=graph+theory+discrete+mathematics" }
+    ],
+    "project-management": [
+      { "id": "pm-1", "label": "WBS, Gantt Charts & Critical Path (CPM)", "url": "https://www.youtube.com/results?search_query=critical+path+method+PERT+CPM+Gantt+chart" },
+      { "id": "pm-2", "label": "PMBOK & Agile Project Management", "url": "https://www.youtube.com/results?search_query=project+management+fundamentals+EVM" }
+    ],
+    "service-management": [
+      { "id": "sm-1", "label": "ITIL Framework & ITSM Basics", "url": "https://www.youtube.com/results?search_query=ITIL+4+service+management+overview" },
+      { "id": "sm-2", "label": "SLA (Service Level Agreements) & Helpdesk", "url": "https://www.youtube.com/results?search_query=IT+service+level+agreements+SLA+KPI" }
+    ],
+    "system-audit": [
+      { "id": "sa-1", "label": "IT System Audit & Internal Controls", "url": "https://www.youtube.com/results?search_query=IT+audit+internal+control+COSO+COBIT" }
+    ],
+    "business-strategy": [
+      { "id": "bs-1", "label": "SWOT, Porter 5 Forces, PPM Matrix", "url": "https://www.youtube.com/results?search_query=SWOT+analysis+Porter+five+forces+BCG+matrix" }
+    ],
+    "system-strategy": [
+      { "id": "ss-1", "label": "Enterprise Architecture & ERP Systems", "url": "https://www.youtube.com/results?search_query=enterprise+architecture+ERP+systems+strategy" }
+    ],
+    "accounting": [
+      { "id": "acc-1", "label": "Financial Statements (B/S, P/L, Cash Flow)", "url": "https://www.youtube.com/results?search_query=financial+statements+balance+sheet+income+statement" },
+      { "id": "acc-2", "label": "Cost Accounting & Break-Even Analysis", "url": "https://www.youtube.com/results?search_query=cost+accounting+break+even+point+calculation" }
+    ],
+    "legal-affairs": [
+      { "id": "la-1", "label": "Intellectual Property & Copyright Laws", "url": "https://www.youtube.com/results?search_query=intellectual+property+software+copyright+patents" },
+      { "id": "la-2", "label": "Data Privacy & GDPR Fundamentals", "url": "https://www.youtube.com/results?search_query=data+privacy+compliance+GDPR+fundamentals" }
+    ],
+    "human-computer-interaction": [
+      { "id": "hci-1", "label": "UI/UX Principles & Accessibility (WCAG)", "url": "https://www.youtube.com/results?search_query=UI+UX+design+principles+usability+heuristics" }
+    ],
+    "multimedia": [
+      { "id": "mm-1", "label": "Image/Audio/Video Compression (JPEG, MPEG)", "url": "https://www.youtube.com/results?search_query=image+audio+compression+algorithms+JPEG+MPEG" }
+    ],
+    "standardization": [
+      { "id": "std-1", "label": "ISO/IEC Standards for IT & Software", "url": "https://www.youtube.com/results?search_query=ISO+IEC+standards+software+quality+25010" }
+    ]
+  },
+  "questions": {}
+}

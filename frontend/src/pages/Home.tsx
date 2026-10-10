@@ -5,11 +5,9 @@ import { StatsDbService } from '../services/statsDb';
 import { AnalyticsEngine } from '../services/analyticsEngine';
 import { db } from '../db';
 import type { SRScheduleRecord, AttemptRecord } from '../db/schema';
-import { useStore } from '../store/useStore';
-import { SpotlightCard, DecryptedText, ShinyText, CountUp, TiltedCard } from '../components/reactbits';
+import { CountUp } from '../components/reactbits';
 
 export const Home: React.FC = () => {
-  const { theme } = useStore();
   const [meta, setMeta] = useState<any>(null);
   const [totalAttempts, setTotalAttempts] = useState<number>(0);
   const [todayAttempts, setTodayAttempts] = useState<number>(0);
@@ -20,8 +18,6 @@ export const Home: React.FC = () => {
   const [topWeakSpots, setTopWeakSpots] = useState<any[]>([]);
   const [recentAttempts, setRecentAttempts] = useState<AttemptRecord[]>([]);
   const [weeklyCounts, setWeeklyCounts] = useState<number[]>([12, 28, 45, 19, 58, 64, 32]);
-  const [napActive, setNapActive] = useState<boolean>(false);
-  const [napMinutes, setNapMinutes] = useState<number>(15);
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -131,257 +127,164 @@ export const Home: React.FC = () => {
   const polygonStr = `10,95 ${polylineStr} ${sparkPoints[sparkPoints.length - 1].x},95`;
 
   return (
-    <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8 animate-in fade-in duration-300">
-      {/* Subtle ambient aura backdrop */}
-      <div className="absolute -top-12 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none -z-10" />
-      <div className="absolute top-1/3 right-10 w-80 h-80 bg-interactive-sky/5 rounded-full blur-3xl pointer-events-none -z-10" />
-
-      {/* Editorial Header & Actions */}
-      <section className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-        <div className="flex flex-col gap-2 max-w-2xl">
-          <div className="flex items-center gap-2 font-label-caps text-xs text-primary tracking-widest uppercase">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-            <DecryptedText
-              text="Engine Status // Telemetry Online"
-              speed={40}
-              className="text-primary font-mono-code text-xs font-semibold"
-              animateOn="view"
-            />
-            <span className="text-on-surface-variant/40">/</span>
-            <span className="text-on-surface-variant">Dexie.js Offline Cache</span>
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6 animate-in fade-in duration-200">
+      {/* Minimalist Editorial Header */}
+      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-outline-variant/20">
+        <div className="flex items-center gap-3.5">
+          <img
+            src="/SlackrLogo.png"
+            alt="Slackr Logo"
+            className="w-11 h-11 object-contain rounded-xl p-1 bg-surface-container-high border border-outline-variant/30 shrink-0"
+          />
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-primary" />
+              <span className="font-mono-code text-xs text-on-surface-variant font-medium uppercase tracking-wider">
+                PHILNITS FE / AP Engine
+              </span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight">
+              Dashboard
+            </h1>
           </div>
-          <h1 className="font-display-lg text-4xl sm:text-5xl font-extrabold text-on-surface tracking-tight leading-none">
-            Master the{' '}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-on-surface via-primary to-primary-fixed-dim">
-              <ShinyText text="PHILNITS" speed={3} className="font-extrabold" />
-            </span>{' '}
-            Exam.
-          </h1>
-          <p className="font-body-stem text-base text-on-surface-variant pt-1 leading-relaxed">
-            Precision telemetry for Fundamental Engineer (FE) and Applied Information Technology Engineer (AP)
-            tracks. Calibrated spacing, zero latency, local persistence.
-          </p>
         </div>
 
-        {/* Action Cluster */}
-        <div className="flex flex-wrap items-center gap-3 shrink-0">
+        {/* Action Controls */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
           <Link
             to="/quiz/year"
-            className="group relative px-6 py-3 rounded-xl bg-primary-container hover:bg-primary text-on-primary transition-all duration-200 shadow-lg shadow-primary-container/20 active:scale-[0.98] flex items-center gap-2"
+            className="flex-1 sm:flex-initial min-h-[40px] px-4 py-2 rounded-xl bg-primary-container hover:bg-primary text-on-primary font-semibold text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-sm"
           >
-            <span className="material-symbols-outlined text-primary-fixed text-lg transition-transform group-hover:translate-x-0.5">
-              play_arrow
-            </span>
-            <span className="font-body-bold text-sm tracking-wide">Start Year Paper</span>
-            <span className="font-label-caps text-[10px] uppercase bg-black/30 px-1.5 py-0.5 rounded text-primary-fixed font-mono-code">
-              2024 FE
-            </span>
+            <span className="material-symbols-outlined text-[16px]">play_arrow</span>
+            <span>Start Year Paper</span>
           </Link>
 
           <Link
             to="/quiz/srs"
-            className="px-5 py-3 rounded-xl bg-surface-container-low hover:bg-surface-container hover:text-on-surface transition-all duration-200 active:scale-[0.98] flex items-center gap-2 text-on-surface-variant shadow-sm border border-outline-variant/30"
+            className="flex-1 sm:flex-initial min-h-[40px] px-3.5 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 border border-outline-variant/30"
           >
-            <span className="material-symbols-outlined text-confidence-amber text-lg">schedule</span>
-            <span className="font-body-bold text-sm">Review Due</span>
-            <span className="px-2 py-0.5 rounded-full bg-confidence-amber/15 text-confidence-amber font-mono-timer text-xs font-bold">
+            <span className="material-symbols-outlined text-confidence-amber text-[16px]">schedule</span>
+            <span>Review Due</span>
+            <span className="px-1.5 py-0.2 rounded-full bg-confidence-amber/15 text-confidence-amber font-mono-timer text-[11px] font-bold">
               <CountUp to={dueReviews.length} duration={0.8} />
             </span>
           </Link>
 
           <Link
             to="/settings"
-            aria-label="Quick Session Settings"
-            className="w-11 h-11 rounded-xl bg-surface-container-low hover:bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-all shadow-sm border border-outline-variant/30"
+            aria-label="Settings"
+            className="w-10 h-10 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-all flex items-center justify-center border border-outline-variant/30 shrink-0"
           >
-            <span className="material-symbols-outlined text-lg">tune</span>
+            <span className="material-symbols-outlined text-[18px]">tune</span>
           </Link>
         </div>
       </section>
 
-      {/* Study Companion Banner */}
-      <TiltedCard maxAngle={6} scale={1.01} className="w-full">
-        <section className="w-full rounded-xl bg-surface-container-low border border-outline-variant/30 p-4 sm:p-6 flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden shadow-md">
-          <div className="flex items-center gap-4 relative z-10">
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-surface-container-high/80 border border-outline-variant/30 p-2 shrink-0 flex items-center justify-center shadow-inner">
-              <img
-                src={theme === 'dark' ? '/koala-mascot.png' : '/koala-mascot-light.png'}
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = '/slackr-logo.svg';
-                }}
-                alt="Slackr Koala Study Companion"
-                className="w-full h-full object-contain"
-              />
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <div className="flex items-center gap-2">
-                <span className="font-label-caps text-xs text-primary uppercase tracking-wider">Study Companion</span>
-                <span className="w-2 h-2 rounded-full bg-mastery-emerald inline-block" />
-                <span className="font-mono-timer text-xs text-confidence-amber font-bold">
-                  <ShinyText text="14D STREAK" speed={3} />
-                </span>
-              </div>
-              <h2 className="font-title-sm text-lg font-bold text-on-surface">
-                Slackr Koala: Resting between sprint reps
-              </h2>
-              <p className="font-mono-code text-xs text-on-surface-variant">
-                Pencil ready, spaced repetition queue synchronized • Keep pace for the next{' '}
-                {dueReviews.length > 0 ? dueReviews.length : '42'} items
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0 relative z-10">
-            <button
-              type="button"
-              onClick={() => setNapActive(!napActive)}
-              className="px-3.5 py-2 rounded-lg bg-surface-container-high hover:bg-surface-container-highest text-primary font-mono-code text-xs font-semibold flex items-center gap-1.5 transition-all border border-outline-variant/20"
-            >
-              <span className="material-symbols-outlined text-[15px]">hotel</span>
-              <span>{napActive ? `Nap Mode Active (${napMinutes}m)` : 'Nap Timer: 15m'}</span>
-            </button>
-            <Link
-              to="/quiz/srs"
-              className="px-4 py-2 rounded-lg bg-primary-container hover:bg-primary text-on-primary font-mono-code text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm"
-            >
-              <span className="material-symbols-outlined text-[15px]">play_arrow</span>
-              <span>Resume Reps</span>
-            </Link>
-          </div>
-        </section>
-      </TiltedCard>
-
-      {/* KPI Metric Cards Grid */}
-      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Item Bank */}
-        <SpotlightCard
-          spotlightColor="rgba(158, 214, 124, 0.15)"
-          borderColor="rgba(158, 214, 124, 0.35)"
-          className="p-6 flex flex-col justify-between shadow-md"
+      {/* Streamlined Daily Cadence Strip */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-xs">
+        <div className="flex items-center gap-2.5">
+          <span className="flex items-center gap-1 font-mono-timer text-confidence-amber font-bold">
+            <span className="material-symbols-outlined text-[15px]">local_fire_department</span>
+            14D Streak
+          </span>
+          <span className="text-outline-variant">•</span>
+          <span className="text-on-surface-variant font-mono-code">
+            {dueReviews.length > 0
+              ? `${dueReviews.length} spaced repetition cards queued for review`
+              : 'Spaced repetition deck synchronized'}
+          </span>
+        </div>
+        <Link
+          to="/quiz/srs"
+          className="font-mono-code text-primary hover:underline flex items-center gap-1 font-semibold self-start sm:self-auto"
         >
-          <div className="flex items-center justify-between">
-            <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">Item Bank</span>
-            <span className="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
-              <span className="material-symbols-outlined text-[16px]">library_books</span>
-            </span>
+          <span>Open SRS Queue</span>
+          <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
+        </Link>
+      </div>
+
+      {/* Minimalist Metric Cards */}
+      <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Metric 1: Item Bank */}
+        <div className="rounded-xl bg-surface-container-low p-4 sm:p-5 border border-outline-variant/20 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-on-surface-variant">
+            <span className="text-xs font-mono uppercase tracking-wider">Item Bank</span>
+            <span className="material-symbols-outlined text-primary text-[18px]">library_books</span>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="font-headline-md text-3xl font-extrabold text-on-surface tracking-tight">
+          <div className="mt-3">
+            <div className="text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight font-mono">
               <CountUp to={meta?.total_questions || 3609} duration={1.2} separator="," />
-            </span>
-            <span className="font-label-caps text-primary text-[10px]">VERIFIED</span>
+            </div>
+            <div className="text-xs text-on-surface-variant font-mono-code mt-1">
+              FE: 2,189 • AP: 1,420
+            </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-on-surface-variant font-mono-code text-xs">
-            <span>AP: 1,420 Items</span>
-            <span>FE: 2,189 Items</span>
-          </div>
-          <div className="w-full bg-surface-container-highest h-1 rounded-full mt-2 overflow-hidden">
-            <div className="bg-primary h-full rounded-full" style={{ width: '100%' }} />
-          </div>
-        </SpotlightCard>
+        </div>
 
-        {/* KPI 2: Attempts Logged */}
-        <SpotlightCard
-          spotlightColor="rgba(56, 189, 248, 0.15)"
-          borderColor="rgba(56, 189, 248, 0.35)"
-          className="p-6 flex flex-col justify-between shadow-md"
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">Attempts Logged</span>
-            <span className="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-interactive-sky">
-              <span className="material-symbols-outlined text-[16px]">history_edu</span>
-            </span>
+        {/* Metric 2: Attempts Logged */}
+        <div className="rounded-xl bg-surface-container-low p-4 sm:p-5 border border-outline-variant/20 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-on-surface-variant">
+            <span className="text-xs font-mono uppercase tracking-wider">Attempts</span>
+            <span className="material-symbols-outlined text-interactive-sky text-[18px]">history_edu</span>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="font-headline-md text-3xl font-extrabold text-on-surface tracking-tight">
+          <div className="mt-3">
+            <div className="text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight font-mono">
               <CountUp to={totalAttempts} duration={1.2} separator="," />
-            </span>
-            <span className="font-mono-code text-xs text-interactive-sky">
-              {todayAttempts > 0 ? `+${todayAttempts} today` : '+64 recent'}
-            </span>
+            </div>
+            <div className="text-xs text-interactive-sky font-mono-code mt-1">
+              {todayAttempts > 0 ? `+${todayAttempts} today` : `${avgTimeSeconds > 0 ? formatSeconds(avgTimeSeconds) : '1m 48s'} avg`}
+            </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-on-surface-variant font-mono-code text-xs">
-            <span>Avg Time / Item</span>
-            <span className="text-on-surface">{avgTimeSeconds > 0 ? formatSeconds(avgTimeSeconds) : '1m 48s'}</span>
-          </div>
-          <div className="w-full bg-surface-container-highest h-1 rounded-full mt-2 overflow-hidden">
-            <div className="bg-interactive-sky h-full rounded-full" style={{ width: `${Math.min(100, Math.max(15, (totalAttempts / 500) * 100))}%` }} />
-          </div>
-        </SpotlightCard>
+        </div>
 
-        {/* KPI 3: Overall Accuracy */}
-        <SpotlightCard
-          spotlightColor="rgba(16, 185, 129, 0.15)"
-          borderColor="rgba(16, 185, 129, 0.35)"
-          className="p-6 flex flex-col justify-between shadow-md"
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">Overall Accuracy</span>
-            <span className="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-mastery-emerald">
-              <span className="material-symbols-outlined text-[16px]">verified</span>
-            </span>
+        {/* Metric 3: Overall Accuracy */}
+        <div className="rounded-xl bg-surface-container-low p-4 sm:p-5 border border-outline-variant/20 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-on-surface-variant">
+            <span className="text-xs font-mono uppercase tracking-wider">Accuracy</span>
+            <span className="material-symbols-outlined text-mastery-emerald text-[18px]">verified</span>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="font-headline-md text-3xl font-extrabold text-on-surface tracking-tight">
+          <div className="mt-3">
+            <div className="text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight font-mono">
               <CountUp to={totalAttempts > 0 ? overallAccuracy : 78.4} decimals={1} suffix="%" duration={1.2} />
-            </span>
-            <span className="font-mono-code text-xs text-mastery-emerald">Passing ≥60%</span>
+            </div>
+            <div className="text-xs text-mastery-emerald font-mono-code mt-1">
+              Passing benchmark ≥60%
+            </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-on-surface-variant font-mono-code text-xs">
-            <span>Target Score</span>
-            <span className="text-on-surface">85.0%</span>
-          </div>
-          <div className="w-full bg-surface-container-highest h-1 rounded-full mt-2 overflow-hidden">
-            <div
-              className="bg-mastery-emerald h-full rounded-full"
-              style={{ width: `${totalAttempts > 0 ? overallAccuracy : 78.4}%` }}
-            />
-          </div>
-        </SpotlightCard>
+        </div>
 
-        {/* KPI 4: SRS Due Deck */}
-        <SpotlightCard
-          spotlightColor="rgba(245, 158, 11, 0.15)"
-          borderColor="rgba(245, 158, 11, 0.35)"
-          className="p-6 flex flex-col justify-between shadow-md"
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">SRS Due Deck</span>
-            <span className="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-confidence-amber">
-              <span className="material-symbols-outlined text-[16px]">bolt</span>
-            </span>
+        {/* Metric 4: SRS Due Deck */}
+        <div className="rounded-xl bg-surface-container-low p-4 sm:p-5 border border-outline-variant/20 flex flex-col justify-between">
+          <div className="flex items-center justify-between text-on-surface-variant">
+            <span className="text-xs font-mono uppercase tracking-wider">SRS Deck</span>
+            <span className="material-symbols-outlined text-confidence-amber text-[18px]">bolt</span>
           </div>
-          <div className="mt-4 flex items-baseline gap-2">
-            <span className="font-headline-md text-3xl font-extrabold text-confidence-amber tracking-tight">
+          <div className="mt-3">
+            <div className="text-2xl sm:text-3xl font-extrabold text-confidence-amber tracking-tight font-mono">
               <CountUp to={dueReviews.length} duration={1.0} />
-            </span>
-            <span className="font-label-caps text-on-surface-variant text-[10px]">CARDS READY</span>
+            </div>
+            <div className="text-xs text-on-surface-variant font-mono-code mt-1">
+              {criticalFailCount > 0 ? `${criticalFailCount} critical cards` : 'Calibrated retention'}
+            </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-on-surface-variant font-mono-code text-xs">
-            <span>Critical Fail (L0)</span>
-            <span className="text-error">{criticalFailCount > 0 ? `${criticalFailCount} items` : '14 items'}</span>
-          </div>
-          <div className="w-full bg-surface-container-highest h-1 rounded-full mt-2 overflow-hidden">
-            <div className="bg-confidence-amber h-full rounded-full" style={{ width: '65%' }} />
-          </div>
-        </SpotlightCard>
+        </div>
       </section>
 
-      {/* Visual Anchor / Telemetry Sparkline & Priority Weak Spots */}
+      {/* Focus & Analytics Grid (Weak Spots & 7-Day Velocity) */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Priority Weak Spots Banner (8 cols) */}
-        <div className="lg:col-span-8 rounded-xl bg-surface-container-low p-6 flex flex-col justify-between shadow-md border border-outline-variant/20 relative overflow-hidden">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4">
+        {/* Priority Weak Spots (8 cols) */}
+        <div className="lg:col-span-8 rounded-xl bg-surface-container-low p-5 sm:p-6 border border-outline-variant/20 flex flex-col justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-outline-variant/10">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-error animate-ping" />
-              <h2 className="font-title-sm text-lg font-bold text-on-surface">Target Calibration // Critical Weak Spots</h2>
+              <span className="w-2 h-2 rounded-full bg-error" />
+              <h2 className="font-semibold text-base text-on-surface">Priority Weak Spots</h2>
             </div>
             <span className="font-mono-code text-xs text-on-surface-variant">
-              Based on {totalAttempts > 0 ? `${totalAttempts} logged attempts` : 'last 320 attempts'}
+              Based on {totalAttempts > 0 ? `${totalAttempts} attempts` : 'diagnostic baseline'}
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 my-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 my-3">
             {topWeakSpots.length > 0 ? (
               topWeakSpots.map((ws, index) => {
                 const colorClass = index === 0 ? 'text-error' : index === 1 ? 'text-confidence-amber' : 'text-interactive-sky';
@@ -389,157 +292,148 @@ export const Home: React.FC = () => {
                 return (
                   <div
                     key={ws.topic}
-                    className="bg-surface-container rounded-lg p-4 flex flex-col justify-between hover:bg-surface-container-high transition-colors shadow-sm border border-outline-variant/20"
+                    className="bg-surface-container rounded-lg p-3.5 flex flex-col justify-between border border-outline-variant/20"
                   >
                     <div className="flex items-start justify-between gap-1">
-                      <span className={`font-label-caps text-xs ${colorClass} uppercase truncate max-w-[140px]`}>
+                      <span className={`font-mono text-xs ${colorClass} uppercase truncate max-w-[130px]`}>
                         {ws.topic}
                       </span>
                       <span className={`font-mono-timer text-xs ${colorClass} font-bold`}>
                         {ws.errorRate}%
                       </span>
                     </div>
-                    <div className="my-3">
-                      <div className="font-body-bold text-sm text-on-surface capitalize line-clamp-1">{ws.topic}</div>
-                      <div className="font-mono-code text-xs text-on-surface-variant pt-0.5">
+                    <div className="my-2.5">
+                      <div className="font-semibold text-xs text-on-surface capitalize line-clamp-1">{ws.topic}</div>
+                      <div className="font-mono-code text-[11px] text-on-surface-variant pt-0.5">
                         {ws.incorrectAttempts} error / {ws.totalAttempts} reps
                       </div>
                     </div>
-                    <div className="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden mb-3">
+                    <div className="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden mb-2.5">
                       <div className={`${bgBarClass} h-full rounded-full`} style={{ width: `${ws.errorRate}%` }} />
                     </div>
                     <Link
                       to={`/quiz/topic?topic=${encodeURIComponent(ws.topic)}`}
                       className="w-full py-1.5 rounded-lg bg-surface-container-highest hover:bg-primary-container text-on-surface hover:text-on-primary font-mono-code text-xs font-semibold flex items-center justify-center gap-1 transition-all"
                     >
-                      <span>Drill Topic</span>
-                      <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                      <span>Drill</span>
+                      <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
                     </Link>
                   </div>
                 );
               })
             ) : (
               <>
-                {/* Fallback baseline weak spots if zero attempts yet */}
-                <div className="bg-surface-container rounded-lg p-4 flex flex-col justify-between hover:bg-surface-container-high transition-colors shadow-sm border border-outline-variant/20">
+                <div className="bg-surface-container rounded-lg p-3.5 flex flex-col justify-between border border-outline-variant/20">
                   <div className="flex items-start justify-between gap-1">
-                    <span className="font-label-caps text-xs text-error">NETWORKS</span>
+                    <span className="font-mono text-xs text-error">NETWORKS</span>
                     <span className="font-mono-timer text-xs text-error font-bold">48%</span>
                   </div>
-                  <div className="my-3">
-                    <div className="font-body-bold text-sm text-on-surface line-clamp-1">Computer Networks</div>
-                    <div className="font-mono-code text-xs text-on-surface-variant pt-0.5">OSI, Subnets, TLS 1.3</div>
+                  <div className="my-2.5">
+                    <div className="font-semibold text-xs text-on-surface line-clamp-1">Computer Networks</div>
+                    <div className="font-mono-code text-[11px] text-on-surface-variant pt-0.5">OSI, Subnets, TLS 1.3</div>
                   </div>
-                  <div className="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden mb-3">
+                  <div className="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden mb-2.5">
                     <div className="bg-error h-full rounded-full" style={{ width: '48%' }} />
                   </div>
                   <Link
                     to="/quiz/topic?topic=network"
                     className="w-full py-1.5 rounded-lg bg-surface-container-highest hover:bg-primary-container text-on-surface hover:text-on-primary font-mono-code text-xs font-semibold flex items-center justify-center gap-1 transition-all"
                   >
-                    <span>Drill 15 Items</span>
-                    <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    <span>Drill Topic</span>
+                    <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
                   </Link>
                 </div>
 
-                <div className="bg-surface-container rounded-lg p-4 flex flex-col justify-between hover:bg-surface-container-high transition-colors shadow-sm border border-outline-variant/20">
+                <div className="bg-surface-container rounded-lg p-3.5 flex flex-col justify-between border border-outline-variant/20">
                   <div className="flex items-start justify-between gap-1">
-                    <span className="font-label-caps text-xs text-confidence-amber">SYSTEM ARCH</span>
+                    <span className="font-mono text-xs text-confidence-amber">SYSTEM ARCH</span>
                     <span className="font-mono-timer text-xs text-confidence-amber font-bold">54%</span>
                   </div>
-                  <div className="my-3">
-                    <div className="font-body-bold text-sm text-on-surface line-clamp-1">Computer Architecture</div>
-                    <div className="font-mono-code text-xs text-on-surface-variant pt-0.5">Pipelines, Cache Coherency</div>
+                  <div className="my-2.5">
+                    <div className="font-semibold text-xs text-on-surface line-clamp-1">Computer Architecture</div>
+                    <div className="font-mono-code text-[11px] text-on-surface-variant pt-0.5">Pipelines, Cache Coherency</div>
                   </div>
-                  <div className="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden mb-3">
+                  <div className="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden mb-2.5">
                     <div className="bg-confidence-amber h-full rounded-full" style={{ width: '54%' }} />
                   </div>
                   <Link
                     to="/quiz/topic?topic=architecture"
                     className="w-full py-1.5 rounded-lg bg-surface-container-highest hover:bg-primary-container text-on-surface hover:text-on-primary font-mono-code text-xs font-semibold flex items-center justify-center gap-1 transition-all"
                   >
-                    <span>Drill 12 Items</span>
-                    <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    <span>Drill Topic</span>
+                    <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
                   </Link>
                 </div>
 
-                <div className="bg-surface-container rounded-lg p-4 flex flex-col justify-between hover:bg-surface-container-high transition-colors shadow-sm border border-outline-variant/20">
+                <div className="bg-surface-container rounded-lg p-3.5 flex flex-col justify-between border border-outline-variant/20">
                   <div className="flex items-start justify-between gap-1">
-                    <span className="font-label-caps text-xs text-interactive-sky">ALGO / STRUCT</span>
+                    <span className="font-mono text-xs text-interactive-sky">DATA STRUCT</span>
                     <span className="font-mono-timer text-xs text-interactive-sky font-bold">59%</span>
                   </div>
-                  <div className="my-3">
-                    <div className="font-body-bold text-sm text-on-surface line-clamp-1">Data Structures</div>
-                    <div className="font-mono-code text-xs text-on-surface-variant pt-0.5">AVL Trees, Hash Tables</div>
+                  <div className="my-2.5">
+                    <div className="font-semibold text-xs text-on-surface line-clamp-1">Data Structures</div>
+                    <div className="font-mono-code text-[11px] text-on-surface-variant pt-0.5">AVL Trees, Hash Tables</div>
                   </div>
-                  <div className="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden mb-3">
+                  <div className="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden mb-2.5">
                     <div className="bg-interactive-sky h-full rounded-full" style={{ width: '59%' }} />
                   </div>
                   <Link
                     to="/quiz/topic?topic=algorithms"
                     className="w-full py-1.5 rounded-lg bg-surface-container-highest hover:bg-primary-container text-on-surface hover:text-on-primary font-mono-code text-xs font-semibold flex items-center justify-center gap-1 transition-all"
                   >
-                    <span>Drill 10 Items</span>
-                    <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                    <span>Drill Topic</span>
+                    <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
                   </Link>
                 </div>
               </>
             )}
           </div>
 
-          <div className="pt-2 flex items-center justify-between font-mono-code text-xs text-on-surface-variant">
-            <span className="flex items-center gap-1">
-              <span className="material-symbols-outlined text-[14px] text-primary">verified_user</span>
-              Automated Leitner queue reshuffles on failure
-            </span>
+          <div className="pt-1 flex items-center justify-between font-mono-code text-xs text-on-surface-variant">
+            <span>Automated Leitner queue reshuffles on failure</span>
             <Link to="/analytics" className="text-primary hover:underline flex items-center gap-1">
-              <span>Inspect Syllabus Heatmap</span>
-              <span className="material-symbols-outlined text-[14px]">east</span>
+              <span>Syllabus Heatmap</span>
+              <span className="material-symbols-outlined text-[13px]">east</span>
             </Link>
           </div>
         </div>
 
-        {/* Telemetry Vector Graphic Card (4 cols) */}
-        <div className="lg:col-span-4 rounded-xl bg-surface-container-low p-6 flex flex-col justify-between shadow-md border border-outline-variant/20">
-          <div className="flex items-center justify-between">
-            <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">
-              7-Day Retention Velocity
+        {/* 7-Day Velocity Chart (4 cols) */}
+        <div className="lg:col-span-4 rounded-xl bg-surface-container-low p-5 sm:p-6 border border-outline-variant/20 flex flex-col justify-between">
+          <div className="flex items-center justify-between pb-3 border-b border-outline-variant/10">
+            <span className="text-xs font-mono uppercase tracking-wider text-on-surface-variant">
+              7-Day Activity
             </span>
             <span className="font-mono-code text-xs text-primary font-bold">+4.2%</span>
           </div>
 
-          {/* Inline SVG Performance Spark-Chart */}
-          <div className="my-4 py-2">
-            <svg className="w-full h-28 overflow-visible text-primary" fill="none" viewBox="0 0 300 100">
+          <div className="my-3 py-1">
+            <svg className="w-full h-24 overflow-visible text-primary" fill="none" viewBox="0 0 300 100">
               <defs>
                 <linearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#9ed67c" stopOpacity="0.35" />
+                  <stop offset="0%" stopColor="#9ed67c" stopOpacity="0.3" />
                   <stop offset="100%" stopColor="#9ed67c" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
-              {/* Gridlines */}
               <line stroke="var(--color-surface-container-highest)" strokeDasharray="2 4" strokeWidth="1" x1="0" x2="300" y1="20" y2="20" />
               <line stroke="var(--color-surface-container-highest)" strokeDasharray="2 4" strokeWidth="1" x1="0" x2="300" y1="50" y2="50" />
               <line stroke="var(--color-surface-container-highest)" strokeDasharray="2 4" strokeWidth="1" x1="0" x2="300" y1="80" y2="80" />
-              {/* Area Fill */}
               <polygon fill="url(#areaGradient)" points={polygonStr} />
-              {/* Path Line */}
               <polyline
                 fill="none"
                 points={polylineStr}
                 stroke="currentColor"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                strokeWidth="2.5"
+                strokeWidth="2"
               />
-              {/* Data Dots */}
               {sparkPoints.map((p, i) => (
                 <circle
                   key={i}
                   cx={p.x}
                   cy={p.y}
                   fill="var(--color-surface-container-lowest)"
-                  r={i === sparkPoints.length - 1 ? 4.5 : 3.5}
+                  r={i === sparkPoints.length - 1 ? 4 : 3}
                   stroke="#9ed67c"
                   strokeWidth="2"
                 />
@@ -547,7 +441,7 @@ export const Home: React.FC = () => {
             </svg>
           </div>
 
-          <div className="flex items-center justify-between font-mono-code text-xs text-on-surface-variant pt-1 border-t-0">
+          <div className="flex items-center justify-between font-mono-code text-xs text-on-surface-variant pt-1">
             <span>Mon</span>
             <span>Tue</span>
             <span>Wed</span>
@@ -559,158 +453,14 @@ export const Home: React.FC = () => {
         </div>
       </section>
 
-      {/* 4 Core Review Modes Grid */}
-      <section className="flex flex-col gap-4">
-        <div className="flex items-end justify-between">
-          <div className="flex flex-col gap-0.5">
-            <span className="font-label-caps text-xs text-primary uppercase tracking-widest">Architected Protocols</span>
-            <h2 className="font-title-sm text-xl font-bold text-on-surface">Core Review Execution Modes</h2>
-          </div>
-          <span className="font-mono-code text-xs text-on-surface-variant hidden sm:inline">Select test regimen</span>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Mode 1: Exam Year */}
-          <Link to="/quiz/year" className="group block">
-            <SpotlightCard
-              spotlightColor="rgba(158, 214, 124, 0.18)"
-              borderColor="rgba(158, 214, 124, 0.4)"
-              className="p-6 h-full flex flex-col justify-between shadow-md group-hover:scale-[1.01] transition-transform"
-            >
-              <div className="flex items-start justify-between">
-                <span className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-primary-container text-on-surface group-hover:text-primary-fixed flex items-center justify-center transition-colors">
-                  <span className="material-symbols-outlined text-[20px]">calendar_month</span>
-                </span>
-                <span className="font-mono-code text-xs px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
-                  2007-2026
-                </span>
-              </div>
-              <div className="my-4">
-                <h3 className="font-title-sm text-base font-bold text-on-surface group-hover:text-primary transition-colors">
-                  By Exam Year
-                </h3>
-                <p className="font-body-base text-sm text-on-surface-variant mt-1 leading-relaxed">
-                  Standard 80-question continuous timed simulation mimicking the strict PhilNITS Morning Session test
-                  environment.
-                </p>
-              </div>
-              <div className="pt-1 flex items-center justify-between text-on-surface-variant group-hover:text-on-surface font-mono-code text-xs">
-                <span>{meta?.years?.length || 19} Exam Years</span>
-                <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">
-                  east
-                </span>
-              </div>
-            </SpotlightCard>
-          </Link>
-
-          {/* Mode 2: Topic Category */}
-          <Link to="/quiz/topic" className="group block">
-            <SpotlightCard
-              spotlightColor="rgba(56, 189, 248, 0.18)"
-              borderColor="rgba(56, 189, 248, 0.4)"
-              className="p-6 h-full flex flex-col justify-between shadow-md group-hover:scale-[1.01] transition-transform"
-            >
-              <div className="flex items-start justify-between">
-                <span className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-interactive-sky text-on-surface group-hover:text-surface-container-lowest flex items-center justify-center transition-colors">
-                  <span className="material-symbols-outlined text-[20px]">category</span>
-                </span>
-                <span className="font-mono-code text-xs px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
-                  29 Domains
-                </span>
-              </div>
-              <div className="my-4">
-                <h3 className="font-title-sm text-base font-bold text-on-surface group-hover:text-interactive-sky transition-colors">
-                  By Topic Category
-                </h3>
-                <p className="font-body-base text-sm text-on-surface-variant mt-1 leading-relaxed">
-                  Isolate discrete curriculum units: Discrete Math, Computer Systems, Software Development, Databases,
-                  and Security.
-                </p>
-              </div>
-              <div className="pt-1 flex items-center justify-between text-on-surface-variant group-hover:text-on-surface font-mono-code text-xs">
-                <span>Detailed Mastery Breakdown</span>
-                <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">
-                  east
-                </span>
-              </div>
-            </SpotlightCard>
-          </Link>
-
-          {/* Mode 3: Combined Filters */}
-          <Link to="/quiz/combined" className="group block">
-            <SpotlightCard
-              spotlightColor="rgba(245, 158, 11, 0.18)"
-              borderColor="rgba(245, 158, 11, 0.4)"
-              className="p-6 h-full flex flex-col justify-between shadow-md group-hover:scale-[1.01] transition-transform"
-            >
-              <div className="flex items-start justify-between">
-                <span className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-confidence-amber text-on-surface group-hover:text-surface-container-lowest flex items-center justify-center transition-colors">
-                  <span className="material-symbols-outlined text-[20px]">filter_alt</span>
-                </span>
-                <span className="font-mono-code text-xs px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
-                  Matrix
-                </span>
-              </div>
-              <div className="my-4">
-                <h3 className="font-title-sm text-base font-bold text-on-surface group-hover:text-confidence-amber transition-colors">
-                  Combined Filters
-                </h3>
-                <p className="font-body-base text-sm text-on-surface-variant mt-1 leading-relaxed">
-                  Intersect difficulty tiers, question flags, and unattempted sets with multi-year temporal cross-sections.
-                </p>
-              </div>
-              <div className="pt-1 flex items-center justify-between text-on-surface-variant group-hover:text-on-surface font-mono-code text-xs">
-                <span>Precision Query Engine</span>
-                <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">
-                  east
-                </span>
-              </div>
-            </SpotlightCard>
-          </Link>
-
-          {/* Mode 4: Custom Builder */}
-          <Link to="/quiz/custom" className="group block">
-            <SpotlightCard
-              spotlightColor="rgba(99, 102, 241, 0.18)"
-              borderColor="rgba(99, 102, 241, 0.4)"
-              className="p-6 h-full flex flex-col justify-between shadow-md group-hover:scale-[1.01] transition-transform"
-            >
-              <div className="flex items-start justify-between">
-                <span className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-badge-indigo text-on-surface group-hover:text-white flex items-center justify-center transition-colors">
-                  <span className="material-symbols-outlined text-[20px]">architecture</span>
-                </span>
-                <span className="font-mono-code text-xs px-2 py-0.5 rounded bg-surface-container-highest text-on-surface-variant">
-                  Bespoke
-                </span>
-              </div>
-              <div className="my-4">
-                <h3 className="font-title-sm text-base font-bold text-on-surface group-hover:text-badge-indigo transition-colors">
-                  Custom Builder
-                </h3>
-                <p className="font-body-base text-sm text-on-surface-variant mt-1 leading-relaxed">
-                  Assemble specialized sprint sets: 20-minute rapid bursts, math-only calculations, or diagram intensive
-                  schematics.
-                </p>
-              </div>
-              <div className="pt-1 flex items-center justify-between text-on-surface-variant group-hover:text-on-surface font-mono-code text-xs">
-                <span>Dynamic Question Staging</span>
-                <span className="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">
-                  east
-                </span>
-              </div>
-            </SpotlightCard>
-          </Link>
-        </div>
-      </section>
-
-      {/* Recent Activity Table & Exam Blueprint Visualizer */}
+      {/* Recent Activity Table & Exam Blueprint Scope */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Activity Table (8 cols) */}
-        <div className="lg:col-span-8 rounded-xl bg-surface-container-low p-6 shadow-md border border-outline-variant/20 flex flex-col gap-4">
+        {/* Recent Attempts (8 cols) */}
+        <div className="lg:col-span-8 rounded-xl bg-surface-container-low p-5 sm:p-6 border border-outline-variant/20 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-on-surface-variant text-lg">history</span>
-              <h2 className="font-title-sm text-lg font-bold text-on-surface">Telemetry Audit // Recent Attempts</h2>
+              <span className="material-symbols-outlined text-on-surface-variant text-[18px]">history</span>
+              <h2 className="font-semibold text-base text-on-surface">Recent Attempts</h2>
             </div>
             <button
               onClick={handleExportCSV}
@@ -718,27 +468,27 @@ export const Home: React.FC = () => {
               type="button"
             >
               <span>Export CSV</span>
-              <span className="material-symbols-outlined text-xs">download</span>
+              <span className="material-symbols-outlined text-[14px]">download</span>
             </button>
           </div>
 
           <div className="w-full overflow-x-auto">
             <table className="w-full text-left font-mono-code text-xs">
               <thead>
-                <tr className="text-on-surface-variant font-label-caps text-label-caps uppercase bg-surface-container/50">
-                  <th className="py-2.5 px-3 rounded-l-lg">Session ID</th>
-                  <th className="py-2.5 px-3">Curriculum Focus</th>
-                  <th className="py-2.5 px-3">Selected</th>
-                  <th className="py-2.5 px-3">Time</th>
-                  <th className="py-2.5 px-3">Confidence</th>
-                  <th className="py-2.5 px-3 rounded-r-lg text-right">Status</th>
+                <tr className="text-on-surface-variant font-mono uppercase bg-surface-container/50 text-[11px]">
+                  <th className="py-2 px-3 rounded-l-lg">ID</th>
+                  <th className="py-2 px-3">Topic</th>
+                  <th className="py-2 px-3">Selected</th>
+                  <th className="py-2 px-3">Time</th>
+                  <th className="py-2 px-3">Confidence</th>
+                  <th className="py-2 px-3 rounded-r-lg text-right">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y-0 text-on-surface">
                 {recentAttempts.length > 0 ? (
                   recentAttempts.map((att, i) => (
-                    <tr key={att.id || i} className="hover:bg-surface-container transition-colors group">
-                      <td className="py-3 px-3 font-bold text-on-surface">
+                    <tr key={att.id || i} className="hover:bg-surface-container/60 transition-colors group">
+                      <td className="py-2.5 px-3 font-bold text-on-surface">
                         <Link
                           to={`/history/${encodeURIComponent(att.questionId)}`}
                           className="text-primary hover:underline inline-flex items-center gap-1 font-mono-code"
@@ -749,11 +499,11 @@ export const Home: React.FC = () => {
                           </span>
                         </Link>
                       </td>
-                      <td className="py-3 px-3 text-on-surface-variant capitalize">{att.topic}</td>
-                      <td className="py-3 px-3 uppercase font-bold text-primary">{att.selectedAnswer}</td>
-                      <td className="py-3 px-3 text-on-surface-variant">{att.timeSeconds?.toFixed(1)}s</td>
-                      <td className="py-3 px-3 text-confidence-amber">Level {att.confidence || 3}</td>
-                      <td className="py-3 px-3 text-right">
+                      <td className="py-2.5 px-3 text-on-surface-variant capitalize">{att.topic}</td>
+                      <td className="py-2.5 px-3 uppercase font-bold text-primary">{att.selectedAnswer}</td>
+                      <td className="py-2.5 px-3 text-on-surface-variant">{att.timeSeconds?.toFixed(1)}s</td>
+                      <td className="py-2.5 px-3 text-confidence-amber">Level {att.confidence || 3}</td>
+                      <td className="py-2.5 px-3 text-right">
                         <span
                           className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold ${
                             att.isCorrect
@@ -773,56 +523,42 @@ export const Home: React.FC = () => {
                   ))
                 ) : (
                   <>
-                    {/* Default exemplary records matching mockup */}
-                    <tr className="hover:bg-surface-container transition-colors group">
-                      <td className="py-3 px-3 font-bold text-on-surface">#FE-2024-S02</td>
-                      <td className="py-3 px-3 text-on-surface-variant">Full Year Morning 2024</td>
-                      <td className="py-3 px-3">80/80</td>
-                      <td className="py-3 px-3 text-on-surface-variant">1h 42m</td>
-                      <td className="py-3 px-3 text-confidence-amber">Level 4</td>
-                      <td className="py-3 px-3 text-right">
+                    <tr className="hover:bg-surface-container/60 transition-colors group">
+                      <td className="py-2.5 px-3 font-bold text-on-surface">#FE-2024-S02</td>
+                      <td className="py-2.5 px-3 text-on-surface-variant">Full Year Morning 2024</td>
+                      <td className="py-2.5 px-3">80/80</td>
+                      <td className="py-2.5 px-3 text-on-surface-variant">1h 42m</td>
+                      <td className="py-2.5 px-3 text-confidence-amber">Level 4</td>
+                      <td className="py-2.5 px-3 text-right">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-mastery-emerald/15 text-mastery-emerald font-semibold">
                           <span className="w-1.5 h-1.5 rounded-full bg-mastery-emerald" />
                           Passed
                         </span>
                       </td>
                     </tr>
-                    <tr className="hover:bg-surface-container transition-colors group">
-                      <td className="py-3 px-3 font-bold text-on-surface">#SRS-REV-094</td>
-                      <td className="py-3 px-3 text-on-surface-variant">SRS Leitner Level 3 Queue</td>
-                      <td className="py-3 px-3">30/30</td>
-                      <td className="py-3 px-3 text-on-surface-variant">24m 10s</td>
-                      <td className="py-3 px-3 text-confidence-amber">Level 5</td>
-                      <td className="py-3 px-3 text-right">
+                    <tr className="hover:bg-surface-container/60 transition-colors group">
+                      <td className="py-2.5 px-3 font-bold text-on-surface">#SRS-REV-094</td>
+                      <td className="py-2.5 px-3 text-on-surface-variant">SRS Leitner Level 3</td>
+                      <td className="py-2.5 px-3">30/30</td>
+                      <td className="py-2.5 px-3 text-on-surface-variant">24m 10s</td>
+                      <td className="py-2.5 px-3 text-confidence-amber">Level 5</td>
+                      <td className="py-2.5 px-3 text-right">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-mastery-emerald/15 text-mastery-emerald font-semibold">
                           <span className="w-1.5 h-1.5 rounded-full bg-mastery-emerald" />
                           Passed
                         </span>
                       </td>
                     </tr>
-                    <tr className="hover:bg-surface-container transition-colors group">
-                      <td className="py-3 px-3 font-bold text-on-surface">#DRILL-NET-11</td>
-                      <td className="py-3 px-3 text-on-surface-variant">Computer Networks (OSI &amp; TCP)</td>
-                      <td className="py-3 px-3">25/25</td>
-                      <td className="py-3 px-3 text-on-surface-variant">31m 05s</td>
-                      <td className="py-3 px-3 text-confidence-amber">Level 2</td>
-                      <td className="py-3 px-3 text-right">
+                    <tr className="hover:bg-surface-container/60 transition-colors group">
+                      <td className="py-2.5 px-3 font-bold text-on-surface">#DRILL-NET-11</td>
+                      <td className="py-2.5 px-3 text-on-surface-variant">Networks (OSI &amp; TCP)</td>
+                      <td className="py-2.5 px-3">25/25</td>
+                      <td className="py-2.5 px-3 text-on-surface-variant">31m 05s</td>
+                      <td className="py-2.5 px-3 text-confidence-amber">Level 2</td>
+                      <td className="py-2.5 px-3 text-right">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error/15 text-error font-semibold">
                           <span className="w-1.5 h-1.5 rounded-full bg-error" />
                           Review
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-surface-container transition-colors group">
-                      <td className="py-3 px-3 font-bold text-on-surface">#CUST-SYS-44</td>
-                      <td className="py-3 px-3 text-on-surface-variant">Logic Circuits &amp; Boolean Algebra</td>
-                      <td className="py-3 px-3">15/15</td>
-                      <td className="py-3 px-3 text-on-surface-variant">12m 40s</td>
-                      <td className="py-3 px-3 text-confidence-amber">Level 4</td>
-                      <td className="py-3 px-3 text-right">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-interactive-sky/15 text-interactive-sky font-semibold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-interactive-sky" />
-                          Mastered
                         </span>
                       </td>
                     </tr>
@@ -833,51 +569,45 @@ export const Home: React.FC = () => {
           </div>
         </div>
 
-        {/* Syllabus Architecture & Telemetry Card (4 cols) */}
-        <div className="lg:col-span-4 rounded-xl bg-surface-container-low p-6 shadow-md border border-outline-variant/20 flex flex-col gap-4">
+        {/* Syllabus Scope (4 cols) */}
+        <div className="lg:col-span-4 rounded-xl bg-surface-container-low p-5 sm:p-6 border border-outline-variant/20 flex flex-col gap-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-title-sm text-lg font-bold text-on-surface">Official Syllabus Scope</h2>
-            <span className="font-label-caps text-xs text-primary uppercase">IPA Standard</span>
+            <h2 className="font-semibold text-base text-on-surface">Syllabus Scope</h2>
+            <span className="font-mono text-xs text-primary uppercase">IPA Standard</span>
           </div>
 
-          <div className="relative w-full h-40 rounded-xl overflow-hidden bg-surface-container flex items-center justify-center border border-outline-variant/20">
-            {/* Dark circuit blueprint graphics */}
-            <div className="absolute inset-0 bg-gradient-to-t from-surface-container-low via-transparent to-transparent z-10" />
-            <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#396a1e_1px,transparent_1px)] [background-size:16px_16px]" />
-            <div className="flex flex-col items-center justify-center text-center p-4 relative z-10">
-              <span className="material-symbols-outlined text-4xl text-primary mb-1">memory</span>
-              <span className="font-mono-code text-xs text-on-surface font-bold">PHILNITS FE / AP Framework</span>
-              <span className="font-mono-code text-[11px] text-on-surface-variant">CBT Accredited Standard</span>
+          <div className="p-3.5 rounded-xl bg-surface-container border border-outline-variant/20 flex flex-col gap-1">
+            <div className="flex items-center justify-between text-xs font-mono font-bold text-on-surface">
+              <span>Morning Session</span>
+              <span className="text-primary">80 Questions / 150m</span>
             </div>
-            <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between font-mono-code text-xs z-20">
-              <span className="text-on-surface font-semibold">Morning Session: 80 Items</span>
-              <span className="text-primary font-bold">150 Minutes</span>
-            </div>
+            <p className="text-[11px] font-mono-code text-on-surface-variant pt-0.5">
+              Accredited Fundamental &amp; Applied curriculum standard
+            </p>
           </div>
 
           {/* Curated Topic Stack */}
           <div className="flex flex-col gap-1.5 font-mono-code text-xs">
-            <div className="flex items-center justify-between py-2 px-3 rounded bg-surface-container border border-outline-variant/10">
+            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-container border border-outline-variant/10">
               <span className="text-on-surface-variant">1. Technology Architecture</span>
               <span className="text-on-surface font-semibold">45 Questions</span>
             </div>
-            <div className="flex items-center justify-between py-2 px-3 rounded bg-surface-container border border-outline-variant/10">
+            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-container border border-outline-variant/10">
               <span className="text-on-surface-variant">2. Management Systems</span>
               <span className="text-on-surface font-semibold">15 Questions</span>
             </div>
-            <div className="flex items-center justify-between py-2 px-3 rounded bg-surface-container border border-outline-variant/10">
+            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-container border border-outline-variant/10">
               <span className="text-on-surface-variant">3. Strategy &amp; Governance</span>
               <span className="text-on-surface font-semibold">20 Questions</span>
             </div>
           </div>
 
-          {/* Quick Launch Diagnostic Button */}
           <Link
             to="/analytics"
-            className="w-full py-2.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest text-on-surface font-body-bold text-xs flex items-center justify-center gap-2 transition-all border border-outline-variant/20 shadow-sm"
+            className="w-full py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-xs flex items-center justify-center gap-1.5 transition-all border border-outline-variant/20 shadow-sm"
           >
-            <span className="material-symbols-outlined text-[16px] text-primary">assessment</span>
-            <span>Generate Diagnostic Report</span>
+            <span className="material-symbols-outlined text-[15px] text-primary">assessment</span>
+            <span>Diagnostic Report</span>
           </Link>
         </div>
       </section>

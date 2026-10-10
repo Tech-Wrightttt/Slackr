@@ -48,8 +48,106 @@ function serveDiagramFiles(): Plugin {
   };
 }
 
+function serveLearningResources(): Plugin {
+  const jsonPath = path.resolve(__dirname, 'public/data/learning_resources.json');
+  const backendJsonPath = path.resolve(__dirname, '../backend/data/learning_resources.json');
+
+  return {
+    name: 'serve-learning-resources',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url && req.url.startsWith('/api/learning-resources')) {
+          if (req.method === 'GET') {
+            if (fs.existsSync(jsonPath)) {
+              res.setHeader('Content-Type', 'application/json');
+              fs.createReadStream(jsonPath).pipe(res);
+              return;
+            } else {
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ topics: {}, questions: {} }));
+              return;
+            }
+          }
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', (chunk) => {
+              body += chunk;
+            });
+            req.on('end', () => {
+              try {
+                const parsed = JSON.parse(body);
+                fs.writeFileSync(jsonPath, JSON.stringify(parsed, null, 2), 'utf-8');
+                if (fs.existsSync(path.dirname(backendJsonPath))) {
+                  fs.writeFileSync(backendJsonPath, JSON.stringify(parsed, null, 2), 'utf-8');
+                }
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ status: 'success', message: 'Saved to learning_resources.json' }));
+              } catch (e: any) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: e.message }));
+              }
+            });
+            return;
+          }
+        }
+        next();
+      });
+    },
+  };
+}
+
+function serveAnalyticalBreakdowns(): Plugin {
+  const jsonPath = path.resolve(__dirname, 'public/data/analytical_breakdowns.json');
+  const backendJsonPath = path.resolve(__dirname, '../backend/data/analytical_breakdowns.json');
+
+  return {
+    name: 'serve-analytical-breakdowns',
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url && req.url.startsWith('/api/analytical-breakdowns')) {
+          if (req.method === 'GET') {
+            if (fs.existsSync(jsonPath)) {
+              res.setHeader('Content-Type', 'application/json');
+              fs.createReadStream(jsonPath).pipe(res);
+              return;
+            } else {
+              res.setHeader('Content-Type', 'application/json');
+              res.end(JSON.stringify({ questions: {} }));
+              return;
+            }
+          }
+          if (req.method === 'POST') {
+            let body = '';
+            req.on('data', (chunk) => {
+              body += chunk;
+            });
+            req.on('end', () => {
+              try {
+                const parsed = JSON.parse(body);
+                fs.writeFileSync(jsonPath, JSON.stringify(parsed, null, 2), 'utf-8');
+                if (fs.existsSync(path.dirname(backendJsonPath))) {
+                  fs.writeFileSync(backendJsonPath, JSON.stringify(parsed, null, 2), 'utf-8');
+                }
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ status: 'success', message: 'Saved to analytical_breakdowns.json' }));
+              } catch (e: any) {
+                res.statusCode = 400;
+                res.setHeader('Content-Type', 'application/json');
+                res.end(JSON.stringify({ error: e.message }));
+              }
+            });
+            return;
+          }
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [serveDiagramFiles(), tailwindcss(), react()],
+  plugins: [serveDiagramFiles(), serveLearningResources(), serveAnalyticalBreakdowns(), tailwindcss(), react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
