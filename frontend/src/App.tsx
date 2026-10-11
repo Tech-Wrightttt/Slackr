@@ -1,10 +1,11 @@
 import React, { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, Link, useLocation } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { DrawOverlay } from './components/DrawOverlay';
 import { useStore } from './store/useStore';
 import { StatsDbService } from './services/statsDb';
 import { AuthService } from './services/authService';
+import { ReportService } from './services/reportService';
 import type { SRAlgorithm } from './services/srsEngine';
 import { WifiOff, Loader2 } from 'lucide-react';
 
@@ -21,6 +22,7 @@ const QuestionHistory = lazy(() =>
   import('./pages/QuestionHistory').then((m) => ({ default: m.QuestionHistory }))
 );
 const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.Profile })));
+const News = lazy(() => import('./pages/News').then((m) => ({ default: m.News })));
 const SignIn = lazy(() => import('./pages/Auth').then((m) => ({ default: m.SignIn })));
 const SignUp = lazy(() => import('./pages/Auth').then((m) => ({ default: m.SignUp })));
 
@@ -86,7 +88,9 @@ const AppShell: React.FC = () => {
           <div className="flex items-center gap-4 text-[11px]">
             <span>IndexedDB: Active</span>
             <span>•</span>
-            <span>V2.4.0 (Offline-First)</span>
+            <Link to="/news" className="hover:text-primary underline-offset-2 hover:underline">
+              v{__APP_VERSION__} (Offline-First)
+            </Link>
             <span>•</span>
             <span>© 2025</span>
           </div>
@@ -110,7 +114,12 @@ export const App: React.FC = () => {
   }, [setAuth]);
 
   useEffect(() => {
-    const handleOnline = () => setOffline(false);
+    // Send bug reports queued while offline (or before the reporting backend existed)
+    void ReportService.flush().catch(() => {});
+    const handleOnline = () => {
+      setOffline(false);
+      void ReportService.flush().catch(() => {});
+    };
     const handleOffline = () => setOffline(true);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -136,6 +145,7 @@ export const App: React.FC = () => {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/history/:id" element={<QuestionHistory />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/news" element={<News />} />
             <Route path="/settings" element={<Navigate to="/profile" replace />} />
           </Route>
         </Routes>

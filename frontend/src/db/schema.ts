@@ -92,3 +92,28 @@ export interface AccountRecord {
   createdAt: string; // ISO timestamp
 }
 
+
+export type ReportKind = 'question' | 'explanation' | 'general';
+
+/** A bug report or content flag. Kept on the device until it reaches the server, then marked sent. */
+export interface ReportRecord {
+  id?: number;
+  /** Generated on the device so a retried send never creates a duplicate row on the server */
+  clientId: string;
+  kind: ReportKind;
+  questionId?: string;
+  category: string;
+  message: string;
+  /** Non-identifying details that help reproduce the problem */
+  context: {
+    appVersion: string;
+    path: string;
+    viewport: string;
+    displayMode: 'standalone' | 'browser';
+    userAgent: string;
+    online: boolean;
+  };
+  createdAt: string; // ISO timestamp
+  status: 'queued' | 'sent';
+  sentAt?: string;
+}

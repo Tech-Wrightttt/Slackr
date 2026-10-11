@@ -1,5 +1,6 @@
 {
   "name": "frontend",
+  "version": "2.4.0",
   "module": "index.ts",
   "type": "module",
   "private": true,

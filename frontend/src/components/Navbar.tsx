@@ -101,6 +101,7 @@ export const Navbar: React.FC = () => {
       badge: dueCount > 0 ? compactCount(dueCount) : null,
     },
     { to: '/analytics', label: 'Analytics', icon: 'monitoring' },
+    { to: '/news', label: 'News', icon: 'campaign' },
     { to: '/profile', label: 'Profile', icon: 'person' },
   ];
 

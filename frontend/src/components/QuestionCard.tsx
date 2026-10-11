@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { ZoomableImage } from './ZoomableImage';
 import { AnswerFeedback } from './AnswerFeedback';
+import { ReportDialog } from './ReportDialog';
 import type { QuestionData, SRScheduleRecord } from '../db/schema';
 import { StatsDbService } from '../services/statsDb';
 import { useStore } from '../store/useStore';
@@ -64,7 +65,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const [isCorrect, setIsCorrect] = useState<boolean>(false);
   const [schedule, setSchedule] = useState<SRScheduleRecord | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
-  const [bookmarked, setBookmarked] = useState<boolean>(false);
+  // All bookmarked IDs, so the Question Grid can mark them too
+  const [bookmarks, setBookmarks] = useState<string[]>(() => JSON.parse(localStorage.getItem('slackr_bookmarks') || '[]'));
+  const bookmarked = bookmarks.includes(question.id);
+  const [reporting, setReporting] = useState(false);
 
   // Local answer record cache for grid pills
   const [sessionAnswerMap, setSessionAnswerMap] = useState<Record<string, { isCorrect: boolean }>>({});
@@ -84,9 +88,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     setElapsedTime(0);
     startTimeRef.current = Date.now();
 
-    // Check if bookmarked
-    const savedBookmarks = JSON.parse(localStorage.getItem('slackr_bookmarks') || '[]');
-    setBookmarked(savedBookmarks.includes(question.id));
+    // Re-read bookmarks (an import may have changed them)
+    setBookmarks(JSON.parse(localStorage.getItem('slackr_bookmarks') || '[]'));
 
     timerIntervalRef.current = setInterval(() => {
       setElapsedTime((Date.now() - startTimeRef.current) / 1000);
@@ -139,15 +142,11 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
   const toggleBookmark = () => {
     const savedBookmarks: string[] = JSON.parse(localStorage.getItem('slackr_bookmarks') || '[]');
-    let updated: string[];
-    if (savedBookmarks.includes(question.id)) {
-      updated = savedBookmarks.filter((id) => id !== question.id);
-      setBookmarked(false);
-    } else {
-      updated = [...savedBookmarks, question.id];
-      setBookmarked(true);
-    }
+    const updated = savedBookmarks.includes(question.id)
+      ? savedBookmarks.filter((id) => id !== question.id)
+      : [...savedBookmarks, question.id];
     localStorage.setItem('slackr_bookmarks', JSON.stringify(updated));
+    setBookmarks(updated);
   };
 
   // Keyboard shortcut handler for 1-4, A-D, Enter, Arrows
@@ -231,7 +230,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           <div className="flex items-center gap-3 self-end md:self-auto">
             {/* Elapsed Timer */}
             {showTimer && (
-              <div className="flex items-center gap-1.5 px-3 py-1 rounded bg-surface-container font-mono-timer text-xs text-confidence-amber border border-outline-variant/20">
+              <div className="flex items-center gap-1.5 px-3 py-1 rounded bg-surface-container font-mono-timer text-xs text-confidence-amber border border-outline-variant/20 whitespace-nowrap tabular-nums">
                 <span className="material-symbols-outlined text-[15px]">timer</span>
                 <span>{formatTimer(elapsedTime)}</span>
               </div>
@@ -245,13 +244,28 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               </span>
             </div>
 
+            {/* Report a problem with this question */}
+            <button
+              type="button"
+              onClick={() => setReporting(true)}
+              aria-label="Report a problem with this question"
+              aria-haspopup="dialog"
+              title="Report a problem with this question"
+              className="press-scale w-10 h-10 rounded bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-center cursor-pointer text-on-surface-variant hover:text-error"
+            >
+              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">bug_report</span>
+            </button>
+
             {/* Bookmark Trigger */}
             <button
               type="button"
               onClick={toggleBookmark}
               aria-label="Bookmark Question"
-              className={`p-1.5 rounded bg-surface-container hover:bg-surface-container-high transition-colors flex items-center justify-center cursor-pointer ${
-                bookmarked ? 'text-confidence-amber' : 'text-on-surface-variant hover:text-on-surface'
+              aria-pressed={bookmarked}
+              className={`press-scale w-10 h-10 rounded border transition-colors flex items-center justify-center cursor-pointer ${
+                bookmarked
+                  ? 'bookmark-on'
+                  : 'border-transparent bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface'
               }`}
               title={bookmarked ? 'Remove Bookmark' : 'Bookmark Question'}
             >
@@ -265,6 +279,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           </div>
         </div>
       </div>
+
+      {reporting && <ReportDialog kind="question" questionId={question.id} onClose={() => setReporting(false)} />}
 
       {/* Primary Assessment Workspace Layout (2 Columns) */}
       <div className="w-full flex flex-col lg:flex-row gap-6 items-start">
@@ -609,6 +625,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 <span className="w-2.5 h-2.5 rounded-full bg-surface-container-high inline-block" />
                 <span>Pending</span>
               </div>
+              <div className="flex items-center gap-1">
+                <span className="grid-bookmark" style={{ position: 'static', display: 'inline-block' }} aria-hidden="true" />
+                <span>Bookmarked</span>
+              </div>
             </div>
 
             {/* Compact Numerical Grid (8 columns) */}
@@ -619,6 +639,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 const qObj = questions[idx];
                 const qId = qObj?.id || String(qNum);
                 const attStatus = combinedAnswerMap[qId];
+                const isBookmarked = !!qObj && bookmarks.includes(qObj.id);
 
                 let pillClass =
                   'bg-surface-container-low text-on-surface-variant/60 hover:bg-surface-container border border-outline-variant/10';
@@ -643,10 +664,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                         onSelectIndex(idx);
                       }
                     }}
-                    className={`h-8 rounded font-mono-code text-xs flex items-center justify-center transition-all cursor-pointer ${pillClass}`}
-                    title={`Question ${qNum}`}
+                    className={`relative h-8 rounded font-mono-code text-xs flex items-center justify-center transition-all cursor-pointer ${pillClass}`}
+                    title={`Question ${qNum}${isBookmarked ? ' • Bookmarked' : ''}`}
+                    aria-label={`Question ${qNum}${isBookmarked ? ', bookmarked' : ''}`}
                   >
                     {String(qNum).padStart(2, '0')}
+                    {isBookmarked && <span className="grid-bookmark" aria-hidden="true" />}
                   </button>
                 );
               })}

@@ -171,8 +171,13 @@ export default defineConfig(({ mode }) => {
   // Dev-only: where `/api` is proxied. Not a VITE_ var, so it never reaches the browser bundle.
   const env = loadEnv(mode, __dirname, '');
   const apiProxyTarget = env.API_PROXY_TARGET || 'http://127.0.0.1:8000';
+  // App version shown on the News page and attached to bug reports; bump it in package.json per release
+  const { version } = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'));
 
   return {
+    define: {
+      __APP_VERSION__: JSON.stringify(version),
+    },
     plugins: [
       serveDiagramFiles(),
       serveLearningResources(),

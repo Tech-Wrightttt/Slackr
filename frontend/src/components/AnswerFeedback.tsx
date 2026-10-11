@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { MarkdownRenderer } from './MarkdownRenderer';
+import { ReportDialog } from './ReportDialog';
 import type { SRScheduleRecord } from '../db/schema';
 import {
   LearningResourcesService,
@@ -53,6 +54,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
   // Breakdown View Mode: always open on the original derivation, whether the answer was right or wrong
   const [breakdownView, setBreakdownView] = useState<'steps' | 'original'>('original');
   const [showOriginalDrawer, setShowOriginalDrawer] = useState(false);
+  const [reporting, setReporting] = useState(false);
 
   // Sync default view when question or correctness changes
   useEffect(() => {
@@ -385,12 +387,31 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
               </button>
             </div>
 
-            {/* Topic Category Pill */}
-            <span className="px-3 py-1.5 rounded-xl bg-secondary-container/30 text-on-surface border border-outline-variant/30 font-mono-code text-[11px] sm:text-xs font-bold uppercase tracking-wider w-fit self-start sm:self-auto">
-              {topicName}
-            </span>
+            <div className="flex items-center justify-between sm:justify-start gap-2">
+              {/* Topic Category Pill */}
+              <span className="px-3 py-1.5 rounded-xl bg-secondary-container/30 text-on-surface border border-outline-variant/30 font-mono-code text-[11px] sm:text-xs font-bold uppercase tracking-wider w-fit">
+                {topicName}
+              </span>
+
+              {/* Report a problem with the explanation */}
+              <button
+                type="button"
+                onClick={() => setReporting(true)}
+                aria-haspopup="dialog"
+                aria-label="Report a problem with this explanation"
+                title="Report a problem with this explanation"
+                className="press-scale min-h-[40px] px-3 rounded-xl border border-outline-variant/30 bg-surface-container text-on-surface-variant hover:text-error hover:border-error/40 font-mono-code text-xs flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">bug_report</span>
+                <span>Report</span>
+              </button>
+            </div>
           </div>
         </div>
+
+        {reporting && (
+          <ReportDialog kind="explanation" questionId={questionId} onClose={() => setReporting(false)} />
+        )}
 
         {/* Hidden Self-Assessment View */}
         {!isRevealed ? (

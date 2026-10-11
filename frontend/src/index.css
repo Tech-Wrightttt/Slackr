@@ -569,26 +569,31 @@ img {
   outline: 1.5px solid var(--color-on-surface-variant);
 }
 
-/* ── Daily set modal ─────────────────────────────────────────────── */
+/* ── Daily set modal + report sheet ─────────────────────────────────────────────── */
 
-.daily-backdrop {
+.daily-backdrop,
+.sheet-backdrop {
   transition: opacity 200ms ease;
 }
 @starting-style {
-  .daily-backdrop {
+  .daily-backdrop,
+  .sheet-backdrop {
     opacity: 0;
   }
 }
-.daily-dialog {
+.daily-dialog,
+.sheet-dialog {
   transition: opacity 220ms var(--ease-out), transform 220ms var(--ease-out);
 }
 @starting-style {
-  .daily-dialog {
+  .daily-dialog,
+  .sheet-dialog {
     opacity: 0;
     transform: translateY(8px) scale(0.97);
   }
 }
-.daily-choice {
+.daily-choice,
+.report-choice {
   transition: background-color 120ms ease, border-color 120ms ease, transform 120ms var(--ease-out);
 }
 .daily-choice:active:not(:disabled) {
@@ -597,7 +602,8 @@ img {
 
 @media (prefers-reduced-motion: reduce) {
   @starting-style {
-    .daily-dialog {
+    .daily-dialog,
+    .sheet-dialog {
       transform: none;
     }
   }
@@ -724,4 +730,35 @@ img {
 html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+}
+
+/* A modal (report sheet, daily set) owns the screen: hide the floating draw button so it can't cover its actions */
+body:has([role='dialog'][aria-modal='true']) .draw-fab {
+  display: none;
+}
+
+/* Bookmarked question: unmistakable amber chip with a filled icon, readable in both themes */
+.bookmark-on {
+  color: color-mix(in oklab, var(--color-confidence-amber) 75%, black);
+  background-color: color-mix(in oklab, var(--color-confidence-amber) 22%, transparent);
+  border-color: color-mix(in oklab, var(--color-confidence-amber) 55%, transparent);
+}
+.dark .bookmark-on {
+  color: var(--color-confidence-amber);
+}
+.bookmark-on .material-symbols-outlined {
+  font-variation-settings: 'FILL' 1;
+}
+
+/* Bookmark ribbon in the corner of a Question Grid cell; small enough to leave the number readable */
+.grid-bookmark {
+  position: absolute;
+  top: 0;
+  right: 4px;
+  width: 7px;
+  height: 10px;
+  background: var(--color-confidence-amber);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+  filter: drop-shadow(0 0 0.5px rgb(0 0 0 / 0.6));
+  pointer-events: none;
 }

@@ -139,6 +139,11 @@ No database migrations exist yet. Phase 2 only added the client; tables, RLS pol
 - [ ] Redeploy after changing any `VITE_*` value (they are baked in at build time)
 - [ ] Deploy; in the build log confirm both services build (bun install/build for `frontend`, pip for `backend`)
 
+### Bug reports (after Supabase exists)
+- [ ] Review `supabase/migrations/0001_bug_reports.sql`, then run it in the Supabase SQL Editor
+- [ ] Read reports in Table Editor → `bug_reports` (anon users can only insert; they can't read them back)
+- [ ] Until this runs, reports stay queued in each user's IndexedDB (`reports` table) and send automatically later
+
 ### Verify after the first deploy
 - [ ] `https://<domain>/api/health` → 200 (the `/api` rewrite reaches the `backend` service)
 - [ ] `https://<domain>/api/years` → 200 with data (the backend loaded questions over the `FRONTEND_URL` binding)

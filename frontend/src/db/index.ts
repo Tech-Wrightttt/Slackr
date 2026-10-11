@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { AttemptRecord, SRScheduleRecord, TopicStatRecord, SettingRecord, DeferredRecord, SessionRecord, AccountRecord } from './schema';
+import type { AttemptRecord, SRScheduleRecord, TopicStatRecord, SettingRecord, DeferredRecord, SessionRecord, AccountRecord, ReportRecord } from './schema';
 
 export class SlackrDatabase extends Dexie {
   attempts!: Table<AttemptRecord, number>;
@@ -9,6 +9,7 @@ export class SlackrDatabase extends Dexie {
   deferred!: Table<DeferredRecord, number>;
   sessions!: Table<SessionRecord, number>;
   accounts!: Table<AccountRecord, string>;
+  reports!: Table<ReportRecord, number>;
 
   constructor() {
     super('SlackrDB');
@@ -35,6 +36,11 @@ export class SlackrDatabase extends Dexie {
     });
     this.version(5).stores({
       drawings: null,
+    });
+
+    // Bug reports and content flags: an outbox that survives offline use until the report is sent
+    this.version(6).stores({
+      reports: '++id, &clientId, status, kind, questionId, createdAt',
     });
   }
 }
