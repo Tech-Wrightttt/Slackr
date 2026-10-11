@@ -50,15 +50,13 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
   const [showAIPrompt, setShowAIPrompt] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Breakdown View Mode: default to original derivation when user gets a wrong answer, steps when correct
-  const [breakdownView, setBreakdownView] = useState<'steps' | 'original'>(
-    isCorrect ? 'steps' : 'original'
-  );
+  // Breakdown View Mode: always open on the original derivation, whether the answer was right or wrong
+  const [breakdownView, setBreakdownView] = useState<'steps' | 'original'>('original');
   const [showOriginalDrawer, setShowOriginalDrawer] = useState(false);
 
   // Sync default view when question or correctness changes
   useEffect(() => {
-    setBreakdownView(isCorrect ? 'steps' : 'original');
+    setBreakdownView('original');
   }, [isCorrect, questionId]);
 
   // Analytical Steps State
@@ -306,7 +304,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
           </div>
         </div>
 
-        {/* Stats and Proceed Button */}
+        {/* Attempt stats (advancing lives in the question's own Next Question button) */}
         <div className="flex flex-wrap sm:flex-nowrap items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto">
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-container-high border border-outline-variant/30 text-xs font-mono-code text-on-surface shadow-xs">
@@ -320,14 +318,6 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
               </div>
             )}
           </div>
-          <button
-            onClick={onNext}
-            className="w-full sm:w-auto min-h-[46px] inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-primary hover:bg-primary-fixed-dim text-on-primary font-bold text-sm shadow-md transition-transform active:scale-95 cursor-pointer"
-            type="button"
-          >
-            <span>{hasNext ? 'Proceed to Next' : 'Complete Session'}</span>
-            <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-          </button>
         </div>
       </div>
 
@@ -1048,7 +1038,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
         </div>
         <div className="flex sm:hidden items-center gap-1.5 text-on-surface-variant/80">
           <span className="material-symbols-outlined text-[16px] text-primary">touch_app</span>
-          <span>Tap Proceed to Advance</span>
+          <span>Tap {hasNext ? 'Next Question' : 'Finish Quiz'} to advance</span>
         </div>
         <div className="flex items-center gap-3 sm:gap-4 text-on-surface-variant/60 text-[11px] sm:text-xs">
           <span>Local DB Synced</span>

@@ -24,11 +24,8 @@ const PALETTE = [
 ] as const;
 const SIZES = [2, 4, 8] as const;
 
-const TAP_MAX_MOVE = 6; // px: shorter gestures are taps that press whatever is underneath
-const TAP_MAX_MS = 350;
 const ERASER_RADIUS = 14;
 const HISTORY_LIMIT = 50;
-const CLICKABLE = 'button, a, input, select, textarea, label, summary, [role="button"], [tabindex]';
 
 const resolveColor = (key: string) => {
   if (key !== 'ink' && key !== 'primary') return key;
@@ -79,20 +76,10 @@ const strokeHit = (s: Stroke, x: number, y: number) => {
   return false;
 };
 
-/** A tap in draw mode still presses what's underneath: answer choices, Submit, Next, the question grid. */
-function forwardClick(canvas: HTMLElement, clientX: number, clientY: number) {
-  canvas.style.pointerEvents = 'none';
-  const hit = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
-  canvas.style.pointerEvents = '';
-  if (!hit) return;
-  const target = (hit.closest(CLICKABLE) as HTMLElement | null) ?? hit;
-  if (target.matches('input:not([type="checkbox"]):not([type="radio"]), textarea, select')) target.focus();
-  target.click();
-}
-
 /**
  * Full-screen scribble layer over the whole app, shown while a question is on screen.
- * Drag to draw, tap to press buttons underneath, two fingers to scroll.
+ * While drawing, the page underneath is locked: taps draw dots, keyboard shortcuts are held back,
+ * and only the tool bar and the round toggle respond. Two fingers (or the mouse wheel) still scroll.
  */
 export const DrawOverlay: React.FC = () => {
   const drawKey = useStore((s) => s.drawKey);
@@ -112,10 +99,6 @@ export const DrawOverlay: React.FC = () => {
   const g = useRef({
     mode: null as null | 'draw' | 'erase' | 'pan',
     pointerId: -1,
-    downX: 0,
-    downY: 0,
-    downT: 0,
-    moved: false,
     erasedThisGesture: false,
     current: null as Stroke | null,
     pointers: new Map<number, { x: number; y: number }>(),
@@ -172,6 +155,26 @@ export const DrawOverlay: React.FC = () => {
       frame.current = 0;
     };
   }, [drawKey, paint, schedulePaint]);
+
+  // Lock the page's keyboard too (answer keys, Enter/Space advance). Esc leaves draw mode.
+  useEffect(() => {
+    if (!drawMode) return;
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setDrawMode(false);
+        return;
+      }
+      // Keys aimed at the tool bar or toggle still work (Enter/Space on a focused tool)
+      if ((e.target as HTMLElement | null)?.closest?.('[data-draw-ui]')) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    window.addEventListener('keydown', onKey, { capture: true });
+    return () => window.removeEventListener('keydown', onKey, { capture: true });
+  }, [drawMode, setDrawMode]);
 
   // New question: fresh undo history; ink color follows the theme
   useEffect(() => {
@@ -231,14 +234,11 @@ export const DrawOverlay: React.FC = () => {
 
     e.currentTarget.setPointerCapture(e.pointerId);
     s.pointerId = e.pointerId;
-    s.downX = e.clientX;
-    s.downY = e.clientY;
-    s.downT = performance.now();
-    s.moved = false;
     s.erasedThisGesture = false;
     if (tool === 'eraser') {
       s.mode = 'erase';
-      return; // erases only once the pointer moves, so a tap still clicks through
+      eraseAt(e.clientX, e.clientY);
+      return;
     }
     s.mode = 'draw';
     s.current = {
@@ -259,11 +259,10 @@ export const DrawOverlay: React.FC = () => {
       return;
     }
     if (e.pointerId !== s.pointerId || !s.mode) return;
-    if (!s.moved && Math.hypot(e.clientX - s.downX, e.clientY - s.downY) > TAP_MAX_MOVE) s.moved = true;
 
     const events = e.nativeEvent.getCoalescedEvents?.() ?? [e.nativeEvent];
     if (s.mode === 'erase') {
-      if (s.moved) for (const ev of events) eraseAt(ev.clientX, ev.clientY);
+      for (const ev of events) eraseAt(ev.clientX, ev.clientY);
       return;
     }
     const cur = s.current;
@@ -284,11 +283,11 @@ export const DrawOverlay: React.FC = () => {
     }
     if (e.pointerId !== s.pointerId) return;
 
-    const isTap = !s.moved && performance.now() - s.downT < TAP_MAX_MS;
+    // A tap just leaves a dot: nothing under the canvas is pressed while drawing
     if (s.mode === 'draw' && s.current) {
       const cur = s.current;
       s.current = null;
-      if (!isTap) {
+      if (!cancelled) {
         pushHistory();
         setStrokes([...strokes(), cur]);
         bump();
@@ -297,7 +296,6 @@ export const DrawOverlay: React.FC = () => {
     }
     s.mode = null;
     s.pointerId = -1;
-    if (isTap && !cancelled && canvasRef.current) forwardClick(canvasRef.current, e.clientX, e.clientY);
   };
 
   const undo = () => {
@@ -341,6 +339,7 @@ export const DrawOverlay: React.FC = () => {
         <div
           role="toolbar"
           aria-label="Drawing tools"
+          data-draw-ui
           className="draw-toolbar fixed z-[9999] flex flex-wrap items-center justify-end gap-1 rounded-2xl border border-outline-variant/40 bg-surface-container-lowest/95 p-1.5 shadow-[0_8px_30px_rgba(0,0,0,0.2)] backdrop-blur-xl"
         >
           {(
@@ -426,6 +425,7 @@ export const DrawOverlay: React.FC = () => {
       <button
         type="button"
         onClick={() => setDrawMode(!drawMode)}
+        data-draw-ui
         aria-pressed={drawMode}
         aria-label={drawMode ? 'Stop drawing' : 'Draw on the screen'}
         title={drawMode ? 'Stop drawing' : 'Draw on the screen'}
