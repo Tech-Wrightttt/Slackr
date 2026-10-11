@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import { OfflineService } from './services/offlineService';
 import './index.css';
 
 // Register PWA Service Worker
@@ -20,6 +21,9 @@ if ('serviceWorker' in navigator) {
       .register('/sw.js', { scope: '/' })
       .then((registration) => {
         console.log('[SLACKR PWA] ServiceWorker registered with scope:', registration.scope);
+
+        // After a redeploy, keep an existing offline install launchable with the new build files
+        navigator.serviceWorker.ready.then(() => OfflineService.refreshAppShellIfStale()).catch(() => {});
 
         // Check for service worker updates
         registration.addEventListener('updatefound', () => {

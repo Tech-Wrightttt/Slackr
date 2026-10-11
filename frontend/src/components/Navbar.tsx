@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import { StatsDbService } from '../services/statsDb';
+import { OfflineDownloadButton } from './OfflineDownloadButton';
 
 export const Navbar: React.FC = () => {
   const { isOffline, setOffline, installPrompt, setInstallPrompt, theme, toggleTheme } = useStore();
@@ -75,13 +77,14 @@ export const Navbar: React.FC = () => {
             <img
               src="/SlackrLogo.png"
               alt="Slackr Logo"
-              className="w-8 h-8 rounded-lg object-contain shrink-0 group-hover:scale-105 transition-transform"
+              className="w-8 h-8 rounded-lg object-contain shrink-0"
+              style={{ transition: 'transform 160ms ease-out' }}
             />
             <span className="font-headline-md text-xl sm:text-2xl font-bold tracking-tight text-on-surface">
               SLACK<span className="text-primary font-extrabold">R</span>
             </span>
           </Link>
-          <span className="px-1.5 py-0.5 rounded bg-surface-container-high text-primary font-label-caps text-[11px] border border-outline-variant/30">
+          <span className="hidden sm:inline px-1.5 py-0.5 rounded bg-surface-container-high text-primary font-label-caps text-[11px] border border-outline-variant/30">
             FE / AP
           </span>
         </div>
@@ -155,6 +158,9 @@ export const Navbar: React.FC = () => {
             </span>
           </button>
 
+          {/* Full offline download (app + data + diagrams) */}
+          <OfflineDownloadButton />
+
           {/* Install PWA Button */}
           {installPrompt && (
             <button
@@ -168,7 +174,7 @@ export const Navbar: React.FC = () => {
           )}
 
           {/* Profile Badge */}
-          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary">
+          <div className="hidden sm:flex w-8 h-8 rounded-full bg-primary items-center justify-center text-on-primary">
             <span className="material-symbols-outlined text-[18px]">person</span>
           </div>
 
@@ -186,40 +192,58 @@ export const Navbar: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile Navigation Drawer */}
-      {mobileMenuOpen && (
-        <div className="xl:hidden border-t border-outline-variant/20 bg-surface-container-lowest/95 backdrop-blur-xl px-4 py-3 space-y-1">
-          {navLinks.map((item) => {
-            const isActive = item.end
-              ? location.pathname === item.to
-              : location.pathname.startsWith(item.to);
+      {/* Mobile Navigation Drawer — AnimatePresence gives enter/exit animation */}
+      <AnimatePresence initial={false}>
+        {mobileMenuOpen && (
+          <motion.div
+            key="mobile-drawer"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+            className="xl:hidden overflow-hidden border-t border-outline-variant/20 bg-surface-container-lowest/95 backdrop-blur-xl"
+          >
+            <div className="px-4 py-3 space-y-1">
+              {navLinks.map((item, i) => {
+                const isActive = item.end
+                  ? location.pathname === item.to
+                  : location.pathname.startsWith(item.to);
 
-            return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.end}
-                onClick={() => setMobileMenuOpen(false)}
-                className={
-                  isActive
-                    ? 'flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold bg-surface-container-high text-primary'
-                    : 'flex items-center justify-between rounded-lg px-3 py-2 text-sm text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
-                }
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
-                  <span>{item.label}</span>
-                </div>
-                {item.badge !== undefined && item.badge !== null && (
-                  <span className="px-2 py-0.5 rounded-full bg-confidence-amber/20 text-confidence-amber font-mono-timer text-xs font-bold">
-                    {item.badge}
-                  </span>
-                )}
-              </NavLink>
-            );
-          })}
-        </div>
-      )}
+                return (
+                  <motion.div
+                    key={item.to}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.16, delay: i * 0.03, ease: [0.23, 1, 0.32, 1] }}
+                  >
+                    <NavLink
+                      to={item.to}
+                      end={item.end}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={
+                        isActive
+                          ? 'flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-semibold bg-surface-container-high text-primary'
+                          : 'flex items-center justify-between rounded-lg px-3 py-2.5 text-sm text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
+                      }
+                      style={{ transition: 'background-color 120ms ease-out, color 120ms ease-out' }}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span className="material-symbols-outlined text-[18px]">{item.icon}</span>
+                        <span>{item.label}</span>
+                      </div>
+                      {item.badge !== undefined && item.badge !== null && (
+                        <span className="px-2 py-0.5 rounded-full bg-confidence-amber/20 text-confidence-amber font-mono-timer text-xs font-bold">
+                          {item.badge}
+                        </span>
+                      )}
+                    </NavLink>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </header>
   );
 };

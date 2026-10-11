@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { LocalJsonStore } from './localJsonStore';
 
 export interface LearningResource {
   id: string;
@@ -15,57 +15,56 @@ export interface LearningResourcesData {
 
 let memoryCache: LearningResourcesData | null = null;
 
-const STORAGE_KEY = 'slackr_learning_resources_cache';
+const store = new LocalJsonStore<LearningResourcesData>({
+  storageKey: 'slackr_learning_resources_cache',
+  apiUrl: '/api/learning-resources',
+  staticUrl: '/data/learning_resources.json',
+  empty: () => ({ topics: {}, questions: {} }),
+});
+
+const normalize = (d: Partial<LearningResourcesData> | null | undefined): LearningResourcesData => ({
+  topics: d?.topics && typeof d.topics === 'object' ? d.topics : {},
+  questions: d?.questions && typeof d.questions === 'object' ? d.questions : {},
+});
 
 export class LearningResourcesService {
+  /** True when the last save reached the project JSON file; false = saved on this device only. */
+  static get lastSavedRemotely(): boolean {
+    return store.lastSavedRemotely;
+  }
+
   /**
-   * Load all learning resources from API / static JSON / local cache.
+   * Load all learning resources (local-first, works offline).
    */
   static async loadAll(): Promise<LearningResourcesData> {
     if (memoryCache) {
       return memoryCache;
     }
+    memoryCache = normalize(await store.load());
+    return memoryCache;
+  }
 
-    let loaded: LearningResourcesData = { topics: {}, questions: {} };
+  static isLearningResourcesShape(json: any): boolean {
+    if (!json || typeof json !== 'object' || Array.isArray(json)) return false;
+    if (!json.topics || typeof json.topics !== 'object') return false;
+    const sample = [...Object.values(json.topics), ...Object.values(json.questions || {})][0];
+    return sample === undefined || Array.isArray(sample);
+  }
 
-    // 1. Try local storage / Dexie first for any latest edits
-    try {
-      const cachedStr = localStorage.getItem(STORAGE_KEY);
-      if (cachedStr) {
-        loaded = JSON.parse(cachedStr);
-      }
-    } catch (e) {
-      // ignore
-    }
-
-    // 2. Fetch from API or static JSON bundle
-    try {
-      const res = await fetch('/api/learning-resources');
-      if (res.ok) {
-        const remoteData: LearningResourcesData = await res.json();
-        loaded = this.mergeData(remoteData, loaded);
-      } else {
-        const staticRes = await fetch('/data/learning_resources.json');
-        if (staticRes.ok) {
-          const staticData: LearningResourcesData = await staticRes.json();
-          loaded = this.mergeData(staticData, loaded);
-        }
-      }
-    } catch (e) {
-      try {
-        const staticRes = await fetch('/data/learning_resources.json');
-        if (staticRes.ok) {
-          const staticData: LearningResourcesData = await staticRes.json();
-          loaded = this.mergeData(staticData, loaded);
-        }
-      } catch (err) {
-        // use local
-      }
-    }
-
-    memoryCache = loaded;
-    this.saveToLocalCache(loaded);
-    return loaded;
+  /** Import a learning_resources.json (or the block inside a full backup). Works offline. */
+  static async importData(
+    incoming: Partial<LearningResourcesData>,
+    strategy: 'merge' | 'replace'
+  ): Promise<{ count: number; savedRemotely: boolean }> {
+    const clean = normalize(incoming);
+    const next = strategy === 'replace' ? clean : this.mergeData(await this.loadAll(), clean);
+    memoryCache = next;
+    const savedRemotely = await store.save(next);
+    const count = [...Object.values(clean.topics), ...Object.values(clean.questions)].reduce(
+      (n, list) => n + (Array.isArray(list) ? list.length : 0),
+      0
+    );
+    return { count, savedRemotely };
   }
 
   private static mergeData(
@@ -107,15 +106,6 @@ export class LearningResourcesService {
     }
 
     return result;
-  }
-
-  private static saveToLocalCache(data: LearningResourcesData) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      db.settings.put({ key: 'learning_resources', value: data }).catch(() => {});
-    } catch (e) {
-      // ignore
-    }
   }
 
   /**
@@ -186,8 +176,7 @@ export class LearningResourcesService {
     }
 
     memoryCache = data;
-    this.saveToLocalCache(data);
-    await this.persistToJson(data);
+    await store.save(data);
 
     return newResource;
   }
@@ -236,8 +225,7 @@ export class LearningResourcesService {
 
     if (found) {
       memoryCache = data;
-      this.saveToLocalCache(data);
-      await this.persistToJson(data);
+      await store.save(data);
     }
 
     return found;
@@ -274,25 +262,9 @@ export class LearningResourcesService {
 
     if (found) {
       memoryCache = data;
-      this.saveToLocalCache(data);
-      await this.persistToJson(data);
+      await store.save(data);
     }
 
     return found;
-  }
-
-  /**
-   * Persist full data structure to backend / public JSON file.
-   */
-  private static async persistToJson(data: LearningResourcesData): Promise<void> {
-    try {
-      await fetch('/api/learning-resources', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-    } catch (e) {
-      console.warn('Could not post learning resources to API, saved to offline cache:', e);
-    }
   }
 }

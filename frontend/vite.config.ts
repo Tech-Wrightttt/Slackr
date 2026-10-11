@@ -146,8 +146,36 @@ function serveAnalyticalBreakdowns(): Plugin {
   };
 }
 
+/**
+ * Emits dist/asset-manifest.json listing every built file (hashed JS/CSS/fonts),
+ * so the service worker and the "Download offline" action can cache the full app.
+ */
+function emitAssetManifest(): Plugin {
+  return {
+    name: 'emit-asset-manifest',
+    apply: 'build',
+    generateBundle(_options, bundle) {
+      const assets = Object.keys(bundle)
+        .filter((f) => !f.endsWith('.map'))
+        .map((f) => `/${f}`);
+      this.emitFile({
+        type: 'asset',
+        fileName: 'asset-manifest.json',
+        source: JSON.stringify({ version: Date.now().toString(36), assets }, null, 2),
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [serveDiagramFiles(), serveLearningResources(), serveAnalyticalBreakdowns(), tailwindcss(), react()],
+  plugins: [
+    serveDiagramFiles(),
+    serveLearningResources(),
+    serveAnalyticalBreakdowns(),
+    emitAssetManifest(),
+    tailwindcss(),
+    react(),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

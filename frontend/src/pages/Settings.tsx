@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useStore, type ThemeMode } from '../store/useStore';
 import { SyncService } from '../services/syncService';
 import { StatsDbService } from '../services/statsDb';
+import { OfflineService } from '../services/offlineService';
 import type { SRAlgorithm } from '../services/srsEngine';
 import { db } from '../db';
 
@@ -21,57 +22,42 @@ export const Settings: React.FC = () => {
     setSessionLength,
     installPrompt,
     setInstallPrompt,
+    offlineDownload,
+    isOffline,
   } = useStore();
 
   const [storageUsage, setStorageUsage] = useState<{ usageMb: number; quotaMb: number }>({
     usageMb: 0,
     quotaMb: 0,
   });
-
-  const [isDownloadingDiagrams, setIsDownloadingDiagrams] = useState<boolean>(false);
-  const [downloadProgress, setDownloadProgress] = useState<{ current: number; total: number; pct: number }>({
-    current: 0,
-    total: 0,
-    pct: 0,
-  });
-  const [syncStatusMsg, setSyncStatusMsg] = useState<string | null>(null);
+  const [cachedDiagrams, setCachedDiagrams] = useState<number>(0);
 
   const [importStrategy, setImportStrategy] = useState<'merge' | 'replace'>('merge');
   const [statusNotification, setStatusNotification] = useState<string | null>(null);
   const [showResetModal, setShowResetModal] = useState<boolean>(false);
 
+  const isDownloading = offlineDownload.status === 'downloading';
+  const downloadPct = offlineDownload.total > 0 ? Math.round((offlineDownload.done / offlineDownload.total) * 100) : 0;
+
+  const loadStorageEstimate = async () => {
+    setStorageUsage(await SyncService.getStorageEstimate());
+    setCachedDiagrams(await OfflineService.countCachedDiagrams());
+  };
+
   useEffect(() => {
     loadStorageEstimate();
   }, []);
 
-  const loadStorageEstimate = async () => {
-    const est = await SyncService.getStorageEstimate();
-    setStorageUsage(est);
-  };
+  // Refresh storage numbers when a download (started here or from the navbar) finishes
+  useEffect(() => {
+    if (!isDownloading) loadStorageEstimate();
+  }, [isDownloading]);
 
-  const handleDownloadAllDiagrams = async () => {
-    setIsDownloadingDiagrams(true);
-    setSyncStatusMsg('Starting diagram download...');
-
-    try {
-      const res = await SyncService.downloadAllDiagrams((current, total, pct) => {
-        setDownloadProgress({ current, total, pct });
-        setSyncStatusMsg(`Downloaded ${current} of ${total} diagrams (${pct}%)...`);
-      });
-
-      setSyncStatusMsg(`Sync complete! ${res.downloaded} diagrams saved for 100% offline use.`);
-      await loadStorageEstimate();
-    } catch (err: any) {
-      setSyncStatusMsg(`Download failed: ${err?.message || 'Network error'}`);
-    } finally {
-      setIsDownloadingDiagrams(false);
-    }
-  };
+  const handleDownloadOffline = () => void OfflineService.downloadEverything();
 
   const handleClearDiagramCache = async () => {
-    if (confirm('Clear all cached exam diagrams? You will need internet to view them until re-synced.')) {
-      await SyncService.clearDiagramCache();
-      setSyncStatusMsg('Diagram cache cleared.');
+    if (confirm('Clear all cached exam diagrams? You will need internet to view them until downloaded again.')) {
+      await OfflineService.clearDiagrams();
       await loadStorageEstimate();
     }
   };
@@ -101,10 +87,19 @@ export const Settings: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (
+      importStrategy === 'replace' &&
+      !confirm('Overwrite mode replaces all progress on this device with the contents of this file. Continue?')
+    ) {
+      e.target.value = '';
+      return;
+    }
+
     try {
       const text = await file.text();
       const parsed = JSON.parse(text);
       const res = await SyncService.importLocalData(parsed, importStrategy);
+      if (res.algorithm) setCurrentAlgo(res.algorithm);
       setStatusNotification(res.message);
       await loadStorageEstimate();
     } catch (err: any) {
@@ -116,9 +111,13 @@ export const Settings: React.FC = () => {
   };
 
   const handleResetAllData = async () => {
-    await db.attempts.clear();
-    await db.srSchedules.clear();
-    await db.topicStats.clear();
+    await Promise.all([
+      db.attempts.clear(),
+      db.srSchedules.clear(),
+      db.topicStats.clear(),
+      db.deferred.clear(),
+      db.sessions.clear(),
+    ]);
     setShowResetModal(false);
     setStatusNotification('All user attempts and review schedules have been reset.');
     await loadStorageEstimate();
@@ -286,57 +285,82 @@ export const Settings: React.FC = () => {
         </div>
       </div>
 
-      {/* 3. Offline Diagram Cache Manager */}
-      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col gap-4">
-        <div className="flex items-center justify-between">
+      {/* 3. Offline Download Manager */}
+      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 sm:p-6 shadow-md flex flex-col gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-interactive-sky">
-              <span className="material-symbols-outlined text-[20px]">hard_drive</span>
+            <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-interactive-sky shrink-0">
+              <span className="material-symbols-outlined text-[20px]">download_for_offline</span>
             </div>
             <div>
-              <h2 className="font-title-sm text-base font-bold text-on-surface">
-                Offline Diagram Cache Manager
-              </h2>
+              <h2 className="font-title-sm text-base font-bold text-on-surface">Offline Download</h2>
               <p className="font-mono-code text-xs text-on-surface-variant">
-                Pre-cache all 2,400+ exam schematics into IndexedDB for 100% offline study.
+                Saves the whole app, fonts, the 3,609-question bank and all 2,400+ diagrams to this device.
               </p>
             </div>
           </div>
 
-          <div className="text-right font-mono-code text-xs text-on-surface-variant">
-            IndexedDB: <strong className="text-on-surface">{storageUsage.usageMb} MB</strong>
+          <div className="font-mono-code text-xs text-on-surface-variant sm:text-right shrink-0">
+            <div>Storage used: <strong className="text-on-surface">{storageUsage.usageMb} MB</strong></div>
+            <div>Diagrams saved: <strong className="text-on-surface tabular-nums">{cachedDiagrams.toLocaleString()}</strong></div>
           </div>
         </div>
 
-        {isDownloadingDiagrams && (
+        {(isDownloading || offlineDownload.message) && (
           <div className="space-y-1.5 font-mono-code text-xs">
-            <div className="flex justify-between text-on-surface-variant">
-              <span>{syncStatusMsg}</span>
-              <span>{downloadProgress.pct}%</span>
+            <div className="flex justify-between gap-3 text-on-surface-variant">
+              <span
+                className={
+                  offlineDownload.status === 'error'
+                    ? 'text-error'
+                    : offlineDownload.status === 'ready'
+                    ? 'text-mastery-emerald'
+                    : ''
+                }
+              >
+                {offlineDownload.message}
+              </span>
+              {isDownloading && (
+                <span className="tabular-nums shrink-0">
+                  {offlineDownload.done.toLocaleString()} / {offlineDownload.total.toLocaleString()} · {downloadPct}%
+                </span>
+              )}
             </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-highest">
-              <div className="h-full bg-primary transition-all duration-200" style={{ width: `${downloadProgress.pct}%` }} />
-            </div>
+            {isDownloading && (
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface-container-highest">
+                <div
+                  className="h-full bg-primary rounded-full"
+                  style={{ width: `${downloadPct}%`, transition: 'width 200ms ease-out' }}
+                />
+              </div>
+            )}
           </div>
-        )}
-
-        {syncStatusMsg && !isDownloadingDiagrams && (
-          <div className="text-xs font-mono-code text-primary">{syncStatusMsg}</div>
         )}
 
         <div className="flex flex-wrap items-center gap-3 pt-1">
           <button
-            onClick={handleDownloadAllDiagrams}
-            disabled={isDownloadingDiagrams}
-            className="flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary-fixed-dim px-4 py-2.5 text-xs font-body-bold text-on-primary shadow-sm active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
+            onClick={handleDownloadOffline}
+            disabled={isDownloading || isOffline}
+            className="flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary-fixed-dim px-4 py-2.5 min-h-[44px] text-xs font-body-bold text-on-primary shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
+            style={{ transition: 'background-color 150ms ease-out, transform 100ms ease-out' }}
           >
-            <span className="material-symbols-outlined text-[16px]">download</span>
-            <span>Download All Diagrams (Offline Cache)</span>
+            <span className="material-symbols-outlined text-[16px]">
+              {offlineDownload.status === 'ready' ? 'sync' : 'download'}
+            </span>
+            <span>
+              {isDownloading
+                ? `Downloading… ${downloadPct}%`
+                : offlineDownload.status === 'ready'
+                ? 'Check for updates'
+                : 'Download for offline use'}
+            </span>
           </button>
 
           <button
             onClick={handleClearDiagramCache}
-            className="flex items-center gap-1.5 rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-2.5 text-xs font-mono-code text-on-surface-variant hover:text-error transition-all cursor-pointer"
+            disabled={isDownloading}
+            className="flex items-center gap-1.5 rounded-xl border border-outline-variant/30 bg-surface-container px-4 py-2.5 min-h-[44px] text-xs font-mono-code text-on-surface-variant hover:text-error disabled:opacity-50 cursor-pointer"
+            style={{ transition: 'color 150ms ease-out' }}
           >
             <span className="material-symbols-outlined text-[16px]">delete</span>
             <span>Clear Diagram Cache</span>
@@ -484,7 +508,9 @@ export const Settings: React.FC = () => {
           <div>
             <h2 className="font-title-sm text-base font-bold text-on-surface">Data Backup &amp; Portability</h2>
             <p className="font-mono-code text-xs text-on-surface-variant">
-              Export all local IndexedDB attempt records and review schedules as JSON.
+              Export or import progress, schedules, bookmarks, deferred items, learning resources and breakdowns.
+              Works online and offline. Import also accepts learning_resources.json, analytical_breakdowns.json and
+              backend exports.
             </p>
           </div>
         </div>
@@ -501,7 +527,7 @@ export const Settings: React.FC = () => {
           <label className="flex items-center gap-1.5 rounded-xl bg-surface-container-high hover:bg-surface-container-highest border border-outline-variant/30 px-4 py-2.5 text-xs font-mono-code text-on-surface transition-colors cursor-pointer">
             <span className="material-symbols-outlined text-[16px] text-interactive-sky">upload</span>
             <span>Import JSON Archive</span>
-            <input type="file" accept=".json" onChange={handleImportFile} className="hidden" />
+            <input type="file" accept=".json,application/json" onChange={handleImportFile} className="hidden" />
           </label>
 
           <div className="flex items-center gap-2 font-mono-code text-xs text-on-surface-variant">

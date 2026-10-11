@@ -2,6 +2,8 @@ import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { useStore } from './store/useStore';
+import { StatsDbService } from './services/statsDb';
+import type { SRAlgorithm } from './services/srsEngine';
 import { WifiOff, Loader2 } from 'lucide-react';
 
 const Home = lazy(() => import('./pages/Home').then((m) => ({ default: m.Home })));
@@ -28,7 +30,11 @@ const LoadingFallback: React.FC = () => (
 );
 
 export const App: React.FC = () => {
-  const { isOffline, setOffline } = useStore();
+  const { isOffline, setOffline, setCurrentAlgo } = useStore();
+
+  useEffect(() => {
+    StatsDbService.getSetting<SRAlgorithm>('spaced_repetition_algorithm', 'SM-2').then(setCurrentAlgo).catch(() => {});
+  }, [setCurrentAlgo]);
 
   useEffect(() => {
     const handleOnline = () => setOffline(false);

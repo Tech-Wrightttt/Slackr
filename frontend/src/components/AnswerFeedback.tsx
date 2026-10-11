@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import type { SRScheduleRecord } from '../db/schema';
 import {
@@ -168,10 +169,12 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
   const handleSaveAllSteps = async () => {
     if (!questionId) return;
     try {
-      await AnalyticalBreakdownService.saveStepsForQuestion(questionId, steps);
+      const savedRemotely = await AnalyticalBreakdownService.saveStepsForQuestion(questionId, steps);
       setIsEditingSteps(false);
       setEditingStepIndex(null);
-      setStepSaveStatus('Saved to analytical_breakdowns.json');
+      setStepSaveStatus(
+        savedRemotely ? 'Saved to analytical_breakdowns.json' : 'Saved on this device · syncs when online'
+      );
       setTimeout(() => setStepSaveStatus(null), 3000);
     } catch (err) {
       console.error('Failed to save breakdown steps:', err);
@@ -210,13 +213,21 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
           targetType: formResTargetType,
           targetKey: formResTargetType === 'question' ? (questionId || 'current') : formResTargetKey,
         });
-        setResourceSaveStatus('Saved to learning_resources.json');
+        setResourceSaveStatus(
+          LearningResourcesService.lastSavedRemotely
+            ? 'Saved to learning_resources.json'
+            : 'Saved on this device · syncs when online'
+        );
       } else if (editingResource && typeof editingResource === 'object') {
         await LearningResourcesService.updateResource(editingResource.id, {
           label: formResLabel.trim(),
           url: formResUrl.trim(),
         });
-        setResourceSaveStatus('Updated in learning_resources.json');
+        setResourceSaveStatus(
+          LearningResourcesService.lastSavedRemotely
+            ? 'Updated in learning_resources.json'
+            : 'Updated on this device · syncs when online'
+        );
       }
 
       const refreshed = await LearningResourcesService.getResources(questionId, questionTopics);
@@ -237,7 +248,11 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
       await LearningResourcesService.deleteResource(id);
       const refreshed = await LearningResourcesService.getResources(questionId, questionTopics);
       setResources(refreshed);
-      setResourceSaveStatus('Removed from learning_resources.json');
+      setResourceSaveStatus(
+        LearningResourcesService.lastSavedRemotely
+          ? 'Removed from learning_resources.json'
+          : 'Removed on this device · syncs when online'
+      );
       setTimeout(() => setResourceSaveStatus(null), 3000);
     } catch (err) {
       console.error('Failed to delete learning resource:', err);
@@ -473,6 +488,22 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                   </div>
                 </div>
 
+                {/* Empty state */}
+                {steps.length === 0 && !isEditingSteps && (
+                  <div className="py-10 flex flex-col items-center gap-3 text-center text-on-surface-variant rounded-2xl border border-dashed border-outline-variant/40 bg-surface-container/40">
+                    <span className="material-symbols-outlined text-3xl text-on-surface-variant/40">pending_actions</span>
+                    <p className="font-mono-code text-xs text-on-surface-variant/70">No breakdown steps for this question yet.</p>
+                    <button
+                      type="button"
+                      onClick={() => { setIsEditingSteps(true); handleAddStep(); }}
+                      className="mt-1 px-4 py-2 rounded-lg bg-primary text-on-primary font-semibold text-xs cursor-pointer shadow-sm"
+                      style={{ transition: 'opacity 120ms ease-out, transform 100ms ease-out' }}
+                    >
+                      + Add First Step
+                    </button>
+                  </div>
+                )}
+
                 {/* Steps List */}
                 <div className="space-y-6 sm:space-y-8">
                   {steps.map((step, idx) => {
@@ -481,7 +512,13 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                     const isBeingEdited = isEditingSteps && editingStepIndex === idx;
 
                     return (
-                      <div key={step.id || idx} className="space-y-3 group/step">
+                      <motion.div
+                        key={step.id || idx}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.22, delay: idx * 0.05, ease: [0.23, 1, 0.32, 1] }}
+                        className="space-y-3 group/step"
+                      >
                         {/* Step Header with Editable Number and Title */}
                         <div className="flex items-start sm:items-center justify-between gap-2.5 sm:gap-3">
                           <div className="flex items-center gap-2.5 sm:gap-3 flex-1 min-w-0">
@@ -570,23 +607,28 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                                   <span className="material-symbols-outlined text-xl sm:text-2xl text-primary shrink-0 mt-0.5">
                                     check_circle
                                   </span>
-                                  <p className="text-xs sm:text-sm lg:text-base leading-relaxed">
-                                    {step.content}
-                                  </p>
+                                  <MarkdownRenderer
+                                    content={step.content}
+                                    className="prose-p:my-1 text-xs sm:text-sm lg:text-base"
+                                  />
                                 </div>
                               ) : isTrap ? (
                                 /* 2. Trap Analysis Special Frame */
                                 <div className="p-4 sm:p-5 rounded-xl sm:rounded-2xl bg-error/10 border border-error/25 text-on-surface space-y-2.5 shadow-xs">
-                                  <p className="text-xs sm:text-sm lg:text-base leading-relaxed">
-                                    {step.content}
-                                  </p>
+                                  <MarkdownRenderer
+                                    content={step.content}
+                                    className="prose-p:my-1 text-xs sm:text-sm lg:text-base"
+                                  />
                                 </div>
                               ) : step.type === 'parameter' && step.parameters && step.parameters.length > 0 ? (
-                                /* 3. Parameter Visual Cards Grid (2-col on mobile phones, 4-col on desktop) */
+                                /* 3. Parameter Visual Cards Grid (2-col on mobile, 4-col on desktop) */
                                 <div className="space-y-3">
-                                  <p className="text-xs sm:text-sm lg:text-base leading-relaxed text-on-surface-variant">
-                                    {step.content}
-                                  </p>
+                                  {step.content && (
+                                    <MarkdownRenderer
+                                      content={step.content}
+                                      className="prose-p:my-1 text-xs sm:text-sm text-on-surface-variant"
+                                    />
+                                  )}
                                   <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
                                     {step.parameters.map((p, pIdx) => (
                                       <div
@@ -609,19 +651,26 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                                   </div>
                                 </div>
                               ) : step.type === 'formula' && step.formula ? (
-                                /* 4. Mathematical Formula Display Box */
+                                /* 4. Mathematical Formula Display Box — MarkdownRenderer handles LaTeX */
                                 <div className="space-y-3">
-                                  <p className="text-xs sm:text-sm lg:text-base leading-relaxed text-on-surface-variant">
-                                    {step.content}
-                                  </p>
+                                  {step.content && (
+                                    <MarkdownRenderer
+                                      content={step.content}
+                                      className="prose-p:my-1 text-xs sm:text-sm text-on-surface-variant"
+                                    />
+                                  )}
                                   <div className="bg-surface-container rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-outline-variant/20 text-center space-y-3 sm:space-y-4 shadow-xs overflow-x-auto max-w-full styled-horizontal-scrollbar">
-                                    <div className="inline-flex items-center gap-2 sm:gap-3 text-sm sm:text-base lg:text-lg font-mono text-on-surface flex-wrap justify-center font-bold">
-                                      <span className="text-primary">{step.formula.label}</span>
-                                      <span className="text-on-surface-variant font-normal">:</span>
-                                      <span className="break-words">{step.formula.expression}</span>
+                                    <div className="flex flex-col items-center gap-1.5">
+                                      <span className="text-primary font-mono-code text-xs uppercase tracking-wider font-bold">{step.formula.label}</span>
+                                      <div className="text-sm sm:text-base lg:text-lg font-mono text-on-surface font-bold break-words max-w-full">
+                                        <MarkdownRenderer
+                                          content={step.formula.expression}
+                                          className="prose-p:my-0 text-sm sm:text-base"
+                                        />
+                                      </div>
                                     </div>
                                     {step.formula.result && (
-                                      <div className="inline-flex items-center gap-2 sm:gap-3 text-base sm:text-lg lg:text-xl font-mono text-on-surface flex-wrap justify-center font-semibold pt-2 border-t border-outline-variant/20">
+                                      <div className="flex items-center justify-center gap-2 sm:gap-3 text-base sm:text-lg lg:text-xl font-mono text-on-surface flex-wrap pt-2 border-t border-outline-variant/20">
                                         <span className="text-primary font-extrabold">=</span>
                                         <span className="px-3 sm:px-4 py-1.5 bg-primary/20 text-primary rounded-xl border border-primary/30 font-extrabold">
                                           {step.formula.result}
@@ -631,15 +680,16 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                                   </div>
                                 </div>
                               ) : (
-                                /* 5. Standard Content Paragraph */
-                                <p className="text-xs sm:text-sm lg:text-base leading-relaxed text-on-surface">
-                                  {step.content}
-                                </p>
+                                /* 5. Standard Content — MarkdownRenderer handles LaTeX, tables, code */
+                                <MarkdownRenderer
+                                  content={step.content}
+                                  className="prose-p:my-1.5 text-xs sm:text-sm lg:text-base text-on-surface"
+                                />
                               )}
                             </>
                           )}
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>

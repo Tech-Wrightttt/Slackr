@@ -1,3 +1,138 @@
 {
-  "questions": {}
+  "questions": {
+    "2024S_FE-A_1": [
+      {
+        "id": "step-1",
+        "stepNumber": "01",
+        "title": "Objective & Problem Definition",
+        "content": "### Step 1: Convert the whole part (123) to decimal.",
+        "type": "standard"
+      },
+      {
+        "id": "step-2",
+        "stepNumber": "02",
+        "title": "Extracted Operational Parameters",
+        "content": "Key parameters and given boundary values extracted from the problem statement:",
+        "type": "parameter",
+        "parameters": [
+          {
+            "label": "Unit Price / Primary Metric",
+            "value": "Given in Table",
+            "subtext": "Per finished unit"
+          },
+          {
+            "label": "Fixed Costs / Structural Overhead",
+            "value": "Extracted",
+            "subtext": "Base administrative load"
+          },
+          {
+            "label": "Variable Rate / Unit Delta",
+            "value": "Calculated",
+            "subtext": "Operational marginal cost"
+          },
+          {
+            "label": "Target Objective / Output",
+            "value": "Specified in Stem",
+            "subtext": "Target condition"
+          }
+        ]
+      },
+      {
+        "id": "step-3",
+        "stepNumber": "03",
+        "title": "Contribution Margin & Rate Derivation",
+        "content": "Calculate intermediate operational ratios and variable deductions to determine net unit contribution toward fixed cost absorption.",
+        "type": "standard"
+      },
+      {
+        "id": "step-4",
+        "stepNumber": "04",
+        "title": "Mathematical Derivation & Value Substitution",
+        "content": "The hexadecimal number `123` can be expanded as:\n\n$1 \\times 16^2 + 2 \\times 16^1 + 3 \\times 16^0$\n\n$= 1 \\times 256 + 2 \\times 16 + 3 \\times 1$\n\n$= 256 + 32 + 3 = 291$\n\n### Step 2: Convert the fractional part (0.4) to decimal.\n\nIn hexadecimal, `4` means \\( 4 \\times 16^{-1} \\):\n\n$4 \\times \\frac{1}{16} = \\frac{4}{16} = 0.25$\n\n### Step 3: Add the whole and fractional parts together.\n\n$291 + 0.25 = 291.25$\n\n- [Google Meet: Online Web and Video Conferencing Calls | Google Workspace](https://meet.google.com/landing?authuser=4)",
+        "type": "formula",
+        "formula": {
+          "label": "Required Output Equation",
+          "expression": "Target Units = (Total Fixed Load + Target Return) / Net Unit Contribution",
+          "result": "c) 291.25"
+        }
+      },
+      {
+        "id": "step-5",
+        "stepNumber": "05",
+        "title": "Final Takeaway & Conclusion",
+        "content": "Therefore, the verified solution is c) 291.25, satisfying all boundary equations under the specified examination criteria.",
+        "type": "conclusion"
+      },
+      {
+        "id": "step-6",
+        "stepNumber": "06",
+        "title": "Trap Analysis & Distractor Elimination (Selection: B)",
+        "content": "Common exam pitfalls involve omitting variable deductions from the divisor or miscalculating base allocations, leading directly to distractor options.",
+        "type": "trap"
+      },
+      {
+        "id": "step-1791713200812",
+        "stepNumber": "07",
+        "title": "New Analytical Step",
+        "content": "Enter derivation details here...",
+        "type": "standard"
+      },
+      {
+        "id": "step-1791713201664",
+        "stepNumber": "08",
+        "title": "New Analytical Step",
+        "content": "Enter derivation details here...",
+        "type": "standard"
+      },
+      {
+        "id": "step-1791713201848",
+        "stepNumber": "09",
+        "title": "New Analytical Step",
+        "content": "Enter derivation details here...",
+        "type": "standard"
+      },
+      {
+        "id": "step-1791713202009",
+        "stepNumber": "10",
+        "title": "New Analytical Step",
+        "content": "Enter derivation details here...",
+        "type": "standard"
+      },
+      {
+        "id": "step-1791713202170",
+        "stepNumber": "11",
+        "title": "New Analytical Step",
+        "content": "Enter derivation details here...",
+        "type": "standard"
+      },
+      {
+        "id": "step-1791713202342",
+        "stepNumber": "12",
+        "title": "New Analytical Step",
+        "content": "Enter derivation details here...",
+        "type": "standard"
+      },
+      {
+        "id": "step-1791713202514",
+        "stepNumber": "13",
+        "title": "New Analytical Step",
+        "content": "Enter derivation details here...",
+        "type": "standard"
+      },
+      {
+        "id": "step-1791713202687",
+        "stepNumber": "14",
+        "title": "New Analytical Step",
+        "content": "Enter derivation details here...",
+        "type": "standard"
+      },
+      {
+        "id": "step-1791713202850",
+        "stepNumber": "15",
+        "title": "New Analytical Step",
+        "content": "Enter derivation details here...",
+        "type": "standard"
+      }
+    ]
+  }
 }

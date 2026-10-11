@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { LocalJsonStore } from './localJsonStore';
 
 export interface AnalyticalStep {
   id: string;
@@ -15,66 +15,54 @@ export interface BreakdownsData {
 }
 
 let memoryCache: BreakdownsData | null = null;
-const STORAGE_KEY = 'slackr_analytical_breakdowns_cache';
+
+const store = new LocalJsonStore<BreakdownsData>({
+  storageKey: 'slackr_analytical_breakdowns_cache',
+  apiUrl: '/api/analytical-breakdowns',
+  staticUrl: '/data/analytical_breakdowns.json',
+  empty: () => ({ questions: {} }),
+});
+
+const normalize = (d: Partial<BreakdownsData> | null | undefined): BreakdownsData => ({
+  questions: d?.questions && typeof d.questions === 'object' ? d.questions : {},
+});
 
 export class AnalyticalBreakdownService {
+  /** True when the last save reached the project JSON file; false = saved on this device only. */
+  static get lastSavedRemotely(): boolean {
+    return store.lastSavedRemotely;
+  }
+
   /**
-   * Load all custom breakdowns from API or local storage.
+   * Load all custom breakdowns (local-first, works offline).
    */
   static async loadAll(): Promise<BreakdownsData> {
     if (memoryCache) {
       return memoryCache;
     }
-
-    let loaded: BreakdownsData = { questions: {} };
-
-    try {
-      const cached = localStorage.getItem(STORAGE_KEY);
-      if (cached) {
-        loaded = JSON.parse(cached);
-      }
-    } catch (e) {
-      // ignore
-    }
-
-    try {
-      const res = await fetch('/api/analytical-breakdowns');
-      if (res.ok) {
-        const remoteData: BreakdownsData = await res.json();
-        loaded = {
-          questions: {
-            ...loaded.questions,
-            ...remoteData.questions,
-          },
-        };
-      } else {
-        const staticRes = await fetch('/data/analytical_breakdowns.json');
-        if (staticRes.ok) {
-          const staticData: BreakdownsData = await staticRes.json();
-          loaded = {
-            questions: {
-              ...loaded.questions,
-              ...staticData.questions,
-            },
-          };
-        }
-      }
-    } catch (e) {
-      // fallback to cached
-    }
-
-    memoryCache = loaded;
-    this.saveToLocalCache(loaded);
-    return loaded;
+    memoryCache = normalize(await store.load());
+    return memoryCache;
   }
 
-  private static saveToLocalCache(data: BreakdownsData) {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      db.settings.put({ key: 'analytical_breakdowns', value: data }).catch(() => {});
-    } catch (e) {
-      // ignore
-    }
+  static isBreakdownsShape(json: any): boolean {
+    if (!json || typeof json !== 'object' || json.topics || !json.questions) return false;
+    const sample = Object.values(json.questions)[0] as any;
+    return sample === undefined || (Array.isArray(sample) && (sample.length === 0 || 'stepNumber' in sample[0] || 'title' in sample[0]));
+  }
+
+  /** Import an analytical_breakdowns.json (or the block inside a full backup). Works offline. */
+  static async importData(
+    incoming: Partial<BreakdownsData>,
+    strategy: 'merge' | 'replace'
+  ): Promise<{ count: number; savedRemotely: boolean }> {
+    const clean = normalize(incoming);
+    const next: BreakdownsData =
+      strategy === 'replace'
+        ? clean
+        : { questions: { ...(await this.loadAll()).questions, ...clean.questions } };
+    memoryCache = next;
+    const savedRemotely = await store.save(next);
+    return { count: Object.keys(clean.questions).length, savedRemotely };
   }
 
   /**
@@ -113,23 +101,13 @@ export class AnalyticalBreakdownService {
   static async saveStepsForQuestion(
     questionId: string,
     steps: AnalyticalStep[]
-  ): Promise<void> {
+  ): Promise<boolean> {
     const data = await this.loadAll();
     if (!data.questions) data.questions = {};
     data.questions[questionId] = steps;
 
     memoryCache = data;
-    this.saveToLocalCache(data);
-
-    try {
-      await fetch('/api/analytical-breakdowns', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-    } catch (e) {
-      console.warn('Could not persist analytical breakdowns to API, saved locally:', e);
-    }
+    return store.save(data);
   }
 
   /**

@@ -3,7 +3,21 @@ import type { SRAlgorithm } from '../services/srsEngine';
 
 export type ThemeMode = 'dark' | 'light';
 
+export type OfflinePhase = 'app' | 'fonts' | 'data' | 'diagrams';
+
+export interface OfflineDownloadState {
+  status: 'idle' | 'downloading' | 'ready' | 'error';
+  phase: OfflinePhase | null;
+  done: number;
+  total: number;
+  failed: number;
+  message: string | null;
+  completedAt: string | null;
+}
+
 interface AppState {
+  offlineDownload: OfflineDownloadState;
+  setOfflineDownload: (patch: Partial<OfflineDownloadState>) => void;
   theme: ThemeMode;
   isOffline: boolean;
   currentAlgo: SRAlgorithm;
@@ -46,7 +60,24 @@ const applyThemeToDOM = (theme: ThemeMode) => {
 const initialTheme = getInitialTheme();
 applyThemeToDOM(initialTheme);
 
+export const OFFLINE_STATE_KEY = 'slackr_offline_state';
+
+const getInitialOfflineState = (): OfflineDownloadState => {
+  const base: OfflineDownloadState = {
+    status: 'idle', phase: null, done: 0, total: 0, failed: 0, message: null, completedAt: null,
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem(OFFLINE_STATE_KEY) || 'null');
+    if (saved?.completedAt) {
+      return { ...base, status: 'ready', completedAt: saved.completedAt, failed: saved.failed || 0 };
+    }
+  } catch (_) {}
+  return base;
+};
+
 export const useStore = create<AppState>((set, get) => ({
+  offlineDownload: getInitialOfflineState(),
+  setOfflineDownload: (patch) => set({ offlineDownload: { ...get().offlineDownload, ...patch } }),
   theme: initialTheme,
   isOffline: !navigator.onLine,
   currentAlgo: 'SM-2',
