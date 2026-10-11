@@ -8,6 +8,8 @@ export interface AttemptRecord {
   confidence: number; // 1-5 pre-reveal confidence
   grade?: number;
   timestamp: string;
+  /** Set when the attempt came from another app's export (e.g. a PelNETS review) */
+  source?: 'pelnets';
 }
 
 export interface SRScheduleRecord {

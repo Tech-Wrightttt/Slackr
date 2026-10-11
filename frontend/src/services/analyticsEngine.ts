@@ -75,6 +75,22 @@ export const REGISTERED_TOPICS = [
   'web-technologies',
 ];
 
+/**
+ * Average answer time over attempts that recorded one. Imported PelNETS reviews have no
+ * timing (timeSeconds 0), so they're left out instead of dragging pace toward zero.
+ */
+export const avgTimeOf = (list: Array<{ timeSeconds?: number }>) => {
+  let sum = 0;
+  let n = 0;
+  for (const a of list) {
+    if (a.timeSeconds && a.timeSeconds > 0) {
+      sum += a.timeSeconds;
+      n += 1;
+    }
+  }
+  return n > 0 ? Math.round((sum / n) * 10) / 10 : 0;
+};
+
 export interface DailyActivity {
   days: Array<{ date: string; count: number; correct: number }>;
   currentStreak: number;
@@ -90,25 +106,28 @@ export const localDateKey = (d: Date) =>
 export class AnalyticsEngine {
   static async getErrorRates() {
     const attempts = await db.attempts.toArray();
-    const topicMap: Record<string, { total: number; correct: number; totalTime: number }> = {};
+    const topicMap: Record<string, { total: number; correct: number; totalTime: number; timed: number }> = {};
 
     for (const t of REGISTERED_TOPICS) {
-      topicMap[t] = { total: 0, correct: 0, totalTime: 0 };
+      topicMap[t] = { total: 0, correct: 0, totalTime: 0, timed: 0 };
     }
 
     for (const a of attempts) {
       const t = a.topic || 'software';
-      if (!topicMap[t]) topicMap[t] = { total: 0, correct: 0, totalTime: 0 };
+      if (!topicMap[t]) topicMap[t] = { total: 0, correct: 0, totalTime: 0, timed: 0 };
       topicMap[t].total += 1;
       if (a.isCorrect) topicMap[t].correct += 1;
-      topicMap[t].totalTime += a.timeSeconds || 0;
+      if (a.timeSeconds > 0) {
+        topicMap[t].totalTime += a.timeSeconds;
+        topicMap[t].timed += 1;
+      }
     }
 
     const res = REGISTERED_TOPICS.map((topic) => {
       const d = topicMap[topic];
       const incorrect = d.total - d.correct;
       const errorRate = d.total > 0 ? Math.round((incorrect / d.total) * 1000) / 10 : 0;
-      const avgTime = d.total > 0 ? Math.round((d.totalTime / d.total) * 10) / 10 : 0;
+      const avgTime = d.timed > 0 ? Math.round((d.totalTime / d.timed) * 10) / 10 : 0;
       return {
         topic,
         totalAttempts: d.total,
@@ -349,7 +368,7 @@ export class AnalyticsEngine {
 
   static async getHeatmap(interval: 'day' | 'week' | 'month' = 'week') {
     const attempts = await db.attempts.toArray();
-    const periodMap: Record<string, Record<string, { total: number; incorrect: number; time: number }>> = {};
+    const periodMap: Record<string, Record<string, { total: number; incorrect: number; time: number; timed: number }>> = {};
     const allPeriods = new Set<string>();
 
     for (const a of attempts) {
@@ -370,10 +389,13 @@ export class AnalyticsEngine {
 
       const t = a.topic || 'software';
       if (!periodMap[t]) periodMap[t] = {};
-      if (!periodMap[t][pKey]) periodMap[t][pKey] = { total: 0, incorrect: 0, time: 0 };
+      if (!periodMap[t][pKey]) periodMap[t][pKey] = { total: 0, incorrect: 0, time: 0, timed: 0 };
       periodMap[t][pKey].total += 1;
       if (!a.isCorrect) periodMap[t][pKey].incorrect += 1;
-      periodMap[t][pKey].time += a.timeSeconds || 0;
+      if (a.timeSeconds > 0) {
+        periodMap[t][pKey].time += a.timeSeconds;
+        periodMap[t][pKey].timed += 1;
+      }
       allPeriods.add(pKey);
     }
 
@@ -401,7 +423,7 @@ export class AnalyticsEngine {
           period: p,
           attemptCount: cell.total,
           errorRate: Math.round((cell.incorrect / cell.total) * 1000) / 10,
-          avgTimeSec: Math.round((cell.time / cell.total) * 10) / 10,
+          avgTimeSec: cell.timed > 0 ? Math.round((cell.time / cell.timed) * 10) / 10 : 0,
         };
       });
     }
@@ -455,8 +477,7 @@ export class AnalyticsEngine {
       const totalAttempts = list.length;
       const correctAttempts = list.filter((a) => a.isCorrect).length;
       const accuracy = Math.round((correctAttempts / totalAttempts) * 1000) / 10;
-      const avgTimeSeconds =
-        Math.round((list.reduce((s, a) => s + (a.timeSeconds || 0), 0) / totalAttempts) * 10) / 10;
+      const avgTimeSeconds = avgTimeOf(list);
 
       // Improvement Delta: compare recent half with earlier half
       const half = Math.max(1, Math.floor(list.length / 2));
@@ -553,14 +574,12 @@ export class AnalyticsEngine {
         const aCount = g.feA.length;
         const aCorrect = g.feA.filter((a) => a.isCorrect).length;
         const aAcc = aCount > 0 ? Math.round((aCorrect / aCount) * 1000) / 10 : null;
-        const aPace =
-          aCount > 0 ? Math.round((g.feA.reduce((s, a) => s + (a.timeSeconds || 0), 0) / aCount) * 10) / 10 : 0;
+        const aPace = avgTimeOf(g.feA);
 
         const bCount = g.feB.length;
         const bCorrect = g.feB.filter((a) => a.isCorrect).length;
         const bAcc = bCount > 0 ? Math.round((bCorrect / bCount) * 1000) / 10 : null;
-        const bPace =
-          bCount > 0 ? Math.round((g.feB.reduce((s, a) => s + (a.timeSeconds || 0), 0) / bCount) * 10) / 10 : 0;
+        const bPace = avgTimeOf(g.feB);
 
         runningACount += aCount;
         runningACorrect += aCorrect;

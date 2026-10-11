@@ -5,6 +5,7 @@ import { StatsDbService } from '../services/statsDb';
 import { OfflineService } from '../services/offlineService';
 import type { SRAlgorithm } from '../services/srsEngine';
 import { db } from '../db';
+import { isPelnetsExport } from '../services/pelnetsImport';
 
 export const Settings: React.FC = () => {
   const {
@@ -107,6 +108,25 @@ export const Settings: React.FC = () => {
     } finally {
       e.target.value = '';
       setTimeout(() => setStatusNotification(null), 5000);
+    }
+  };
+
+  // PelNETS progress always merges into this device's history; it never replaces SLACKR data
+  const handleImportPelnets = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const parsed = JSON.parse(await file.text());
+      if (!isPelnetsExport(parsed)) throw new Error('This file is not a PelNETS progress export.');
+      const res = await SyncService.importLocalData(parsed, 'merge');
+      if (res.algorithm) setCurrentAlgo(res.algorithm);
+      setStatusNotification(res.message);
+      await loadStorageEstimate();
+    } catch (err: any) {
+      alert(`PelNETS import error: ${err?.message || 'Invalid JSON file'}`);
+    } finally {
+      e.target.value = '';
+      setTimeout(() => setStatusNotification(null), 6000);
     }
   };
 
@@ -509,7 +529,8 @@ export const Settings: React.FC = () => {
           <div>
             <h2 className="font-title-sm text-base font-bold text-on-surface">Data Backup &amp; Portability</h2>
             <p className="font-mono-code text-xs text-on-surface-variant">
-              Export or import progress, schedules, bookmarks, deferred items, learning resources and breakdowns.
+              Export or import progress, schedules, bookmarks, deferred items, learning resources and breakdowns,
+              or bring over progress from PelNETS.
               Works online and offline. Import also accepts learning_resources.json, analytical_breakdowns.json and
               backend exports.
             </p>
@@ -542,6 +563,28 @@ export const Settings: React.FC = () => {
               <option value="replace">Overwrite database</option>
             </select>
           </div>
+        </div>
+
+        {/* PelNETS bridge: bring existing progress over instead of starting from scratch */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-outline-variant/30 bg-surface-container p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 shrink-0 rounded-lg bg-surface-container-high flex items-center justify-center text-tertiary">
+              <span className="material-symbols-outlined text-[18px]">sync_alt</span>
+            </div>
+            <div>
+              <h3 className="font-body-bold text-sm text-on-surface">Import from PelNETS</h3>
+              <p className="font-mono-code text-xs text-on-surface-variant leading-relaxed mt-0.5">
+                Export your progress in PelNETS (a <code>philnits-progress-v2-…json</code> file), then choose it here.
+                Reviews, Liked and Skipped questions merge into this device's history and show up in Analytics. Nothing
+                already here is overwritten, and importing the same file twice won't double-count.
+              </p>
+            </div>
+          </div>
+          <label className="press-scale shrink-0 self-start sm:self-auto flex items-center gap-1.5 rounded-xl bg-primary hover:bg-primary-container px-4 py-2.5 min-h-[44px] text-xs font-semibold text-on-primary cursor-pointer">
+            <span className="material-symbols-outlined text-[16px]">upload_file</span>
+            <span>Choose PelNETS file</span>
+            <input type="file" accept=".json,application/json" onChange={handleImportPelnets} className="hidden" />
+          </label>
         </div>
       </div>
 

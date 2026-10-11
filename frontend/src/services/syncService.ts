@@ -5,6 +5,7 @@ import type { SRAlgorithm } from './srsEngine';
 import { LearningResourcesService } from './learningResourcesService';
 import { AnalyticalBreakdownService } from './analyticalBreakdownService';
 import { apiUrl } from '../config/env';
+import { convertPelnetsExport, isPelnetsExport } from './pelnetsImport';
 
 const BOOKMARKS_KEY = 'slackr_bookmarks';
 // Older builds mirrored these JSON blobs into the settings table; they live in their own block now
@@ -14,7 +15,7 @@ const VALID_ALGOS: SRAlgorithm[] = ['SM-2', 'FSRS', 'Custom'];
 export type ImportStrategy = 'merge' | 'replace';
 
 export interface ImportSummary {
-  kind: 'backup' | 'backend' | 'learning_resources' | 'analytical_breakdowns';
+  kind: 'backup' | 'backend' | 'learning_resources' | 'analytical_breakdowns' | 'pelnets';
   attemptsAdded: number;
   resourcesImported: number;
   breakdownsImported: number;
@@ -33,6 +34,7 @@ function normalizeAttempt(raw: any): AttemptRecord | null {
   const timestamp = pick(raw, 'timestamp');
   if (!questionId || !timestamp) return null;
   const grade = pick(raw, 'grade');
+  const source = pick(raw, 'source');
   return {
     questionId: String(questionId),
     topic: String(pick(raw, 'topic') ?? 'software'),
@@ -42,6 +44,8 @@ function normalizeAttempt(raw: any): AttemptRecord | null {
     confidence: Number(pick(raw, 'confidence') ?? 3),
     ...(grade !== undefined && grade !== null ? { grade: Number(grade) } : {}),
     timestamp: String(timestamp),
+    // Keep the origin tag so PelNETS reviews survive a SLACKR export/import round trip
+    ...(source === 'pelnets' ? { source } : {}),
   };
 }
 
@@ -139,6 +143,23 @@ export class SyncService {
       throw new Error('This file is not a SLACKR JSON export.');
     }
 
+    // PelNETS progress export: convert to SLACKR's backup shape and always merge (never wipe local data)
+    if (isPelnetsExport(jsonData)) {
+      const converted = await convertPelnetsExport(jsonData);
+      const merged = await this.importLocalData(converted.backup, 'merge');
+      const total = converted.backup.attempts.length;
+      const skipped = converted.unmatchedReviews;
+      return {
+        ...merged,
+        kind: 'pelnets',
+        message:
+          `Imported ${merged.attemptsAdded} PelNETS review${merged.attemptsAdded === 1 ? '' : 's'} across ${converted.questionCount} questions` +
+          (total > merged.attemptsAdded ? ` (${total - merged.attemptsAdded} were already imported)` : '') +
+          (skipped ? `. ${skipped} skipped: not in SLACKR's question bank` : '') +
+          '.',
+      };
+    }
+
     const hasAttempts = Array.isArray(jsonData.attempts);
 
     if (!hasAttempts && LearningResourcesService.isLearningResourcesShape(jsonData)) {
@@ -162,7 +183,7 @@ export class SyncService {
     const looksLikeBackup =
       hasAttempts || jsonData.format === 'slackr-backup' || jsonData.sr_schedules || jsonData.srSchedules;
     if (!looksLikeBackup) {
-      throw new Error('Unrecognised JSON. Expected a SLACKR backup, learning_resources.json or analytical_breakdowns.json.');
+      throw new Error('Unrecognised JSON. Expected a SLACKR backup, a PelNETS progress export, learning_resources.json or analytical_breakdowns.json.');
     }
 
     const attempts = (hasAttempts ? jsonData.attempts : []).map(normalizeAttempt).filter(Boolean) as AttemptRecord[];

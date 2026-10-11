@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QuestionsService } from '../services/questionsService';
 import { StatsDbService } from '../services/statsDb';
-import { AnalyticsEngine, type DailyActivity } from '../services/analyticsEngine';
+import { AnalyticsEngine, avgTimeOf, type DailyActivity } from '../services/analyticsEngine';
 import { DailySetService, dailyOwner, type DailySetState } from '../services/dailySet';
 import { useStore } from '../store/useStore';
 import { db } from '../db';
@@ -39,8 +39,7 @@ export const Home: React.FC = () => {
           const correct = attempts.filter((a) => a.isCorrect).length;
           setOverallAccuracy(Math.round((correct / attempts.length) * 1000) / 10);
 
-          const totalTime = attempts.reduce((acc, a) => acc + (a.timeSeconds || 0), 0);
-          setAvgTimeSeconds(Math.round(totalTime / attempts.length));
+          setAvgTimeSeconds(Math.round(avgTimeOf(attempts)));
 
           // Filter attempts for today
           const startOfToday = new Date();
