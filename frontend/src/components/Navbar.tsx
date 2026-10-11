@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
@@ -7,12 +7,54 @@ import { AnalyticsEngine } from '../services/analyticsEngine';
 import { InstallOfflineButton } from './InstallOfflineButton';
 import { BrandLogo } from './BrandLogo';
 
+// Counters never grow past three characters, so a big review queue can't push the bar around
+const compactCount = (n: number) => (n > 99 ? '99+' : String(n));
+
+const ROW_GAP = 12; // gap-3 between brand, nav and controls
+const CLUSTER_GAP = 8; // gap-2 inside the right cluster
+
 export const Navbar: React.FC = () => {
   const { isOffline, setOffline, setInstallPrompt, theme, toggleTheme, currentUser, hasAccount } = useStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dueCount, setDueCount] = useState<number>(0);
   const [streak, setStreak] = useState<number>(0);
   const location = useLocation();
+
+  // The bar measures itself instead of trusting fixed breakpoints: counts, fonts, sign-in state and
+  // window size all change widths. Priority when space runs out: drop the status badge first,
+  // then fold the links into the menu button. Nothing ever overlaps.
+  const rowRef = useRef<HTMLDivElement>(null);
+  const brandRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  const statusRef = useRef<HTMLDivElement>(null);
+  const coreRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ nav: false, status: false });
+
+  useLayoutEffect(() => {
+    const row = rowRef.current;
+    if (!row) return;
+    const measure = () => {
+      const cs = getComputedStyle(row);
+      const avail = row.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const brand = brandRef.current?.offsetWidth ?? 0;
+      const nav = navRef.current?.offsetWidth ?? 0;
+      const core = coreRef.current?.offsetWidth ?? 0;
+      const status = statusRef.current?.offsetWidth ?? 0;
+      const withNav = brand + ROW_GAP + nav + ROW_GAP + core;
+      const navFits = window.innerWidth >= 1280 && withNav <= avail;
+      const statusFits = navFits && withNav + CLUSTER_GAP + status <= avail;
+      setFit((prev) => (prev.nav === navFits && prev.status === statusFits ? prev : { nav: navFits, status: statusFits }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    for (const el of [row, navRef.current, coreRef.current, statusRef.current]) if (el) ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Close the drawer if the links get room again (e.g. rotating a tablet to landscape)
+  useEffect(() => {
+    if (fit.nav) setMobileMenuOpen(false);
+  }, [fit.nav]);
 
   useEffect(() => {
     const handleOnline = () => setOffline(false);
@@ -56,7 +98,7 @@ export const Navbar: React.FC = () => {
       to: '/quiz/srs',
       label: 'SRS Queue',
       icon: 'repeat',
-      badge: dueCount > 0 ? dueCount : null,
+      badge: dueCount > 0 ? compactCount(dueCount) : null,
     },
     { to: '/analytics', label: 'Analytics', icon: 'monitoring' },
     { to: '/profile', label: 'Profile', icon: 'person' },
@@ -72,9 +114,9 @@ export const Navbar: React.FC = () => {
       }}
       className="fixed top-0 left-0 right-0 z-50 bg-surface/95 dark:bg-obsidian-surface/90 backdrop-blur-xl border-b border-outline-variant/30 shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
     >
-      <div className="h-16 max-w-7xl 2xl:max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
+      <div ref={rowRef} className="relative h-16 max-w-7xl 2xl:max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
         {/* Brand */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div ref={brandRef} className="flex items-center gap-3 shrink-0">
           <Link to="/" className="flex items-center gap-2 text-on-surface decoration-0 group">
             <BrandLogo className="w-8 h-8 shrink-0" />
             <span className="font-headline-md text-xl sm:text-2xl font-bold tracking-tight text-on-surface">
@@ -87,7 +129,15 @@ export const Navbar: React.FC = () => {
         </div>
 
         {/* Desktop Nav Matrix */}
-        <nav className="hidden xl:flex min-w-0 items-center gap-0.5 p-1 rounded-xl bg-surface-container-lowest/60 border border-outline-variant/20">
+        {/* Desktop Nav Matrix: always rendered so its natural width can be measured; hidden (and out of
+            the tab order) whenever it doesn't fit */}
+        <nav
+          ref={navRef}
+          aria-hidden={!fit.nav}
+          className={`flex w-max shrink-0 items-center gap-0.5 p-1 rounded-xl bg-surface-container-lowest/60 border border-outline-variant/20 ${
+            fit.nav ? '' : 'invisible absolute left-0 top-0 pointer-events-none'
+          }`}
+        >
           {navLinks.map((item) => {
             const isActive = item.end
               ? location.pathname === item.to
@@ -119,7 +169,11 @@ export const Navbar: React.FC = () => {
         <div className="flex items-center gap-2 shrink-0">
           {/* Dexie offline status badge */}
           <div
-            className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-low border border-outline-variant/30 font-mono-code text-xs text-on-surface-variant whitespace-nowrap"
+            ref={statusRef}
+            aria-hidden={!fit.status}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-low border border-outline-variant/30 font-mono-code text-xs text-on-surface-variant whitespace-nowrap ${
+              fit.status ? '' : 'invisible absolute right-0 top-0 pointer-events-none'
+            }`}
             title="Local Dexie.js Client Database Telemetry Active"
           >
             <span
@@ -130,6 +184,8 @@ export const Navbar: React.FC = () => {
             <span>{isOffline ? 'Dexie Offline' : 'Dexie Active'}</span>
           </div>
 
+          {/* Always-visible controls, measured as one block */}
+          <div ref={coreRef} className="flex items-center gap-2 shrink-0">
           {/* Retention / Streak Pill */}
           <Link
             to="/quiz/srs"
@@ -139,7 +195,7 @@ export const Navbar: React.FC = () => {
             <span className="material-symbols-outlined text-[16px] text-confidence-amber">
               local_fire_department
             </span>
-            <span>{dueCount > 0 ? `${dueCount} DUE` : `${streak}D`}</span>
+            <span className="tabular-nums">{dueCount > 0 ? `${compactCount(dueCount)} DUE` : `${streak}D`}</span>
           </Link>
 
           {/* Theme Toggle Button */}
@@ -179,11 +235,14 @@ export const Navbar: React.FC = () => {
               {hasAccount ? 'Sign in' : 'Sign up'}
             </Link>
           )}
+          </div>
 
-          {/* Mobile Menu Hamburger */}
+          {/* Menu button: whenever the links don't fit (phones, tablets, crowded desktops) */}
+          {!fit.nav && (
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="press-scale xl:hidden w-10 h-10 rounded-lg bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 flex items-center justify-center text-on-surface-variant hover:text-on-surface"
+            aria-expanded={mobileMenuOpen}
+            className="press-scale shrink-0 w-10 h-10 rounded-lg bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 flex items-center justify-center text-on-surface-variant hover:text-on-surface"
             type="button"
             aria-label="Toggle Menu"
           >
@@ -191,19 +250,20 @@ export const Navbar: React.FC = () => {
               {mobileMenuOpen ? 'close' : 'menu'}
             </span>
           </button>
+          )}
         </div>
       </div>
 
       {/* Mobile Navigation Drawer — AnimatePresence gives enter/exit animation */}
       <AnimatePresence initial={false}>
-        {mobileMenuOpen && (
+        {mobileMenuOpen && !fit.nav && (
           <motion.div
             key="mobile-drawer"
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
-            className="xl:hidden overflow-hidden border-t border-outline-variant/20 bg-surface-container-lowest/95 backdrop-blur-xl"
+            className="overflow-hidden border-t border-outline-variant/20 bg-surface-container-lowest/95 backdrop-blur-xl"
           >
             {/* Scrolls inside itself so every link stays reachable on short landscape phones */}
             <div className="px-4 py-3 space-y-1 max-h-[calc(100dvh-4rem-env(safe-area-inset-top))] overflow-y-auto overscroll-contain">
