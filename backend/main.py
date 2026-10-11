@@ -1,5 +1,8 @@
+import asyncio
 import json
 import os
+from urllib.parse import urljoin
+from urllib.request import urlopen
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
@@ -69,6 +72,9 @@ async def block_shared_personal_data(request: Request, call_next):
             status_code=503,
             content={"detail": "Personal stats are stored on your device in hosted mode. Cloud sync is not enabled yet."},
         )
+    # Serverless platforms may skip ASGI startup events, so load the question bank on first use
+    if not questions_db and request.url.path.startswith("/api/"):
+        await asyncio.to_thread(load_questions)
     return await call_next(request)
 
 
@@ -105,10 +111,31 @@ analytics_service: AnalyticsService = AnalyticsService(stats_service)
 
 @app.on_event("startup")
 def startup_event():
-    global questions_db
+    load_questions()
+
+
+def load_questions() -> None:
+    """Fill questions_db once.
+
+    Local runs read the index file next to the backend (or the frontend copy). On Vercel the
+    backend service is deployed from backend/ alone, so it fetches the frontend service's bundled
+    copy over the FRONTEND_URL service binding (injected by Vercel at runtime, never set by hand).
+    """
+    if questions_db:
+        return
+    data: Optional[Dict[str, Any]] = None
     if QUESTIONS_INDEX_PATH.exists():
         with open(QUESTIONS_INDEX_PATH, "r", encoding="utf-8") as f:
-            questions_db = json.load(f)
+            data = json.load(f)
+    elif os.environ.get("FRONTEND_URL"):
+        url = urljoin(os.environ["FRONTEND_URL"].rstrip("/") + "/", "data/questions_index.json")
+        try:
+            with urlopen(url, timeout=20) as res:
+                data = json.load(res)
+        except (OSError, ValueError) as exc:
+            print(f"Warning: could not fetch the question bank from the frontend service: {exc}")
+    if data:
+        questions_db.update(data)
         print(f"Loaded {len(questions_db)} questions into memory.")
     else:
         print(f"Warning: {QUESTIONS_INDEX_PATH} not found. Run generate_index.py first.")

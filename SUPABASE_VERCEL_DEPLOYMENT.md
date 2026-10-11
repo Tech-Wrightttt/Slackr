@@ -13,7 +13,7 @@
 | Auth | Local accounts stay the offline source of truth. Supabase Auth is reserved for online mode (not wired yet). Guest mode stays the default; accounts are optional. |
 | Question bank | Stays static on Vercel (`frontend/public/data/*.json`). Not moved to a database. |
 | Diagrams | Stay on Vercel (`frontend/public/files`). Same-origin keeps the service-worker cache simple. |
-| FastAPI | Deployed on Vercel as a Python function (`api/index.py`). Still runs locally exactly as before. |
+| FastAPI | Deployed as the `backend` Vercel service (root `backend/`, `main:app`), public at `/api/*`. Still runs locally exactly as before. |
 | Content edits | Learning resources and analytical breakdowns: **admin only** (you). |
 | Personal data | Never committed. Per-user progress will live in Supabase with row-level security. |
 | Committed data | Only what the app needs to show and sort questions: `questions_index.json`, `metadata_summary.json`, `image-list.json`, `manifest.json`. |
@@ -69,18 +69,21 @@ Local machine
 ### Backend
 - `backend/main.py` — local/hosted mode switch, personal-data guard, `require_admin()` (constant-time token compare), `write_json()` that returns 503 on read-only filesystems, env-driven CORS, question-bank fallback to `frontend/public/data/questions_index.json`.
 - `backend/services/stats_service.py` — stats path from `SLACKR_STATS_PATH`; `/tmp` default on Vercel (the old import-time write crashed on read-only disks).
-- `api/index.py` — Vercel entry point; loads the question bank at import (serverless may skip lifespan events).
-- `backend/requirements.txt` — converted from UTF-16 to UTF-8 (pip on Vercel can't read UTF-16). Root `requirements.txt` includes it.
+- `backend/main.py` — loads the question bank on first `/api` request (serverless may skip lifespan events): local index file first, else the `frontend` service's `/data/questions_index.json` over the `FRONTEND_URL` service binding.
+- `backend/requirements.txt` — converted from UTF-16 to UTF-8 (pip on Vercel can't read UTF-16).
 
 ### Config
-- `vercel.json` — bun install/build, `frontend/dist` output, `/api/*` → Python function, SPA fallback to `index.html`, no-cache for `sw.js` / `manifest.json` / `asset-manifest.json` / `index.html`, immutable `/assets/*`, `excludeFiles` keeps the vault, venv and diagrams out of the function bundle.
+- `vercel.json` — Vercel **services** mode with two services:
+  - `frontend` (root `frontend/`, Vite, bun install/build, `dist` output): SPA fallback to `index.html`, no-cache for `sw.js` / `manifest.json` / `asset-manifest.json` / `index.html`, immutable `/assets/*`.
+  - `backend` (root `backend/`, FastAPI `main:app`) with a binding to `frontend` injected as `FRONTEND_URL`.
+  - Public rewrites: `/api/(.*)` → `backend`, everything else → `frontend`. The backend receives the full `/api/...` path, matching its routes.
 - `frontend/.env.example`, `backend/.env.example` — variable names only.
 - `.gitignore` — ignores `.env` / `.env.*` (keeps `.env.example`); allowlists only the question/sort JSON + `vercel.json`; explicitly blocks `user_stats.json` and backup/export JSON.
 
 ### Verified
 - `bun run build` passes; no service-role key in `dist/`.
 - `backend/tests/test_backend.py` passes (local mode).
-- Hosted-mode smoke test via `api/index.py`: health/years/questions/learning-resources 200 (3,609 questions); analytics/export/settings/attempts 503; edit without token 403.
+- Hosted-mode smoke test of `backend/main.py` with the local index hidden and `FRONTEND_URL` pointed at a static copy of `frontend/public`: all 3,609 questions loaded over the binding; health/years/questions 200; personal routes 503.
 
 ### Environment variables
 
@@ -120,7 +123,7 @@ No database migrations exist yet. Phase 2 only added the client; tables, RLS pol
 
 ### Vercel
 - [ ] Add New → Project → import the repo
-- [ ] Root Directory: **repo root** (not `frontend`); Framework preset: **Other**
+- [ ] Root Directory: **repo root** (`vercel.json` defines the `frontend` and `backend` services; don't set a framework preset at the project level)
 - [ ] Settings → Environment Variables:
 
 | Variable | Value | Environments |
@@ -134,10 +137,11 @@ No database migrations exist yet. Phase 2 only added the client; tables, RLS pol
 | `ALLOWED_ORIGINS` | empty unless another host calls the API | Production |
 
 - [ ] Redeploy after changing any `VITE_*` value (they are baked in at build time)
-- [ ] Deploy; in the build log confirm `api/index.py` stays under 250 MB and the bun install/build succeed
+- [ ] Deploy; in the build log confirm both services build (bun install/build for `frontend`, pip for `backend`)
 
 ### Verify after the first deploy
-- [ ] `https://<domain>/api/health` → 200 (the `/api` rewrite reaches Python)
+- [ ] `https://<domain>/api/health` → 200 (the `/api` rewrite reaches the `backend` service)
+- [ ] `https://<domain>/api/years` → 200 with data (the backend loaded questions over the `FRONTEND_URL` binding)
 - [ ] `/api/stats/settings` → 503 (personal routes blocked in hosted mode)
 - [ ] Open `/profile` directly and reload → app loads (SPA fallback)
 - [ ] DevTools → Application: service worker active, manifest loads
