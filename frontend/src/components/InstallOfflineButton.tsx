@@ -81,7 +81,7 @@ export const InstallOfflineButton: React.FC = () => {
           style={ready && !canInstall ? { fontVariationSettings: "'FILL' 1" } : undefined}
           aria-hidden
         >
-          {canInstall ? 'install_mobile' : ready ? 'offline_pin' : status === 'error' ? 'sync_problem' : 'download_for_offline'}
+          {canInstall ? 'download' : ready ? 'offline_pin' : status === 'error' ? 'sync_problem' : 'download_for_offline'}
         </span>
       )}
       <span className="hidden 2xl:inline tabular-nums whitespace-nowrap">{label}</span>
