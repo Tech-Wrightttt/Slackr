@@ -1,0 +1,16 @@
+# Files Vercel never needs. Keeps the FastAPI function (service root: backend/) under the size limit.
+
+# PelNETS Obsidian vault (git submodule, ~700 MB). The deployed app reads the committed
+# frontend/public/data/*.json and frontend/public/files/*.png instead.
+/backend/data/pelnets
+
+# Local Python environment, caches and tests
+/backend/venv
+/backend/tests
+**/__pycache__
+
+# Editor / agent tooling
+/.agents
+/.claude
+/frontend/.agents
+/frontend/.claude
