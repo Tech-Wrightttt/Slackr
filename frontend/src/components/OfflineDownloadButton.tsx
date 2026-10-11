@@ -34,7 +34,7 @@ export const OfflineDownloadButton: React.FC = () => {
       disabled={downloading || (isOffline && !ready)}
       aria-label={title}
       title={title}
-      className={`h-8 min-w-8 px-2 rounded-lg border flex items-center justify-center gap-1.5 font-mono-code text-xs cursor-pointer disabled:cursor-default active:scale-95 ${tone}`}
+      className={`h-10 min-w-10 px-2.5 rounded-lg border flex items-center justify-center gap-1.5 font-mono-code text-xs cursor-pointer disabled:cursor-default active:scale-95 ${tone}`}
       style={{ transition: 'background-color 150ms ease-out, color 150ms ease-out, border-color 150ms ease-out, transform 100ms ease-out' }}
     >
       {downloading ? (

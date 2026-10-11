@@ -941,7 +941,7 @@ export const Analytics: React.FC = () => {
                         y1={padTop}
                         x2={activeX}
                         y2={padTop + plotHeight}
-                        stroke="#9ed67c"
+                        stroke="var(--color-primary)"
                         strokeWidth="1.5"
                         strokeDasharray="3 3"
                         opacity="0.8"

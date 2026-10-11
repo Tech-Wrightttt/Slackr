@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import { QuestionsService } from '../services/questionsService';
 import { StatsDbService } from '../services/statsDb';
 import { AnalyticsEngine, type DailyActivity } from '../services/analyticsEngine';
-import { DailySetService, type DailySetState } from '../services/dailySet';
+import { DailySetService, dailyOwner, type DailySetState } from '../services/dailySet';
+import { useStore } from '../store/useStore';
 import { db } from '../db';
 import type { SRScheduleRecord, AttemptRecord, QuestionData } from '../db/schema';
 import { ActivityCalendar } from '../components/ActivityCalendar';
 import { DailySetModal } from '../components/DailySetModal';
 import { CountUp } from '../components/reactbits';
+import { BrandLogo } from '../components/BrandLogo';
 
 export const Home: React.FC = () => {
   const [meta, setMeta] = useState<any>(null);
@@ -84,23 +86,23 @@ export const Home: React.FC = () => {
     loadDashboardData();
   }, [loadDashboardData]);
 
-  // Today's set pops up once per day until it's been seen; afterwards it opens from its card
+  // Today's set only opens when the user clicks its card; never on page load.
+  // Each account (and guest) has its own set, so reload when the signed-in user changes.
+  const owner = useStore((s) => dailyOwner(s.currentUser));
   useEffect(() => {
     let cancelled = false;
-    DailySetService.getToday()
-      .then(async (d) => {
+    setDaily(null);
+    setDailyOpen(false);
+    DailySetService.getToday(owner)
+      .then((d) => {
         if (cancelled || d.questions.length === 0) return;
-        if (!d.state.prompted && !DailySetService.isComplete(d.state)) {
-          d.state = await DailySetService.markPrompted(d.state);
-          setDailyOpen(true);
-        }
         setDaily(d);
       })
       .catch((err) => console.error('Failed to load daily set:', err));
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [owner]);
 
   const closeDaily = () => {
     setDailyOpen(false);
@@ -169,11 +171,7 @@ export const Home: React.FC = () => {
       {/* Minimalist Editorial Header */}
       <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-outline-variant/20">
         <div className="flex items-center gap-3.5">
-          <img
-            src="/SlackrLogo.png"
-            alt="Slackr Logo"
-            className="w-11 h-11 object-contain rounded-xl p-1 bg-surface-container-high border border-outline-variant/30 shrink-0"
-          />
+          <BrandLogo className="w-11 h-11 rounded-xl p-1 bg-surface-container-high border border-outline-variant/30 shrink-0" />
           <div>
             <div className="flex items-center gap-2">
               <span className="inline-block w-2 h-2 rounded-full bg-primary" />
@@ -452,8 +450,8 @@ export const Home: React.FC = () => {
             <svg className="w-full h-24 overflow-visible text-primary" fill="none" viewBox="0 0 300 100">
               <defs>
                 <linearGradient id="areaGradient" x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0%" stopColor="#9ed67c" stopOpacity="0.3" />
-                  <stop offset="100%" stopColor="#9ed67c" stopOpacity="0.0" />
+                  <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
               <line stroke="var(--color-surface-container-highest)" strokeDasharray="2 4" strokeWidth="1" x1="0" x2="300" y1="20" y2="20" />
@@ -475,7 +473,7 @@ export const Home: React.FC = () => {
                   cy={p.y}
                   fill="var(--color-surface-container-lowest)"
                   r={i === sparkPoints.length - 1 ? 4 : 3}
-                  stroke="#9ed67c"
+                  stroke="var(--color-primary)"
                   strokeWidth="2"
                 />
               ))}

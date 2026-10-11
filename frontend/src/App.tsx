@@ -1,6 +1,7 @@
 import React, { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
+import { DrawOverlay } from './components/DrawOverlay';
 import { useStore } from './store/useStore';
 import { StatsDbService } from './services/statsDb';
 import { AuthService } from './services/authService';
@@ -34,16 +35,35 @@ const LoadingFallback: React.FC = () => (
 
 // Main app chrome. Accounts are optional: guests and signed-in profiles see the same app.
 const AppShell: React.FC = () => {
-  const { isOffline } = useStore();
+  const { isOffline, authReady, hasAccount, currentUser } = useStore();
+  const location = useLocation();
+
+  // Wait for the local profile check so the dashboard never flashes before the auth screen
+  if (!authReady) return null;
+  // Each launch opens on sign-up (or sign-in when a profile exists); "Skip for now" continues as guest
+  if (!currentUser && AuthService.shouldPromptThisLaunch()) {
+    return (
+      <Navigate
+        to={hasAccount ? '/signin' : '/signup'}
+        replace
+        state={{ from: `${location.pathname}${location.search}` }}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-surface-container-lowest font-body-base text-on-surface selection:bg-primary-container selection:text-on-primary">
       {/* Global Navigation Header */}
       <Navbar />
 
+      {/* Scribble layer + floating draw button; only present while a question is on screen */}
+      <DrawOverlay />
+
       {/* Offline Notification Strip */}
       {isOffline && (
-        <div className="fixed top-16 left-0 right-0 z-40 flex items-center justify-center gap-2 bg-confidence-amber/15 border-b border-confidence-amber/30 px-4 py-1.5 text-xs font-mono-code font-semibold text-confidence-amber backdrop-blur-md">
+        <div
+          style={{ top: 'calc(4rem + env(safe-area-inset-top, 0px))' }}
+          className="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 bg-confidence-amber/15 border-b border-confidence-amber/30 px-4 py-1.5 text-xs font-mono-code font-semibold text-confidence-amber backdrop-blur-md">
           <WifiOff className="h-3.5 w-3.5" />
           <span>Telemetry Offline: Local Dexie.js cache active for all 3,609 PHILNITS items.</span>
         </div>
@@ -57,7 +77,7 @@ const AppShell: React.FC = () => {
       </main>
 
       {/* Editorial Telemetry Footer */}
-      <footer className="w-full bg-obsidian-surface-dim dark:bg-obsidian-surface-dim bg-surface-container-low border-t border-outline-variant/20 py-5">
+      <footer className="w-full bg-surface-container-low dark:bg-obsidian-surface-dim border-t border-outline-variant/20 py-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono-code text-xs text-on-surface-variant/80">
           <div className="flex items-center gap-3">
             <span className="font-label-caps text-primary uppercase font-bold">SLACKR CORE</span>

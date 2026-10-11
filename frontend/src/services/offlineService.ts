@@ -2,7 +2,7 @@ import { useStore, OFFLINE_STATE_KEY, type OfflinePhase } from '../store/useStor
 
 // Must stay in sync with public/sw.js
 export const OFFLINE_CACHES = {
-  app: 'slackr-app-v6',
+  app: 'slackr-app-v7',
   data: 'slackr-data-v2',
   images: 'slackr-images-v2',
   fonts: 'slackr-fonts-v1',
@@ -14,7 +14,8 @@ const SHELL_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/SlackrLogo.png',
+  '/brand/logo-light.png',
+  '/brand/logo-dark.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/maskable-192.png',

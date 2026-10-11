@@ -5,6 +5,7 @@ import { useStore } from '../store/useStore';
 import { StatsDbService } from '../services/statsDb';
 import { AnalyticsEngine } from '../services/analyticsEngine';
 import { OfflineDownloadButton } from './OfflineDownloadButton';
+import { BrandLogo } from './BrandLogo';
 
 export const Navbar: React.FC = () => {
   const { isOffline, setOffline, installPrompt, setInstallPrompt, theme, toggleTheme, currentUser, hasAccount } = useStore();
@@ -72,17 +73,20 @@ export const Navbar: React.FC = () => {
   ];
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 bg-obsidian-surface/90 dark:bg-obsidian-surface/90 bg-surface/95 backdrop-blur-xl border-b border-outline-variant/30 shadow-[0_1px_8px_rgba(0,0,0,0.4)]">
+    <header
+      /* Installed PWA on notched phones: keep the bar below the status bar and clear of landscape notches */
+      style={{
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
+      }}
+      className="fixed top-0 left-0 right-0 z-50 bg-surface/95 dark:bg-obsidian-surface/90 backdrop-blur-xl border-b border-outline-variant/30 shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
+    >
       <div className="h-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         {/* Brand */}
         <div className="flex items-center gap-3 shrink-0">
           <Link to="/" className="flex items-center gap-2 text-on-surface decoration-0 group">
-            <img
-              src="/SlackrLogo.png"
-              alt="Slackr Logo"
-              className="w-8 h-8 rounded-lg object-contain shrink-0"
-              style={{ transition: 'transform 160ms ease-out' }}
-            />
+            <BrandLogo className="w-8 h-8 shrink-0" />
             <span className="font-headline-md text-xl sm:text-2xl font-bold tracking-tight text-on-surface">
               SLACK<span className="text-primary font-extrabold">R</span>
             </span>
@@ -152,7 +156,7 @@ export const Navbar: React.FC = () => {
           <button
             onClick={toggleTheme}
             aria-label="Toggle Theme"
-            className="w-8 h-8 rounded-lg bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+            className="press-scale w-10 h-10 rounded-lg bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
             type="button"
             title={theme === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
           >
@@ -182,7 +186,7 @@ export const Navbar: React.FC = () => {
               to="/profile"
               aria-label={`Profile: ${currentUser}`}
               title={currentUser}
-              className="press-scale hidden sm:flex w-8 h-8 rounded-full bg-primary items-center justify-center text-on-primary"
+              className="press-scale hidden sm:flex w-10 h-10 rounded-full bg-primary items-center justify-center text-on-primary"
             >
               <span className="material-symbols-outlined text-[18px]">person</span>
             </Link>
@@ -191,7 +195,7 @@ export const Navbar: React.FC = () => {
             <Link
               to={hasAccount ? '/signin' : '/signup'}
               state={{ from: location.pathname }}
-              className="press-scale hidden sm:flex items-center gap-1 h-8 px-3 rounded-full border border-outline-variant/40 bg-surface-container-low text-xs font-semibold text-on-surface hover:bg-surface-container"
+              className="press-scale hidden sm:flex items-center gap-1 h-10 px-3.5 rounded-full border border-outline-variant/40 bg-surface-container-low text-xs font-semibold text-on-surface hover:bg-surface-container"
             >
               <span className="material-symbols-outlined text-[16px]">login</span>
               {hasAccount ? 'Sign in' : 'Sign up'}
@@ -201,7 +205,7 @@ export const Navbar: React.FC = () => {
           {/* Mobile Menu Hamburger */}
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="xl:hidden w-8 h-8 rounded-lg bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 flex items-center justify-center text-on-surface-variant hover:text-on-surface"
+            className="press-scale xl:hidden w-10 h-10 rounded-lg bg-surface-container-low hover:bg-surface-container-high border border-outline-variant/30 flex items-center justify-center text-on-surface-variant hover:text-on-surface"
             type="button"
             aria-label="Toggle Menu"
           >
@@ -223,7 +227,8 @@ export const Navbar: React.FC = () => {
             transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
             className="xl:hidden overflow-hidden border-t border-outline-variant/20 bg-surface-container-lowest/95 backdrop-blur-xl"
           >
-            <div className="px-4 py-3 space-y-1">
+            {/* Scrolls inside itself so every link stays reachable on short landscape phones */}
+            <div className="px-4 py-3 space-y-1 max-h-[calc(100dvh-4rem-env(safe-area-inset-top))] overflow-y-auto overscroll-contain">
               {navLinks.map((item, i) => {
                 const isActive = item.end
                   ? location.pathname === item.to

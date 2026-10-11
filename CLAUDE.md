@@ -53,7 +53,7 @@ SLACKR is a two-layer system built around **offline-first** operation:
   - `statsDb.ts` — direct Dexie helpers for reading/writing attempt records.
   - `syncService.ts` — serializes IndexedDB to JSON for export / backend sync.
 - **Components**: `QuestionCard` is the main interactive unit. `MarkdownRenderer` handles `$math$`/`$$display$$` via KaTeX + `react-markdown`.
-- **PWA**: `public/sw.js` manages four cache buckets: `slackr-app-v6` (shell), `slackr-images-v2` (diagram PNGs), `slackr-data-v2` (JSON bundles), `slackr-fonts-v1` (Google Fonts).
+- **PWA**: `public/sw.js` manages four cache buckets: `slackr-app-v7` (shell), `slackr-images-v2` (diagram PNGs), `slackr-data-v2` (JSON bundles), `slackr-fonts-v1` (Google Fonts).
 
 ### Backend (`backend/`)
 

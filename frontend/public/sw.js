@@ -1,5 +1,5 @@
 // Cache names must stay in sync with src/services/offlineService.ts (OFFLINE_CACHES)
-const APP_CACHE = 'slackr-app-v6';
+const APP_CACHE = 'slackr-app-v7';
 const DATA_CACHE = 'slackr-data-v2';
 const IMAGE_CACHE = 'slackr-images-v2';
 const FONT_CACHE = 'slackr-fonts-v1';
@@ -10,7 +10,8 @@ const SHELL_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/SlackrLogo.png',
+  '/brand/logo-light.png',
+  '/brand/logo-dark.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/maskable-192.png',

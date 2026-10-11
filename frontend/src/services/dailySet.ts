@@ -6,14 +6,17 @@ import { localDateKey } from './analyticsEngine';
 export const DAILY_CHOICES = ['a', 'b', 'c', 'd'] as const;
 
 export interface DailySetState {
+  /** Whose set this is: `guest` or `user:<username>`. Each account tracks its own daily progress. */
+  owner: string;
   date: string;
   questionIds: string[];
   answers: Record<string, { selected: string; isCorrect: boolean }>;
-  /** Set once the auto-popup has been shown (or dismissed) today */
-  prompted: boolean;
 }
 
-const settingKey = (date: string) => `daily_set_${date}`;
+/** Prefixed so a local username can never collide with the guest slot */
+export const dailyOwner = (username: string | null) => (username ? `user:${username.toLowerCase()}` : 'guest');
+
+const settingKey = (owner: string, date: string) => `daily_set_${owner}_${date}`;
 
 // mulberry32: tiny deterministic PRNG so every device picks the same set for a date
 const seededRandom = (seed: number) => () => {
@@ -52,10 +55,10 @@ export class DailySetService {
   }
 
   /** Today's 1–5 questions, created on first call and stable for the rest of the day. */
-  static async getToday(): Promise<{ state: DailySetState; questions: QuestionData[] }> {
+  static async getToday(owner: string): Promise<{ state: DailySetState; questions: QuestionData[] }> {
     const date = this.todayKey();
     const all = await QuestionsService.loadAllQuestions();
-    let state = await StatsDbService.getSetting<DailySetState | null>(settingKey(date), null);
+    let state = await StatsDbService.getSetting<DailySetState | null>(settingKey(owner, date), null);
 
     if (!state) {
       const pool = Object.values(all)
@@ -65,8 +68,8 @@ export class DailySetService {
       const size = 1 + Math.floor(rand() * 5);
       const picked = new Set<string>();
       while (picked.size < Math.min(size, pool.length)) picked.add(pool[Math.floor(rand() * pool.length)]!.id);
-      state = { date, questionIds: [...picked], answers: {}, prompted: false };
-      await StatsDbService.setSetting(settingKey(date), state);
+      state = { owner, date, questionIds: [...picked], answers: {} };
+      await StatsDbService.setSetting(settingKey(owner, date), state);
     }
 
     const questions = state.questionIds.map((id) => all[id]).filter((q): q is QuestionData => !!q);
@@ -75,12 +78,6 @@ export class DailySetService {
 
   static isComplete(state: DailySetState) {
     return state.questionIds.every((id) => state.answers[id]);
-  }
-
-  static async markPrompted(state: DailySetState): Promise<DailySetState> {
-    const next = { ...state, prompted: true };
-    await StatsDbService.setSetting(settingKey(state.date), next);
-    return next;
   }
 
   /** Grades the answer and logs it as a normal attempt so it feeds analytics, SRS and the tracker. */
@@ -94,7 +91,7 @@ export class DailySetService {
     const isCorrect = selected === correctChoice(question);
     await StatsDbService.recordAttempt(question.id, question.topics?.[0] || 'software', selected, isCorrect, timeSeconds);
     const next = { ...state, answers: { ...state.answers, [question.id]: { selected, isCorrect } } };
-    await StatsDbService.setSetting(settingKey(state.date), next);
+    await StatsDbService.setSetting(settingKey(state.owner, state.date), next);
     return next;
   }
 }

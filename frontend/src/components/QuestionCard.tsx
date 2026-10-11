@@ -49,6 +49,14 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   attemptStatusMap = {},
 }) => {
   const { confidenceTracking, showTimer } = useStore();
+  const setDrawKey = useStore((s) => s.setDrawKey);
+
+  // The global draw overlay keeps one in-memory sketch per visible question
+  useEffect(() => {
+    setDrawKey(question.id);
+  }, [question.id, setDrawKey]);
+  // Only leaving the question view hides the draw button; switching questions keeps draw mode on
+  useEffect(() => () => setDrawKey(null), [setDrawKey]);
 
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number>(4);
@@ -196,7 +204,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const progressPercent = Math.min(100, Math.round((questionNumber / totalItemCount) * 100));
 
   return (
-    <div className="w-full flex flex-col gap-4 animate-in fade-in duration-300">
+    <div className="w-full flex flex-col gap-4">
+
       {/* Telemetry Bar & Context Rail */}
       <div className="w-full rounded-xl bg-surface-container-low border border-outline-variant/30 px-4 py-2.5 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -278,7 +287,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           </div>
 
           {/* Question Card Container */}
-          <div className="w-full rounded-xl sm:rounded-2xl bg-obsidian-surface-card dark:bg-obsidian-surface-card bg-surface-container-low p-4 sm:p-6 flex flex-col gap-4 sm:gap-5 shadow-xl border border-outline-variant/20">
+          <div className="w-full rounded-xl sm:rounded-2xl bg-surface-container-low dark:bg-obsidian-surface-card p-4 sm:p-6 flex flex-col gap-4 sm:gap-5 shadow-xl border border-outline-variant/20">
             {/* Question Stem Heading */}
             <div className="flex items-start gap-2.5 sm:gap-3">
               <span className="px-2.5 py-1 rounded-lg bg-surface-container-high text-primary font-mono-code text-xs font-body-bold shrink-0">
@@ -538,7 +547,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         {/* Right Column: Chronological 80-Question Rail (4 cols / 35%) */}
         <div className="w-full lg:w-4/12 flex flex-col gap-4">
           {/* Session Telemetry Summary Card */}
-          <div className="rounded-xl bg-obsidian-surface-card dark:bg-obsidian-surface-card bg-surface-container-low p-4 flex flex-col gap-3 shadow-xl border border-outline-variant/20">
+          <div className="rounded-xl bg-surface-container-low dark:bg-obsidian-surface-card p-4 flex flex-col gap-3 shadow-xl border border-outline-variant/20">
             <div className="flex items-center justify-between pb-1">
               <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">
                 Exam Progress Gauge
@@ -571,7 +580,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           </div>
 
           {/* Chronological Question Navigator Strip (1 - N) */}
-          <div className="rounded-xl bg-obsidian-surface-card dark:bg-obsidian-surface-card bg-surface-container-low p-4 flex flex-col gap-3 shadow-xl border border-outline-variant/20">
+          <div className="rounded-xl bg-surface-container-low dark:bg-obsidian-surface-card p-4 flex flex-col gap-3 shadow-xl border border-outline-variant/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px] text-tertiary">grid_view</span>
@@ -644,17 +653,6 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             </div>
           </div>
 
-          {/* Quick Analysis Callout Card */}
-          <div className="rounded-xl bg-surface-container p-4 flex flex-col gap-2 border border-outline-variant/20 shadow-sm">
-            <div className="flex items-center gap-1.5 font-label-caps text-xs text-tertiary uppercase">
-              <span className="material-symbols-outlined text-[15px]">tips_and_updates</span>
-              <span>PHILNITS Exam Tip</span>
-            </div>
-            <p className="font-body-base text-on-surface-variant text-xs leading-relaxed">
-              For Morning Exam questions, allocate ~100 seconds per question. Calibrate your confidence rating honestly
-              to optimize your personalized Spaced Repetition queue.
-            </p>
-          </div>
         </div>
       </div>
     </div>

@@ -218,11 +218,11 @@ export const ZoomableImage: React.FC<ZoomableImageProps> = ({
 
   return (
     <>
-      <div className={`relative w-full rounded-xl bg-obsidian-surface-dim overflow-hidden flex flex-col md:flex-row border border-outline-variant/30 shadow-md ${className}`}>
+      <div className={`relative w-full rounded-xl bg-surface-container-low dark:bg-obsidian-surface-dim overflow-hidden flex flex-col md:flex-row border border-outline-variant/30 shadow-md ${className}`}>
         {/* Diagram canvas — physical size scaling so overflow:auto actually scrolls to every edge */}
         <div
           ref={containerRef}
-          className="relative flex-1 p-3 sm:p-4 overflow-auto min-h-[180px] sm:min-h-[220px] max-h-[min(380px,60dvh)] flex items-start justify-center bg-obsidian-surface dark:bg-obsidian-surface bg-surface-container-lowest styled-horizontal-scrollbar"
+          className="relative flex-1 p-3 sm:p-4 overflow-auto min-h-[180px] sm:min-h-[220px] max-h-[min(380px,60dvh)] flex items-start justify-center bg-surface-container-lowest dark:bg-obsidian-surface styled-horizontal-scrollbar"
           style={{ overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}
         >
           <img

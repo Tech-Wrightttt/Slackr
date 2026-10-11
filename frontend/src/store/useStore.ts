@@ -27,6 +27,12 @@ interface AppState {
   sessionLength: number;
   hideAnswersInCustomQuiz: boolean;
   installPrompt: any | null;
+  /** Draw mode stays on across questions until the user turns it off */
+  drawMode: boolean;
+  setDrawMode: (on: boolean) => void;
+  /** Question currently on screen (null = no question, so the draw button hides) */
+  drawKey: string | null;
+  setDrawKey: (key: string | null) => void;
   // Local profile: authReady flips once the account table has been checked on boot
   authReady: boolean;
   hasAccount: boolean;
@@ -59,6 +65,11 @@ const applyThemeToDOM = (theme: ThemeMode) => {
     } else {
       document.documentElement.classList.remove('dark');
     }
+    // Installed PWA status bar / browser chrome tint matches the app theme
+    document.querySelectorAll('meta[name="theme-color"]').forEach((meta: Element) => {
+      meta.removeAttribute('media');
+      meta.setAttribute('content', theme === 'dark' ? '#090D16' : '#F8FAF0');
+    });
   }
 };
 
@@ -92,6 +103,10 @@ export const useStore = create<AppState>((set, get) => ({
   sessionLength: 20,
   hideAnswersInCustomQuiz: false,
   installPrompt: null,
+  drawMode: false,
+  setDrawMode: (on) => set({ drawMode: on }),
+  drawKey: null,
+  setDrawKey: (key) => set(key === null ? { drawKey: null, drawMode: false } : { drawKey: key }),
   authReady: false,
   hasAccount: false,
   currentUser: null,

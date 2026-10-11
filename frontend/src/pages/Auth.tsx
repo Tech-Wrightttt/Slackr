@@ -1,9 +1,10 @@
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { MotionConfig, motion, useReducedMotion } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import { AuthService, MIN_PASSWORD_LENGTH } from '../services/authService';
 import { BlurText, DecryptedText, ShinyText, Squares } from '../components/reactbits';
+import { BrandLogo } from '../components/BrandLogo';
 
 type Mode = 'signin' | 'signup';
 
@@ -104,7 +105,7 @@ const BrandPanel: React.FC = () => {
 
       <div className="pointer-events-none relative flex h-full flex-col justify-between gap-8 px-6 pt-6 pb-16 sm:px-10 lg:px-14 lg:py-12">
         <Link to="/" className="pointer-events-auto flex w-fit items-center gap-2.5">
-          <img src="/SlackrLogo.png" alt="" className="h-9 w-9 rounded-xl object-contain" />
+          <BrandLogo alt="" className="h-9 w-9" />
           <span className="font-headline-md text-xl font-bold tracking-tight text-on-surface">
             SLACK<span className="text-primary font-extrabold">R</span>
           </span>
@@ -180,6 +181,11 @@ const AuthScreen: React.FC<{ mode: Mode }> = ({ mode }) => {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [showRemove, setShowRemove] = useState(false);
+
+  // Seen once this launch: skipping now lets the guest use the app without being sent back here
+  useEffect(() => {
+    AuthService.markPromptedThisLaunch();
+  }, []);
 
   if (!authReady) return null;
   const from = (location.state as { from?: string } | null)?.from || '/';

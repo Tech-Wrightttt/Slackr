@@ -4,6 +4,8 @@ import type { AccountRecord } from '../db/schema';
 // Local, device-only profile. There is no server: the password only locks this
 // browser's UI, it does not encrypt the study data stored in IndexedDB.
 const SESSION_KEY = 'slackr_session';
+// sessionStorage: set once the auth screen has been shown this launch, so Skip sticks until the app is reopened
+const AUTH_PROMPTED_KEY = 'slackr_auth_prompted';
 const PBKDF2_ITERATIONS = 150_000;
 
 export const USERNAME_PATTERN = /^[A-Za-z0-9_.-]{3,24}$/;
@@ -95,6 +97,23 @@ export class AuthService {
     }
     writeSession(account.username);
     return account.username;
+  }
+
+  /** True when a signed-out visitor hasn't seen the sign-up / sign-in screen yet this launch. */
+  static shouldPromptThisLaunch(): boolean {
+    try {
+      return sessionStorage.getItem(AUTH_PROMPTED_KEY) !== '1';
+    } catch {
+      return false;
+    }
+  }
+
+  static markPromptedThisLaunch() {
+    try {
+      sessionStorage.setItem(AUTH_PROMPTED_KEY, '1');
+    } catch {
+      // Storage blocked: the prompt may show again on the next navigation, which is harmless
+    }
   }
 
   static signOut() {

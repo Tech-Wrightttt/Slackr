@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "katex/dist/katex.min.css";
 
+/* `dark:` follows the app theme toggle (the .dark class on <html>), not the OS setting */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary: var(--color-primary);
   --color-primary-container: var(--color-primary-container);
@@ -95,6 +98,9 @@
   --color-primary-container: #396a1e;
   --color-on-primary: #ffffff;
   --color-on-primary-container: #afe88d;
+  /* Hover/accent greens: deeper forest in light so white button text stays readable */
+  --color-primary-fixed: #396a1e;
+  --color-primary-fixed-dim: #2a5216;
 
   --color-secondary: #56624c;
   --color-secondary-container: #d7e4c8;
@@ -132,10 +138,14 @@
   --color-outline: #8c9384;
   --color-outline-variant: #42493c;
 
-  --color-primary: #9ed67c;
-  --color-primary-container: #396a1e;
-  --color-on-primary: #133800;
-  --color-on-primary-container: #afe88d;
+  /* Spec "Cyber-Academic Focus": luminous primary #84D656, accent #A6F178.
+     Containers stay luminous so text-on-primary (deep forest) reads on every green button. */
+  --color-primary: #84d656;
+  --color-primary-container: #6cbf3f;
+  --color-on-primary: #0b2600;
+  --color-on-primary-container: #0b2600;
+  --color-primary-fixed: #a6f178;
+  --color-primary-fixed-dim: #a6f178;
 
   --color-secondary: #becbb0;
   --color-secondary-container: #414d38;
@@ -147,7 +157,8 @@
   --color-on-tertiary: #003738;
   --color-on-tertiary-container: #002020;
 
-  --color-error: #B91A19;
+  /* Brighter red so error text stays legible on the obsidian canvas */
+  --color-error: #ef5350;
   --color-error-container: #FEDAD6;
   --color-on-error: #690005;
   --color-on-error-container: #ffdad6;
@@ -176,6 +187,9 @@ body {
     overscroll-behavior-y: none;
     /* Extend background into the safe-area notch region */
     padding-top: env(safe-area-inset-top, 0px);
+    /* Landscape notch / rounded corners */
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
   }
 }
 
@@ -605,5 +619,89 @@ img {
 @media (prefers-reduced-motion: reduce) {
   .animate-shine {
     animation: none;
+  }
+}
+
+/* Touch screens: 16px form text stops iOS Safari from zooming the page on focus */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    font-size: max(16px, 1em);
+  }
+}
+
+/* ── Draw mode ───────────────────────────────────────────────────── */
+
+/* Finger/stylus strokes must not scroll, zoom or select text underneath */
+.draw-surface[data-active='true'] {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  cursor: crosshair;
+}
+.draw-surface[data-active='true'][data-tool='eraser'] {
+  cursor: cell;
+}
+
+/* Floating toggle: bottom right, clear of the home indicator and landscape notch */
+.draw-fab {
+  right: max(1rem, calc(env(safe-area-inset-right) + 0.75rem));
+  bottom: max(1rem, calc(env(safe-area-inset-bottom) + 0.75rem));
+  transition: background-color 150ms ease, color 150ms ease, transform 120ms var(--ease-out);
+}
+
+/* Tools stack just above the toggle and grow from it */
+.draw-toolbar {
+  right: max(1rem, calc(env(safe-area-inset-right) + 0.75rem));
+  bottom: calc(max(1rem, calc(env(safe-area-inset-bottom) + 0.75rem)) + 4rem);
+  max-width: calc(100vw - 2rem - env(safe-area-inset-left) - env(safe-area-inset-right));
+  transform-origin: bottom right;
+  scrollbar-width: none;
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+@starting-style {
+  .draw-toolbar {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+}
+.draw-toolbar::-webkit-scrollbar {
+  display: none;
+}
+
+.draw-tool {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  color: var(--color-on-surface-variant);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, transform 120ms var(--ease-out);
+}
+.draw-tool:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.draw-tool.is-active {
+  background-color: color-mix(in oklab, var(--color-primary) 16%, transparent);
+  color: var(--color-primary);
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--color-primary) 55%, transparent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .draw-tool:not(:disabled):not(.is-active):hover {
+    background-color: var(--color-surface-container-high);
+    color: var(--color-on-surface);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .draw-toolbar {
+      transform: none;
+    }
   }
 }

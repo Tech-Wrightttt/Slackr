@@ -28,6 +28,14 @@ export class SlackrDatabase extends Dexie {
     this.version(3).stores({
       accounts: 'username',
     });
+
+    // v4 briefly persisted draw-mode sketches; v5 deletes that table (sketches are session-only now)
+    this.version(4).stores({
+      drawings: 'questionId, updatedAt',
+    });
+    this.version(5).stores({
+      drawings: null,
+    });
   }
 }
 

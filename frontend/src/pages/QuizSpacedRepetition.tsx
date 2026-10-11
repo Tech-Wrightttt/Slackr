@@ -5,6 +5,7 @@ import { StatsDbService } from '../services/statsDb';
 import { QuestionCard } from '../components/QuestionCard';
 import type { QuestionData, SRScheduleRecord } from '../db/schema';
 import { useStore } from '../store/useStore';
+import { BrandLogo } from '../components/BrandLogo';
 
 export const QuizSpacedRepetition: React.FC = () => {
   const { currentAlgo, theme } = useStore();
@@ -94,11 +95,7 @@ export const QuizSpacedRepetition: React.FC = () => {
       <div className="max-w-2xl mx-auto px-4 py-16 text-center animate-in fade-in duration-300">
         <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-8 shadow-2xl flex flex-col items-center gap-5">
           <div className="w-16 h-16 rounded-2xl bg-surface-container-high flex items-center justify-center p-2 border border-outline-variant/30 shadow-inner">
-            <img
-              src="/SlackrLogo.png"
-              alt="Slackr Logo"
-              className="w-full h-full object-contain"
-            />
+            <BrandLogo className="w-full h-full" />
           </div>
 
           <div>
