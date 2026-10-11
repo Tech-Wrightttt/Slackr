@@ -4,6 +4,7 @@ import { StatsDbService } from './statsDb';
 import type { SRAlgorithm } from './srsEngine';
 import { LearningResourcesService } from './learningResourcesService';
 import { AnalyticalBreakdownService } from './analyticalBreakdownService';
+import { apiUrl } from '../config/env';
 
 const BOOKMARKS_KEY = 'slackr_bookmarks';
 // Older builds mirrored these JSON blobs into the settings table; they live in their own block now
@@ -297,7 +298,7 @@ export class SyncService {
           timestamp: a.timestamp,
         })),
       };
-      const res = await fetch('/api/stats/sync', {
+      const res = await fetch(apiUrl('/api/stats/sync'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

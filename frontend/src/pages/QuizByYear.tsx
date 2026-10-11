@@ -160,15 +160,19 @@ export const QuizByYear: React.FC = () => {
     });
   };
 
-  const handleStartSession = async (sessionId: string = 'all', initialIndex: number = 0) => {
-    if (!selectedYear) return;
+  const handleStartSession = async (
+    sessionId: string = 'all',
+    initialIndex: number = 0,
+    year: string | null = selectedYear
+  ) => {
+    if (!year) return;
     setSelectedSessionId(sessionId);
     setLoading(true);
     setSessionCompleted(false);
     setSessionStats({ correct: 0, incorrect: 0, totalTime: 0 });
 
     try {
-      const qList = await QuestionsService.getQuestionsByYear(selectedYear, sessionId);
+      const qList = await QuestionsService.getQuestionsByYear(year, sessionId);
       setQuestions(qList);
       const safeIndex = Math.max(0, Math.min(initialIndex, qList.length - 1));
       setCurrentIndex(safeIndex);
@@ -177,6 +181,32 @@ export const QuizByYear: React.FC = () => {
       console.error('Failed to load questions:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Surprise pick: any single paper (one year + season + subject) from the whole archive
+  const [pickingRandom, setPickingRandom] = useState(false);
+  const handleRandomPaper = async () => {
+    if (pickingRandom || years.length === 0) return;
+    setPickingRandom(true);
+    try {
+      const meta = await QuestionsService.loadMetadataSummary();
+      const pool: Array<{ year: string; sessionId: string }> = [];
+      for (const y of years) {
+        const sessions: ExamSession[] = meta.sessions_by_year?.[y] ?? (await QuestionsService.getSessionsForYear(y));
+        for (const sess of sessions) {
+          if (sess.question_count > 0) pool.push({ year: y, sessionId: sess.session_id });
+        }
+      }
+      if (pool.length === 0) return;
+      const pick = pool[Math.floor(Math.random() * pool.length)];
+      // Select the year first so exiting the quiz lands on that paper's year
+      await handleSelectYear(pick.year);
+      await handleStartSession(pick.sessionId, 0, pick.year);
+    } catch (err) {
+      console.error('Failed to pick a random paper:', err);
+    } finally {
+      setPickingRandom(false);
     }
   };
 
@@ -399,7 +429,7 @@ export const QuizByYear: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-2">
         <div className="flex flex-col gap-2 max-w-2xl">
           <div className="flex items-center gap-2 font-mono-timer text-xs text-tertiary">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-interactive-sky animate-ping" />
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-interactive-sky" />
             <span>PHILNITS ARCHIVAL REPOSITORY // EXAM_CATALOG: 2007-2026</span>
           </div>
           <div className="flex items-baseline gap-3">
@@ -416,6 +446,19 @@ export const QuizByYear: React.FC = () => {
           </p>
         </div>
 
+        <div className="flex flex-col items-stretch md:items-end gap-3 shrink-0">
+        <button
+          type="button"
+          onClick={handleRandomPaper}
+          disabled={pickingRandom || years.length === 0}
+          title="Start a random paper from any year"
+          className="press-scale min-h-[40px] flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-on-primary shadow-sm hover:bg-primary-container disabled:opacity-50 cursor-pointer"
+        >
+          <span className={`material-symbols-outlined text-[16px] ${pickingRandom ? 'animate-spin' : ''}`}>
+            {pickingRandom ? 'progress_activity' : 'shuffle'}
+          </span>
+          <span>Random Paper</span>
+        </button>
         {/* Quick Metrics Ribbon */}
         <div className="flex items-center gap-4 bg-surface-container-low p-3 rounded-xl border border-outline-variant/30 shadow-sm shrink-0">
           <div className="flex flex-col px-2">
@@ -434,6 +477,7 @@ export const QuizByYear: React.FC = () => {
             <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">Sim Mode</span>
             <span className="font-mono-timer text-sm text-interactive-sky font-bold">OFFLINE-STRICT</span>
           </div>
+        </div>
         </div>
       </div>
 

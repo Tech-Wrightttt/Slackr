@@ -27,6 +27,11 @@ interface AppState {
   sessionLength: number;
   hideAnswersInCustomQuiz: boolean;
   installPrompt: any | null;
+  // Local profile: authReady flips once the account table has been checked on boot
+  authReady: boolean;
+  hasAccount: boolean;
+  currentUser: string | null;
+  setAuth: (patch: { hasAccount?: boolean; currentUser?: string | null }) => void;
   toggleTheme: () => void;
   setTheme: (theme: ThemeMode) => void;
   setOffline: (offline: boolean) => void;
@@ -87,6 +92,10 @@ export const useStore = create<AppState>((set, get) => ({
   sessionLength: 20,
   hideAnswersInCustomQuiz: false,
   installPrompt: null,
+  authReady: false,
+  hasAccount: false,
+  currentUser: null,
+  setAuth: (patch) => set({ ...patch, authReady: true }),
 
   toggleTheme: () => {
     const nextTheme = get().theme === 'dark' ? 'light' : 'dark';

@@ -5,6 +5,7 @@ import { StatsDbService } from '../services/statsDb';
 import { AnalyticsEngine } from '../services/analyticsEngine';
 import { QuestionCard } from '../components/QuestionCard';
 import type { QuestionData, SRScheduleRecord } from '../db/schema';
+import { topicLabel, topicStyle } from '../services/topicColors';
 
 export const QuizByTopic: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -63,8 +64,8 @@ export const QuizByTopic: React.FC = () => {
     setIsQuizActive(false);
   };
 
-  const handleStartTopicQuiz = async (yearFilter: string = 'all') => {
-    if (!selectedTopic) return;
+  const handleStartTopicQuiz = async (yearFilter: string = 'all', topic: string | null = selectedTopic) => {
+    if (!topic) return;
     setSelectedSubdeckYear(yearFilter);
     setLoading(true);
     setSessionCompleted(false);
@@ -72,7 +73,7 @@ export const QuizByTopic: React.FC = () => {
     setSessionStats({ correct: 0, incorrect: 0, totalTime: 0 });
 
     try {
-      const qList = await QuestionsService.getQuestionsByTopic(selectedTopic, yearFilter);
+      const qList = await QuestionsService.getQuestionsByTopic(topic, yearFilter);
       setQuestions(qList);
       setIsQuizActive(true);
     } catch (err) {
@@ -80,6 +81,15 @@ export const QuizByTopic: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Surprise pick: a random topic's full deck, never the one just practiced
+  const handleRandomTopic = () => {
+    const pool = topics.filter((t) => t !== selectedTopic && (topicCounts[t] || 0) > 0);
+    if (pool.length === 0) return;
+    const topic = pool[Math.floor(Math.random() * pool.length)]!;
+    setSelectedTopic(topic);
+    handleStartTopicQuiz('all', topic);
   };
 
   const handleAnswerSubmitted = async (
@@ -240,7 +250,7 @@ export const QuizByTopic: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2">
           <div className="flex flex-col gap-1 max-w-2xl">
             <div className="flex items-center gap-2 font-mono-timer text-xs text-interactive-sky">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-interactive-sky animate-ping" />
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-interactive-sky" />
               <span>PHILNITS KNOWLEDGE DOMAINS // 29 SYLLABUS UNITS</span>
             </div>
             <h1 className="font-display-lg text-3xl sm:text-4xl font-bold text-on-surface tracking-tight">
@@ -252,6 +262,17 @@ export const QuizByTopic: React.FC = () => {
             </p>
           </div>
 
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            type="button"
+            onClick={handleRandomTopic}
+            disabled={loading || topics.length === 0}
+            title="Start a random topic deck"
+            className="press-scale shrink-0 min-h-[40px] flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-on-primary shadow-sm hover:bg-primary-container disabled:opacity-50 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px]">shuffle</span>
+            <span>Random Topic</span>
+          </button>
           {/* Search Input */}
           <div className="relative w-full sm:w-80">
             <span className="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-[18px]">
@@ -264,6 +285,7 @@ export const QuizByTopic: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low pl-9 pr-4 py-2 text-sm text-on-surface placeholder-on-surface-variant/60 focus:border-primary focus:outline-none font-mono-code"
             />
+          </div>
           </div>
         </div>
 
@@ -282,16 +304,15 @@ export const QuizByTopic: React.FC = () => {
                   key={topic}
                   type="button"
                   onClick={() => handleSelectTopic(topic)}
-                  className="group flex items-center justify-between rounded-xl border border-outline-variant/20 bg-surface-container-low p-5 text-left transition-all hover:bg-surface-container hover:border-outline-variant/40 shadow-sm cursor-pointer"
+                  style={topicStyle(topic)}
+                  className="topic-card press-scale group flex items-center justify-between gap-3 rounded-xl border border-outline-variant/20 bg-surface-container-low p-5 text-left shadow-sm cursor-pointer"
                 >
-                  <div className="flex items-center gap-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-surface-container-high group-hover:bg-interactive-sky text-on-surface group-hover:text-surface-container-lowest flex items-center justify-center transition-colors shrink-0">
+                  <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="topic-tile w-10 h-10 rounded-xl flex items-center justify-center shrink-0">
                       <span className="material-symbols-outlined text-[20px]">category</span>
                     </div>
-                    <div>
-                      <h3 className="font-body-bold text-sm text-on-surface group-hover:text-interactive-sky transition-colors uppercase tracking-wide">
-                        #{topic}
-                      </h3>
+                    <div className="min-w-0">
+                      <h3 className="font-body-bold text-sm text-on-surface truncate">{topicLabel(topic)}</h3>
                       <p className="font-mono-code text-xs text-on-surface-variant mt-0.5">
                         {count} verified questions
                       </p>
@@ -340,9 +361,12 @@ export const QuizByTopic: React.FC = () => {
       </button>
 
       <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-3">
-          <h1 className="font-headline-md text-3xl font-extrabold uppercase text-on-surface tracking-tight">
-            #{selectedTopic}
+        <div className="flex flex-wrap items-center gap-3" style={topicStyle(selectedTopic)}>
+          <div className="topic-tile w-11 h-11 rounded-xl flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-[22px]">category</span>
+          </div>
+          <h1 className="font-headline-md text-3xl font-extrabold text-on-surface tracking-tight">
+            {topicLabel(selectedTopic)}
           </h1>
           <span className="font-mono-timer text-xs px-2.5 py-0.5 rounded-full bg-surface-container-high text-primary font-bold border border-outline-variant/30">
             {totalTopicQuestions} Questions Total

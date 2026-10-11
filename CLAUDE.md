@@ -45,7 +45,7 @@ SLACKR is a two-layer system built around **offline-first** operation:
 
 - **Router**: React Router v7 with lazy-loaded page components. Routes defined in `App.tsx`.
 - **State**: Zustand store (`store/useStore.ts`) holds only transient UI state: theme, offline flag, active SRS algorithm, session preferences. **No question data lives in Zustand**.
-- **IndexedDB**: `db/index.ts` exports a singleton `db` (Dexie `SlackrDatabase`) with six tables: `attempts`, `srSchedules`, `topicStats`, `settings`, `deferred`, `sessions`. Schema versions must be incremented when adding tables or indexes.
+- **IndexedDB**: `db/index.ts` exports a singleton `db` (Dexie `SlackrDatabase`) with seven tables: `attempts`, `srSchedules`, `topicStats`, `settings`, `deferred`, `sessions`, `accounts` (local profile). Schema versions must be incremented when adding tables or indexes.
 - **Services** (pure static classes, no React):
   - `questionsService.ts` — loads and filters question data; implements the PelNETS sorting algorithm (Year desc → Season S before A → Paper FE-A/AM before FE-B/PM → Question# → Sub#).
   - `srsEngine.ts` — in-browser implementations of SM-2, FSRS, and Custom SRS algorithms.
@@ -53,7 +53,7 @@ SLACKR is a two-layer system built around **offline-first** operation:
   - `statsDb.ts` — direct Dexie helpers for reading/writing attempt records.
   - `syncService.ts` — serializes IndexedDB to JSON for export / backend sync.
 - **Components**: `QuestionCard` is the main interactive unit. `MarkdownRenderer` handles `$math$`/`$$display$$` via KaTeX + `react-markdown`.
-- **PWA**: `public/sw.js` manages three cache buckets: `slackr-app-v4` (shell), `slackr-images-v2` (diagram PNGs), `slackr-data-v1` (JSON bundles).
+- **PWA**: `public/sw.js` manages four cache buckets: `slackr-app-v6` (shell), `slackr-images-v2` (diagram PNGs), `slackr-data-v2` (JSON bundles), `slackr-fonts-v1` (Google Fonts).
 
 ### Backend (`backend/`)
 

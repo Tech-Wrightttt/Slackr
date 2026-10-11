@@ -1,8 +1,9 @@
 import React, { useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { useStore } from './store/useStore';
 import { StatsDbService } from './services/statsDb';
+import { AuthService } from './services/authService';
 import type { SRAlgorithm } from './services/srsEngine';
 import { WifiOff, Loader2 } from 'lucide-react';
 
@@ -18,7 +19,9 @@ const Analytics = lazy(() => import('./pages/Analytics').then((m) => ({ default:
 const QuestionHistory = lazy(() =>
   import('./pages/QuestionHistory').then((m) => ({ default: m.QuestionHistory }))
 );
-const Settings = lazy(() => import('./pages/Settings').then((m) => ({ default: m.Settings })));
+const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.Profile })));
+const SignIn = lazy(() => import('./pages/Auth').then((m) => ({ default: m.SignIn })));
+const SignUp = lazy(() => import('./pages/Auth').then((m) => ({ default: m.SignUp })));
 
 const LoadingFallback: React.FC = () => (
   <div className="flex min-h-[60vh] items-center justify-center text-on-surface-variant">
@@ -29,12 +32,62 @@ const LoadingFallback: React.FC = () => (
   </div>
 );
 
+// Main app chrome. Accounts are optional: guests and signed-in profiles see the same app.
+const AppShell: React.FC = () => {
+  const { isOffline } = useStore();
+
+  return (
+    <div className="flex min-h-screen flex-col bg-surface-container-lowest font-body-base text-on-surface selection:bg-primary-container selection:text-on-primary">
+      {/* Global Navigation Header */}
+      <Navbar />
+
+      {/* Offline Notification Strip */}
+      {isOffline && (
+        <div className="fixed top-16 left-0 right-0 z-40 flex items-center justify-center gap-2 bg-confidence-amber/15 border-b border-confidence-amber/30 px-4 py-1.5 text-xs font-mono-code font-semibold text-confidence-amber backdrop-blur-md">
+          <WifiOff className="h-3.5 w-3.5" />
+          <span>Telemetry Offline: Local Dexie.js cache active for all 3,609 PHILNITS items.</span>
+        </div>
+      )}
+
+      {/* Main Routed Content Viewport */}
+      <main className={`flex-1 w-full pt-16 min-h-[calc(100vh-70px)] bg-surface-container-lowest ${isOffline ? 'pt-24' : 'pt-16'}`}>
+        <Suspense fallback={<LoadingFallback />}>
+          <Outlet />
+        </Suspense>
+      </main>
+
+      {/* Editorial Telemetry Footer */}
+      <footer className="w-full bg-obsidian-surface-dim dark:bg-obsidian-surface-dim bg-surface-container-low border-t border-outline-variant/20 py-5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono-code text-xs text-on-surface-variant/80">
+          <div className="flex items-center gap-3">
+            <span className="font-label-caps text-primary uppercase font-bold">SLACKR CORE</span>
+            <span>PHILNITS FE / AP Academic Telemetry Engine</span>
+          </div>
+          <div className="flex items-center gap-4 text-[11px]">
+            <span>IndexedDB: Active</span>
+            <span>•</span>
+            <span>V2.4.0 (Offline-First)</span>
+            <span>•</span>
+            <span>© 2025</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+};
+
 export const App: React.FC = () => {
-  const { isOffline, setOffline, setCurrentAlgo } = useStore();
+  const { setOffline, setCurrentAlgo, setAuth } = useStore();
 
   useEffect(() => {
     StatsDbService.getSetting<SRAlgorithm>('spaced_repetition_algorithm', 'SM-2').then(setCurrentAlgo).catch(() => {});
   }, [setCurrentAlgo]);
+
+  useEffect(() => {
+    AuthService.restore()
+      .then(({ hasAccount, username }) => setAuth({ hasAccount, currentUser: username }))
+      .catch(() => setAuth({ hasAccount: false, currentUser: null }));
+  }, [setAuth]);
 
   useEffect(() => {
     const handleOnline = () => setOffline(false);
@@ -49,52 +102,24 @@ export const App: React.FC = () => {
 
   return (
     <BrowserRouter>
-      <div className="flex min-h-screen flex-col bg-surface-container-lowest font-body-base text-on-surface selection:bg-primary-container selection:text-on-primary">
-        {/* Global Navigation Header */}
-        <Navbar />
-
-        {/* Offline Notification Strip */}
-        {isOffline && (
-          <div className="fixed top-16 left-0 right-0 z-40 flex items-center justify-center gap-2 bg-confidence-amber/15 border-b border-confidence-amber/30 px-4 py-1.5 text-xs font-mono-code font-semibold text-confidence-amber backdrop-blur-md">
-            <WifiOff className="h-3.5 w-3.5" />
-            <span>Telemetry Offline: Local Dexie.js cache active for all 3,609 PHILNITS items.</span>
-          </div>
-        )}
-
-        {/* Main Routed Content Viewport */}
-        <main className={`flex-1 w-full pt-16 min-h-[calc(100vh-70px)] bg-surface-container-lowest ${isOffline ? 'pt-24' : 'pt-16'}`}>
-          <Suspense fallback={<LoadingFallback />}>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/quiz/year" element={<QuizByYear />} />
-              <Route path="/quiz/topic" element={<QuizByTopic />} />
-              <Route path="/quiz/combined" element={<QuizCombined />} />
-              <Route path="/quiz/custom" element={<QuizCustom />} />
-              <Route path="/quiz/srs" element={<QuizSpacedRepetition />} />
-              <Route path="/analytics" element={<Analytics />} />
-              <Route path="/history/:id" element={<QuestionHistory />} />
-              <Route path="/settings" element={<Settings />} />
-            </Routes>
-          </Suspense>
-        </main>
-
-        {/* Editorial Telemetry Footer */}
-        <footer className="w-full bg-obsidian-surface-dim dark:bg-obsidian-surface-dim bg-surface-container-low border-t border-outline-variant/20 py-5">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono-code text-xs text-on-surface-variant/80">
-            <div className="flex items-center gap-3">
-              <span className="font-label-caps text-primary uppercase font-bold">SLACKR CORE</span>
-              <span>PHILNITS FE / AP Academic Telemetry Engine</span>
-            </div>
-            <div className="flex items-center gap-4 text-[11px]">
-              <span>IndexedDB: Active</span>
-              <span>•</span>
-              <span>V2.4.0 (Offline-First)</span>
-              <span>•</span>
-              <span>© 2025</span>
-            </div>
-          </div>
-        </footer>
-      </div>
+      <Suspense fallback={null}>
+        <Routes>
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route element={<AppShell />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/quiz/year" element={<QuizByYear />} />
+            <Route path="/quiz/topic" element={<QuizByTopic />} />
+            <Route path="/quiz/combined" element={<QuizCombined />} />
+            <Route path="/quiz/custom" element={<QuizCustom />} />
+            <Route path="/quiz/srs" element={<QuizSpacedRepetition />} />
+            <Route path="/analytics" element={<Analytics />} />
+            <Route path="/history/:id" element={<QuestionHistory />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/settings" element={<Navigate to="/profile" replace />} />
+          </Route>
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 };

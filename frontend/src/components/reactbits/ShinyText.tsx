@@ -6,6 +6,8 @@ interface ShinyTextProps {
   speed?: number;
   className?: string;
   shimmerWidth?: number;
+  /** Solid text color under the shine; without it only the shine band is visible */
+  baseColor?: string;
 }
 
 export const ShinyText: React.FC<ShinyTextProps> = ({
@@ -14,6 +16,7 @@ export const ShinyText: React.FC<ShinyTextProps> = ({
   speed = 4,
   className = '',
   shimmerWidth = 100,
+  baseColor,
 }) => {
   const animationDuration = `${speed}s`;
 
@@ -21,9 +24,10 @@ export const ShinyText: React.FC<ShinyTextProps> = ({
     <span
       className={`inline-block text-transparent bg-clip-text ${disabled ? '' : 'animate-shine'} ${className}`}
       style={{
-        backgroundImage:
-          'linear-gradient(120deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.8) 50%, rgba(255, 255, 255, 0) 100%)',
-        backgroundSize: `${shimmerWidth}% 100%`,
+        backgroundImage: baseColor
+          ? `linear-gradient(120deg, transparent 40%, rgba(255, 255, 255, 0.75) 50%, transparent 60%), linear-gradient(${baseColor}, ${baseColor})`
+          : 'linear-gradient(120deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.8) 50%, rgba(255, 255, 255, 0) 100%)',
+        backgroundSize: baseColor ? `${shimmerWidth}% 100%, 100% 100%` : `${shimmerWidth}% 100%`,
         WebkitBackgroundClip: 'text',
         animationDuration: animationDuration,
       }}

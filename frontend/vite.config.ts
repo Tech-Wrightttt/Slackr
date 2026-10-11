@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
@@ -167,27 +167,33 @@ function emitAssetManifest(): Plugin {
   };
 }
 
-export default defineConfig({
-  plugins: [
-    serveDiagramFiles(),
-    serveLearningResources(),
-    serveAnalyticalBreakdowns(),
-    emitAssetManifest(),
-    tailwindcss(),
-    react(),
-  ],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
-  },
-  server: {
-    port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://127.0.0.1:8000',
-        changeOrigin: true,
+export default defineConfig(({ mode }) => {
+  // Dev-only: where `/api` is proxied. Not a VITE_ var, so it never reaches the browser bundle.
+  const env = loadEnv(mode, __dirname, '');
+  const apiProxyTarget = env.API_PROXY_TARGET || 'http://127.0.0.1:8000';
+
+  return {
+    plugins: [
+      serveDiagramFiles(),
+      serveLearningResources(),
+      serveAnalyticalBreakdowns(),
+      emitAssetManifest(),
+      tailwindcss(),
+      react(),
+    ],
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
       },
     },
-  },
+    server: {
+      port: 5173,
+      proxy: {
+        '/api': {
+          target: apiProxyTarget,
+          changeOrigin: true,
+        },
+      },
+    },
+  };
 });

@@ -13,6 +13,8 @@ interface BlurTextProps {
   animationTo?: Array<Record<string, any>>;
   easing?: (t: number) => number | string;
   onAnimationComplete?: () => void;
+  /** Extra ms before the first element starts, for sequencing several BlurTexts */
+  startDelay?: number;
 }
 
 export const BlurText: React.FC<BlurTextProps> = ({
@@ -27,6 +29,7 @@ export const BlurText: React.FC<BlurTextProps> = ({
   animationTo,
   easing = 'easeOut',
   onAnimationComplete,
+  startDelay = 0,
 }) => {
   const elements = animateBy === 'words' ? text.split(' ') : text.split('');
   const [inView, setInView] = useState(false);
@@ -75,7 +78,7 @@ export const BlurText: React.FC<BlurTextProps> = ({
           animate={inView ? animationTo || defaultTo : animationFrom || defaultFrom}
           transition={{
             duration: 0.4,
-            delay: (index * delay) / 1000,
+            delay: (startDelay + index * delay) / 1000,
             ease: easing as any,
           }}
           onAnimationComplete={index === elements.length - 1 ? onAnimationComplete : undefined}

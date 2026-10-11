@@ -75,6 +75,18 @@ export const REGISTERED_TOPICS = [
   'web-technologies',
 ];
 
+export interface DailyActivity {
+  days: Array<{ date: string; count: number; correct: number }>;
+  currentStreak: number;
+  longestStreak: number;
+  activeDays: number;
+  total: number;
+}
+
+/** YYYY-MM-DD in the user's local timezone (toISOString would shift late-night sessions to UTC). */
+export const localDateKey = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 export class AnalyticsEngine {
   static async getErrorRates() {
     const attempts = await db.attempts.toArray();
@@ -283,6 +295,55 @@ export class AnalyticsEngine {
       overconfidenceRate,
       underconfidenceRate,
       bins,
+    };
+  }
+
+  /**
+   * Answered questions per local calendar day. Built from the attempt log only,
+   * so opening papers, browsing questions or skipping never counts as activity.
+   */
+  static async getDailyActivity(days: number = 371): Promise<DailyActivity> {
+    const attempts = await db.attempts.toArray();
+    const counts = new Map<string, { count: number; correct: number }>();
+    for (const a of attempts) {
+      const key = localDateKey(new Date(a.timestamp));
+      const c = counts.get(key) || { count: 0, correct: 0 };
+      c.count += 1;
+      if (a.isCorrect) c.correct += 1;
+      counts.set(key, c);
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const series: DailyActivity['days'] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const key = localDateKey(d);
+      const c = counts.get(key);
+      series.push({ date: key, count: c?.count ?? 0, correct: c?.correct ?? 0 });
+    }
+
+    // Current streak: an empty today doesn't break a streak that ran through yesterday
+    let currentStreak = 0;
+    for (let i = series.length - 1; i >= 0; i--) {
+      if (series[i].count > 0) currentStreak++;
+      else if (i === series.length - 1) continue;
+      else break;
+    }
+    let longestStreak = 0;
+    let run = 0;
+    for (const d of series) {
+      run = d.count > 0 ? run + 1 : 0;
+      longestStreak = Math.max(longestStreak, run);
+    }
+
+    return {
+      days: series,
+      currentStreak,
+      longestStreak,
+      activeDays: series.filter((d) => d.count > 0).length,
+      total: series.reduce((s, d) => s + d.count, 0),
     };
   }
 

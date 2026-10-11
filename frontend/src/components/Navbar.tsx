@@ -3,12 +3,14 @@ import { NavLink, Link, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import { StatsDbService } from '../services/statsDb';
+import { AnalyticsEngine } from '../services/analyticsEngine';
 import { OfflineDownloadButton } from './OfflineDownloadButton';
 
 export const Navbar: React.FC = () => {
-  const { isOffline, setOffline, installPrompt, setInstallPrompt, theme, toggleTheme } = useStore();
+  const { isOffline, setOffline, installPrompt, setInstallPrompt, theme, toggleTheme, currentUser, hasAccount } = useStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dueCount, setDueCount] = useState<number>(0);
+  const [streak, setStreak] = useState<number>(0);
   const location = useLocation();
 
   useEffect(() => {
@@ -27,6 +29,7 @@ export const Navbar: React.FC = () => {
       try {
         const due = await StatsDbService.getDueReviews();
         setDueCount(due.length);
+        setStreak((await AnalyticsEngine.getDailyActivity()).currentStreak);
       } catch (err) {
         // ignore
       }
@@ -65,7 +68,7 @@ export const Navbar: React.FC = () => {
       badge: dueCount > 0 ? dueCount : null,
     },
     { to: '/analytics', label: 'Analytics', icon: 'monitoring' },
-    { to: '/settings', label: 'Settings', icon: 'settings' },
+    { to: '/profile', label: 'Profile', icon: 'person' },
   ];
 
   return (
@@ -142,7 +145,7 @@ export const Navbar: React.FC = () => {
             <span className="material-symbols-outlined text-[16px] text-confidence-amber">
               local_fire_department
             </span>
-            <span>{dueCount > 0 ? `${dueCount} DUE` : '14D'}</span>
+            <span>{dueCount > 0 ? `${dueCount} DUE` : `${streak}D`}</span>
           </Link>
 
           {/* Theme Toggle Button */}
@@ -174,9 +177,26 @@ export const Navbar: React.FC = () => {
           )}
 
           {/* Profile Badge */}
-          <div className="hidden sm:flex w-8 h-8 rounded-full bg-primary items-center justify-center text-on-primary">
-            <span className="material-symbols-outlined text-[18px]">person</span>
-          </div>
+          {currentUser ? (
+            <Link
+              to="/profile"
+              aria-label={`Profile: ${currentUser}`}
+              title={currentUser}
+              className="press-scale hidden sm:flex w-8 h-8 rounded-full bg-primary items-center justify-center text-on-primary"
+            >
+              <span className="material-symbols-outlined text-[18px]">person</span>
+            </Link>
+          ) : (
+            // Guests: optional sign-in entry point, returns them to where they were
+            <Link
+              to={hasAccount ? '/signin' : '/signup'}
+              state={{ from: location.pathname }}
+              className="press-scale hidden sm:flex items-center gap-1 h-8 px-3 rounded-full border border-outline-variant/40 bg-surface-container-low text-xs font-semibold text-on-surface hover:bg-surface-container"
+            >
+              <span className="material-symbols-outlined text-[16px]">login</span>
+              {hasAccount ? 'Sign in' : 'Sign up'}
+            </Link>
+          )}
 
           {/* Mobile Menu Hamburger */}
           <button

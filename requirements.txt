@@ -1,0 +1,2 @@
+# Python deps for the Vercel function (api/index.py); the backend keeps its own pinned list
+-r backend/requirements.txt

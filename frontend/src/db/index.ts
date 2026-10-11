@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { AttemptRecord, SRScheduleRecord, TopicStatRecord, SettingRecord, DeferredRecord, SessionRecord } from './schema';
+import type { AttemptRecord, SRScheduleRecord, TopicStatRecord, SettingRecord, DeferredRecord, SessionRecord, AccountRecord } from './schema';
 
 export class SlackrDatabase extends Dexie {
   attempts!: Table<AttemptRecord, number>;
@@ -8,6 +8,7 @@ export class SlackrDatabase extends Dexie {
   settings!: Table<SettingRecord, string>;
   deferred!: Table<DeferredRecord, number>;
   sessions!: Table<SessionRecord, number>;
+  accounts!: Table<AccountRecord, string>;
 
   constructor() {
     super('SlackrDB');
@@ -21,6 +22,11 @@ export class SlackrDatabase extends Dexie {
     this.version(2).stores({
       deferred: '++id, questionId, topic, deferredAt',
       sessions: '++id, sessionType, filterKey, startedAt, isCompleted'
+    });
+
+    // Local profile lives in its own table so JSON export/import never carries credentials
+    this.version(3).stores({
+      accounts: 'username',
     });
   }
 }

@@ -9,8 +9,10 @@ venv/
 # Node
 node_modules/
 
-# Environment
+# Environment: real values never committed; .env.example lists names only
 .env
+.env.*
+!.env.example
 
 # Data files
 *.json
@@ -21,6 +23,18 @@ node_modules/
 !frontend/public/data/learning_resources.json
 !backend/data/analytical_breakdowns.json
 !backend/data/learning_resources.json
+# Question bank + sorting/catalog data the deployed app needs (no user data)
+!frontend/public/data/questions_index.json
+!frontend/public/data/metadata_summary.json
+!frontend/public/image-list.json
+!frontend/public/manifest.json
+!vercel.json
+
+# Personal / user data: never commit, even if an allowlist above is widened later
+backend/data/user_stats.json
+**/slackr_*export*.json
+**/slackr_*backup*.json
+**/slackr_stats_*.json
 
 # Build
 dist/

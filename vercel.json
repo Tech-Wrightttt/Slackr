@@ -1,0 +1,49 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "cd frontend && bun install --frozen-lockfile",
+  "buildCommand": "cd frontend && bun run build",
+  "outputDirectory": "frontend/dist",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 10,
+      "excludeFiles": "{frontend/node_modules/**,frontend/dist/**,frontend/src/**,frontend/public/files/**,frontend/public/icons/**,backend/venv/**,backend/tests/**,backend/data/pelnets/**,.agents/**,.claude/**}"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/index" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
+      "source": "/asset-manifest.json",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    },
+    {
+      "source": "/manifest.json",
+      "headers": [
+        { "key": "Content-Type", "value": "application/manifest+json" },
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
+    },
+    {
+      "source": "/index.html",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/files/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=2592000" }]
+    }
+  ]
+}

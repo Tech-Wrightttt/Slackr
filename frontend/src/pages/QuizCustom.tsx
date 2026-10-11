@@ -3,6 +3,10 @@ import { QuestionsService } from '../services/questionsService';
 import { StatsDbService } from '../services/statsDb';
 import { db } from '../db';
 import { QuestionCard } from '../components/QuestionCard';
+import { AdvancedSearchInput } from '../components/SearchHelperDropdown';
+import { HighlightText } from '../components/HighlightText';
+import { useSearchQuery } from '../hooks/useSearchQuery';
+import { toPlainText, type ParsedQuery, type SearchMatch } from '../services/searchEngine';
 import type { QuestionData, SRScheduleRecord } from '../db/schema';
 import { useStore } from '../store/useStore';
 
@@ -15,7 +19,6 @@ export const QuizCustom: React.FC = () => {
   const [newSetName, setNewSetName] = useState<string>('');
 
   // Filters for question table
-  const [search, setSearch] = useState<string>('');
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [topicFilter, setTopicFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'unanswered' | 'answered'>('all');
@@ -59,24 +62,26 @@ export const QuizCustom: React.FC = () => {
     loadData();
   }, []);
 
-  const filteredQuestions = useMemo(() => {
+  const scopedQuestions = useMemo(() => {
     return allQuestions.filter((q) => {
       if (yearFilter !== 'all' && q.year !== yearFilter) return false;
       if (topicFilter !== 'all' && !q.topics?.includes(topicFilter)) return false;
       if (statusFilter === 'unanswered' && attemptedMap[q.id]) return false;
       if (statusFilter === 'answered' && !attemptedMap[q.id]) return false;
-      if (search) {
-        const s = search.toLowerCase();
-        return (
-          q.id.toLowerCase().includes(s) ||
-          q.question.toLowerCase().includes(s) ||
-          (!!q.explanation && q.explanation.toLowerCase().includes(s)) ||
-          q.topics?.some((t) => t.toLowerCase().includes(s))
-        );
-      }
       return true;
     });
-  }, [allQuestions, yearFilter, topicFilter, statusFilter, search, attemptedMap]);
+  }, [allQuestions, yearFilter, topicFilter, statusFilter, attemptedMap]);
+
+  const { input: search, setInput: setSearch, parsed, matches } = useSearchQuery(scopedQuestions);
+
+  const filteredQuestions = useMemo(
+    () => (matches ? matches.map((m) => m.question) : scopedQuestions),
+    [matches, scopedQuestions]
+  );
+  const matchById = useMemo(
+    () => new Map<string, SearchMatch>(matches?.map((m) => [m.question.id, m]) ?? []),
+    [matches]
+  );
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -393,21 +398,16 @@ export const QuizCustom: React.FC = () => {
         </div>
       )}
 
-      {/* Filter Toolbar */}
-      <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
-        <div className="relative sm:col-span-1">
-          <span className="material-symbols-outlined absolute left-3 top-2.5 text-on-surface-variant text-[16px]">
-            search
-          </span>
-          <input
-            type="text"
-            placeholder="Search questions or ID..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-outline-variant/30 bg-surface-container-low pl-9 pr-3 py-2 text-xs font-mono-code text-on-surface placeholder-on-surface-variant/60 focus:border-primary focus:outline-none"
-          />
-        </div>
+      {/* Search */}
+      <AdvancedSearchInput
+        value={search}
+        onChange={setSearch}
+        parsed={parsed}
+        hasResults={!!matches && matches.length > 0}
+      />
 
+      {/* Filter Toolbar */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <div>
           <select
             value={statusFilter}
@@ -481,9 +481,10 @@ export const QuizCustom: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/10 text-on-surface">
-              {filteredQuestions.slice(0, 100).map((q) => {
+              {filteredQuestions.slice(0, 100).map((q, rowIndex) => {
                 const isSelected = selectedIds.has(q.id);
                 const isAnswered = attemptedMap[q.id];
+                const match = matchById.get(q.id);
 
                 return (
                   <tr
@@ -503,16 +504,24 @@ export const QuizCustom: React.FC = () => {
                         className="h-4 w-4 rounded accent-primary cursor-pointer"
                       />
                     </td>
-                    <td className="px-4 py-3 font-bold text-primary">{q.id}</td>
+                    <td className="px-4 py-3 font-bold text-primary">
+                      {match ? <HighlightText text={q.id} query={parsed} /> : q.id}
+                    </td>
                     <td className="px-4 py-3 text-on-surface-variant">{q.year}</td>
                     <td className="px-4 py-3">
                       <span className="px-2 py-0.5 rounded bg-surface-container-high text-tertiary text-[10px] uppercase font-bold">
                         {q.topics?.[0] || 'software'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-on-surface-variant max-w-md truncate">
-                      {q.question ? q.question.replace(/<[^>]*>?/gm, '').slice(0, 80) : '(Schematic Diagram Question)'}
-                    </td>
+                    {match ? (
+                      <td className="px-4 py-3 text-on-surface-variant max-w-md">
+                        <SearchMatchCell match={match} parsed={parsed} isBest={parsed.isPastedQuestion && rowIndex === 0} />
+                      </td>
+                    ) : (
+                      <td className="px-4 py-3 text-on-surface-variant max-w-md truncate">
+                        {q.question ? q.question.replace(/<[^>]*>?/gm, '').slice(0, 80) : '(Schematic Diagram Question)'}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-right">
                       {isAnswered ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-mastery-emerald/15 text-mastery-emerald text-[10px] font-semibold">
@@ -531,10 +540,57 @@ export const QuizCustom: React.FC = () => {
         </div>
 
         <div className="border-t border-outline-variant/20 bg-surface-container-lowest/80 px-4 py-2.5 flex items-center justify-between text-[11px] font-mono-code text-on-surface-variant">
-          <span>Staged {selectedIds.size} of {filteredQuestions.length} matching items</span>
+          <span>
+            Staged {selectedIds.size} of {filteredQuestions.length} matching items
+            {matches && matches.length === 0 && ' · no matches, try fewer words or drop the quotes'}
+          </span>
           <span>Showing up to 100 rows</span>
         </div>
       </div>
+    </div>
+  );
+};
+
+const FIELD_LABEL: Record<SearchMatch['field'], string> = {
+  question: 'stem',
+  option: 'option',
+  explanation: 'explanation',
+  id: 'item ID',
+  topic: 'topic',
+};
+
+const SearchMatchCell: React.FC<{
+  match: SearchMatch;
+  parsed: ParsedQuery;
+  isBest: boolean;
+}> = ({ match, parsed, isBest }) => {
+  const stem = toPlainText(match.question.question) || '(Schematic Diagram Question)';
+  const showField = match.field === 'option' || match.field === 'explanation';
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="line-clamp-2 whitespace-normal leading-relaxed">
+        <HighlightText text={stem} query={parsed} excerptRadius={70} />
+      </div>
+      {showField && (
+        <div className="line-clamp-1 whitespace-normal text-[11px] text-on-surface-variant/80">
+          <span className="search-hint-subtitle font-semibold uppercase">
+            {match.field === 'option' ? `Option ${match.optionKey?.toUpperCase()}` : FIELD_LABEL[match.field]}:{' '}
+          </span>
+          <HighlightText text={match.fieldText} query={parsed} excerptRadius={60} />
+        </div>
+      )}
+      {parsed.isPastedQuestion && (
+        <div className="flex items-center gap-1.5">
+          {isBest && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-mastery-emerald/15 px-2 py-0.5 text-[10px] font-semibold text-mastery-emerald">
+              <span className="material-symbols-outlined text-[12px]">target</span>
+              Best match
+            </span>
+          )}
+          <span className="text-[10px] text-on-surface-variant/70">{Math.round(match.score * 100)}% similar</span>
+        </div>
+      )}
     </div>
   );
 };

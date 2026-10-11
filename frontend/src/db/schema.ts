@@ -82,3 +82,10 @@ export interface SessionRecord {
   completedAt?: string;
   isCompleted: boolean;
 }
+
+export interface AccountRecord {
+  username: string;
+  passwordHash: string; // hex PBKDF2-SHA256
+  salt: string; // hex
+  createdAt: string; // ISO timestamp
+}

@@ -1,4 +1,5 @@
 import { LocalJsonStore } from './localJsonStore';
+import { apiUrl } from '../config/env';
 
 export interface LearningResource {
   id: string;
@@ -17,7 +18,7 @@ let memoryCache: LearningResourcesData | null = null;
 
 const store = new LocalJsonStore<LearningResourcesData>({
   storageKey: 'slackr_learning_resources_cache',
-  apiUrl: '/api/learning-resources',
+  apiUrl: apiUrl('/api/learning-resources'),
   staticUrl: '/data/learning_resources.json',
   empty: () => ({ topics: {}, questions: {} }),
 });

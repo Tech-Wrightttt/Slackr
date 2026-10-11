@@ -8,7 +8,14 @@ from algorithms.sm2 import SM2Algorithm
 from algorithms.fsrs_algo import FSRSAlgorithm
 from algorithms.custom import CustomSRSAlgorithm
 
-STATS_FILE = Path(__file__).resolve().parent.parent / "data" / "user_stats.json"
+# Local mode keeps the single-user stats file next to the data. Hosted (Vercel) code is read-only,
+# so default to /tmp there; personal-stats endpoints are disabled when hosted anyway (see main.py).
+_DEFAULT_STATS_FILE = (
+    Path("/tmp/slackr_user_stats.json")
+    if os.environ.get("VERCEL")
+    else Path(__file__).resolve().parent.parent / "data" / "user_stats.json"
+)
+STATS_FILE = Path(os.environ.get("SLACKR_STATS_PATH") or _DEFAULT_STATS_FILE)
 
 
 class StatsService:

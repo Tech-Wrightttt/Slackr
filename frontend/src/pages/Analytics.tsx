@@ -3,6 +3,12 @@ import { Link } from 'react-router-dom';
 import { AnalyticsEngine, type ExamTypeImprovementData, type ExamTypeTimelinePoint } from '../services/analyticsEngine';
 import { db } from '../db';
 import type { AttemptRecord } from '../db/schema';
+import { topicLabel, topicStyle } from '../services/topicColors';
+
+// Error-rate band colors shared by the heatmap cells and legend
+const BAND = { strong: '#10B981', moderate: '#F59E0B', weak: '#E11D48' };
+const bandColor = (errorRate: number) =>
+  errorRate >= 50 ? BAND.weak : errorRate >= 25 ? BAND.moderate : BAND.strong;
 
 export const Analytics: React.FC = () => {
   const [errorRates, setErrorRates] = useState<any[]>([]);
@@ -133,12 +139,12 @@ export const Analytics: React.FC = () => {
   }
 
   return (
-    <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8 animate-in fade-in duration-300">
+    <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8 enter-rise">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 pb-2 border-b border-outline-variant/20">
         <div className="flex flex-col gap-1 max-w-2xl">
           <div className="flex items-center gap-2 font-mono-timer text-xs text-primary">
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary" />
             <span>STATISTICAL COGNITIVE TELEMETRY</span>
           </div>
           <h1 className="font-display-lg text-3xl sm:text-4xl font-bold text-on-surface tracking-tight">
@@ -237,7 +243,7 @@ export const Analytics: React.FC = () => {
               </p>
               <Link
                 to={`/quiz/topic?topic=${encodeURIComponent(weakSpots[0].topic)}`}
-                className="mt-2 inline-flex items-center gap-1.5 w-fit px-3 py-1.5 rounded-lg bg-primary-container text-on-primary font-mono-code text-xs font-semibold hover:bg-primary transition-all shadow-sm"
+                className="mt-2 inline-flex items-center gap-1.5 w-fit px-3 py-1.5 rounded-lg bg-primary-container text-on-primary font-mono-code text-xs font-semibold hover:bg-primary transition-colors shadow-sm"
               >
                 <span>Drill Category</span>
                 <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
@@ -255,7 +261,7 @@ export const Analytics: React.FC = () => {
       {/* COMPLETION RATE TRACKING SECTION */}
       {/* ========================================================================= */}
       {completionRates && (
-        <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-6 sm:p-8 shadow-xl flex flex-col gap-6 relative overflow-hidden animate-in fade-in duration-300">
+        <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-6 sm:p-8 shadow-xl flex flex-col gap-6 relative overflow-hidden enter-rise enter-rise-1">
           <div className="flex flex-col gap-1 pb-4 border-b border-outline-variant/20">
             <div className="flex items-center gap-2 font-mono-timer text-xs text-primary font-bold">
               <span className="material-symbols-outlined text-[16px]">task_alt</span>
@@ -276,7 +282,7 @@ export const Analytics: React.FC = () => {
             </div>
             <div className="w-full h-3 bg-surface-container-high rounded-full overflow-hidden">
               <div 
-                className="h-full bg-primary transition-all duration-500 ease-out" 
+                className="h-full bg-primary bar-fill" 
                 style={{ width: `${completionRates.overall.completionPercent}%` }} 
               />
             </div>
@@ -296,7 +302,7 @@ export const Analytics: React.FC = () => {
                 </div>
                 <div className="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-primary transition-all duration-500" 
+                    className="h-full bg-primary bar-fill" 
                     style={{ width: `${yr.completionPercent}%` }} 
                   />
                 </div>
@@ -321,10 +327,11 @@ export const Analytics: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-outline-variant/10 font-mono-code text-xs">
                 {completionRates.byTopic.map((t: any) => (
-                  <tr key={t.topic} className="hover:bg-surface-container-high/50 transition-colors">
+                  <tr key={t.topic} className="hover:bg-surface-container-high/50 transition-colors" style={topicStyle(t.topic)}>
                     <td className="p-3">
                       <div className="flex items-center gap-2">
-                        <span className="text-on-surface truncate max-w-[150px] sm:max-w-[300px]">{t.topic}</span>
+                        <span className="topic-dot h-2 w-2 rounded-full shrink-0" />
+                        <span className="text-on-surface truncate max-w-[150px] sm:max-w-[300px]">{topicLabel(t.topic)}</span>
                       </div>
                     </td>
                     <td className="p-3">
@@ -332,7 +339,7 @@ export const Analytics: React.FC = () => {
                         <span className="text-on-surface-variant w-8 text-right">{t.completionPercent}%</span>
                         <div className="w-16 sm:w-24 h-1.5 bg-surface-container-highest rounded-full overflow-hidden hidden sm:block">
                           <div 
-                            className="h-full bg-primary transition-all duration-500" 
+                            className="h-full topic-bar bar-fill" 
                             style={{ width: `${t.completionPercent}%` }} 
                           />
                         </div>
@@ -358,7 +365,7 @@ export const Analytics: React.FC = () => {
       {/* FE-A vs FE-B EXAM TYPE IMPROVEMENT INTELLIGENCE (INTERACTIVE MATRIX)     */}
       {/* ========================================================================= */}
       {examTypeStats && (
-        <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-6 sm:p-8 shadow-xl flex flex-col gap-6 relative overflow-hidden animate-in fade-in duration-300">
+        <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-6 sm:p-8 shadow-xl flex flex-col gap-6 relative overflow-hidden enter-rise enter-rise-2">
           {/* Section Header & PHILNITS Benchmark Strip */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-outline-variant/20">
             <div className="flex flex-col gap-1 max-w-3xl">
@@ -393,7 +400,7 @@ export const Analytics: React.FC = () => {
           {/* 3 Comparative Head-to-Head Bento Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono-code">
             {/* 1. Subject A (FE-A / AM) */}
-            <div className="rounded-xl border border-mastery-emerald/30 bg-surface-container/60 p-5 shadow-sm flex flex-col justify-between relative overflow-hidden group hover:border-mastery-emerald/50 transition-all">
+            <div className="rounded-xl border border-mastery-emerald/30 bg-surface-container/60 p-5 shadow-sm flex flex-col justify-between relative overflow-hidden group hover:border-mastery-emerald/50 transition-colors">
               <div className="absolute top-0 right-0 w-24 h-24 bg-mastery-emerald/5 rounded-bl-full pointer-events-none" />
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
@@ -459,7 +466,7 @@ export const Analytics: React.FC = () => {
 
               <Link
                 to="/quiz/year"
-                className="mt-4 inline-flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-surface-container-high hover:bg-mastery-emerald/20 text-mastery-emerald border border-mastery-emerald/30 text-xs font-bold transition-all cursor-pointer"
+                className="mt-4 inline-flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-surface-container-high hover:bg-mastery-emerald/20 text-mastery-emerald border border-mastery-emerald/30 text-xs font-bold transition-colors cursor-pointer"
               >
                 <span>Drill Subject A Papers</span>
                 <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
@@ -467,7 +474,7 @@ export const Analytics: React.FC = () => {
             </div>
 
             {/* 2. Subject B (FE-B / PM) */}
-            <div className="rounded-xl border border-confidence-amber/30 bg-surface-container/60 p-5 shadow-sm flex flex-col justify-between relative overflow-hidden group hover:border-confidence-amber/50 transition-all">
+            <div className="rounded-xl border border-confidence-amber/30 bg-surface-container/60 p-5 shadow-sm flex flex-col justify-between relative overflow-hidden group hover:border-confidence-amber/50 transition-colors">
               <div className="absolute top-0 right-0 w-24 h-24 bg-confidence-amber/5 rounded-bl-full pointer-events-none" />
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
@@ -543,7 +550,7 @@ export const Analytics: React.FC = () => {
 
               <Link
                 to="/quiz/year"
-                className="mt-4 inline-flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-surface-container-high hover:bg-confidence-amber/20 text-confidence-amber border border-confidence-amber/30 text-xs font-bold transition-all cursor-pointer"
+                className="mt-4 inline-flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-surface-container-high hover:bg-confidence-amber/20 text-confidence-amber border border-confidence-amber/30 text-xs font-bold transition-colors cursor-pointer"
               >
                 <span>Drill Subject B (Pseudocode &amp; Case Studies)</span>
                 <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
@@ -600,7 +607,7 @@ export const Analytics: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setGraphMetric('accuracy')}
-                    className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                    className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
                       graphMetric === 'accuracy'
                         ? 'bg-surface-container-highest text-primary font-bold shadow-sm'
                         : 'text-on-surface-variant hover:text-on-surface'
@@ -611,7 +618,7 @@ export const Analytics: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setGraphMetric('pace')}
-                    className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                    className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
                       graphMetric === 'pace'
                         ? 'bg-surface-container-highest text-primary font-bold shadow-sm'
                         : 'text-on-surface-variant hover:text-on-surface'
@@ -622,7 +629,7 @@ export const Analytics: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setGraphMetric('improvement')}
-                    className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
+                    className={`px-3 py-1 rounded-md transition-colors cursor-pointer ${
                       graphMetric === 'improvement'
                         ? 'bg-surface-container-highest text-primary font-bold shadow-sm'
                         : 'text-on-surface-variant hover:text-on-surface'
@@ -639,7 +646,7 @@ export const Analytics: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setGraphFilter('both')}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-all cursor-pointer ${
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-colors cursor-pointer ${
                       graphFilter === 'both'
                         ? 'bg-surface-container-high border-outline-variant text-on-surface font-bold'
                         : 'border-transparent text-on-surface-variant hover:text-on-surface'
@@ -650,7 +657,7 @@ export const Analytics: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setGraphFilter('feA')}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md border transition-all cursor-pointer ${
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md border transition-colors cursor-pointer ${
                       graphFilter === 'feA'
                         ? 'bg-mastery-emerald/15 border-mastery-emerald/40 text-mastery-emerald font-bold'
                         : 'border-transparent text-on-surface-variant hover:text-mastery-emerald'
@@ -662,7 +669,7 @@ export const Analytics: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setGraphFilter('feB')}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md border transition-all cursor-pointer ${
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-md border transition-colors cursor-pointer ${
                       graphFilter === 'feB'
                         ? 'bg-confidence-amber/15 border-confidence-amber/40 text-confidence-amber font-bold'
                         : 'border-transparent text-on-surface-variant hover:text-confidence-amber'
@@ -680,7 +687,7 @@ export const Analytics: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setTimeRange('all')}
-                    className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                    className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
                       timeRange === 'all'
                         ? 'bg-surface-container-highest text-primary font-bold'
                         : 'text-on-surface-variant hover:text-on-surface'
@@ -691,7 +698,7 @@ export const Analytics: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setTimeRange('30d')}
-                    className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                    className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
                       timeRange === '30d'
                         ? 'bg-surface-container-highest text-primary font-bold'
                         : 'text-on-surface-variant hover:text-on-surface'
@@ -702,7 +709,7 @@ export const Analytics: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setTimeRange('14d')}
-                    className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                    className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
                       timeRange === '14d'
                         ? 'bg-surface-container-highest text-primary font-bold'
                         : 'text-on-surface-variant hover:text-on-surface'
@@ -713,7 +720,7 @@ export const Analytics: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setTimeRange('7d')}
-                    className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                    className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${
                       timeRange === '7d'
                         ? 'bg-surface-container-highest text-primary font-bold'
                         : 'text-on-surface-variant hover:text-on-surface'
@@ -798,6 +805,8 @@ export const Analytics: React.FC = () => {
 
                 const pathA = buildPath(ptsA);
                 const areaA = buildArea(ptsA);
+                // Re-keys the curves so they redraw whenever the plotted series changes
+                const animKey = `${graphMetric}-${graphFilter}-${timeRange}`;
                 const pathB = buildPath(ptsB);
                 const areaB = buildArea(ptsB);
 
@@ -892,9 +901,12 @@ export const Analytics: React.FC = () => {
                     {/* FE-A Area & Curve */}
                     {(graphFilter === 'both' || graphFilter === 'feA') && (
                       <>
-                        <path d={areaA} fill="url(#gradFEA)" />
+                        <path key={`areaA-${animKey}`} d={areaA} fill="url(#gradFEA)" className="area-fade" />
                         <path
+                          key={`lineA-${animKey}`}
                           d={pathA}
+                          pathLength={1}
+                          className="line-draw"
                           fill="none"
                           stroke="#10B981"
                           strokeWidth="2.5"
@@ -907,9 +919,12 @@ export const Analytics: React.FC = () => {
                     {/* FE-B Area & Curve */}
                     {(graphFilter === 'both' || graphFilter === 'feB') && (
                       <>
-                        <path d={areaB} fill="url(#gradFEB)" />
+                        <path key={`areaB-${animKey}`} d={areaB} fill="url(#gradFEB)" className="area-fade" />
                         <path
+                          key={`lineB-${animKey}`}
                           d={pathB}
+                          pathLength={1}
+                          className="line-draw"
                           fill="none"
                           stroke="#F59E0B"
                           strokeWidth="2.5"
@@ -951,7 +966,7 @@ export const Analytics: React.FC = () => {
                               fill="#10B981"
                               stroke="#090D16"
                               strokeWidth={isHovered ? 2.5 : 1.5}
-                              className="transition-all"
+                              className="chart-node"
                             />
                           )}
 
@@ -964,7 +979,7 @@ export const Analytics: React.FC = () => {
                               fill="#F59E0B"
                               stroke="#090D16"
                               strokeWidth={isHovered ? 2.5 : 1.5}
-                              className="transition-all"
+                              className="chart-node"
                             />
                           )}
 
@@ -993,7 +1008,7 @@ export const Analytics: React.FC = () => {
               if (!pt) return null;
 
               return (
-                <div className="rounded-xl border border-outline-variant/30 bg-surface-container/70 p-4 font-mono-code text-xs flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in duration-150">
+                <div className="rounded-xl border border-outline-variant/30 bg-surface-container/70 p-4 font-mono-code text-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-surface-container-high border border-outline-variant/30 flex items-center justify-center text-primary shrink-0">
                       <span className="material-symbols-outlined text-lg">calendar_clock</span>
@@ -1088,7 +1103,7 @@ export const Analytics: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedSessionFilter('all')}
-                  className={`px-2 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
+                  className={`px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer ${
                     selectedSessionFilter === 'all'
                       ? 'bg-primary text-on-primary font-bold'
                       : 'bg-surface-container text-on-surface-variant hover:text-on-surface'
@@ -1099,7 +1114,7 @@ export const Analytics: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedSessionFilter('feA')}
-                  className={`px-2 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
+                  className={`px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer ${
                     selectedSessionFilter === 'feA'
                       ? 'bg-mastery-emerald text-on-primary font-bold'
                       : 'bg-surface-container text-on-surface-variant hover:text-on-surface'
@@ -1110,7 +1125,7 @@ export const Analytics: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setSelectedSessionFilter('feB')}
-                  className={`px-2 py-0.5 rounded text-[11px] transition-all cursor-pointer ${
+                  className={`px-2 py-0.5 rounded text-[11px] transition-colors cursor-pointer ${
                     selectedSessionFilter === 'feB'
                       ? 'bg-confidence-amber text-on-primary font-bold'
                       : 'bg-surface-container text-on-surface-variant hover:text-on-surface'
@@ -1248,7 +1263,7 @@ export const Analytics: React.FC = () => {
 
                 <Link
                   to={`/quiz/topic?topic=${encodeURIComponent(ws.topic)}`}
-                  className="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-primary-container text-on-surface hover:text-on-primary font-mono-code text-xs font-semibold flex items-center gap-1 transition-all"
+                  className="px-3 py-1.5 rounded-lg bg-surface-container-high hover:bg-primary-container text-on-surface hover:text-on-primary font-mono-code text-xs font-semibold flex items-center gap-1 transition-colors"
                 >
                   <span>Drill</span>
                   <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
@@ -1277,7 +1292,7 @@ export const Analytics: React.FC = () => {
               <button
                 key={inter}
                 onClick={() => setHeatmapInterval(inter)}
-                className={`px-3 py-1.5 rounded-lg font-semibold capitalize transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg font-semibold capitalize transition-colors cursor-pointer ${
                   heatmapInterval === inter
                     ? 'bg-primary text-on-primary shadow-sm'
                     : 'text-on-surface-variant hover:text-on-surface'
@@ -1290,23 +1305,18 @@ export const Analytics: React.FC = () => {
         </div>
 
         {/* Heatmap Legend */}
-        <div className="flex flex-wrap items-center gap-4 font-mono-code text-xs text-on-surface-variant pt-1">
-          <span className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded bg-surface-container border border-outline-variant/40" />
-            No attempts
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded bg-mastery-emerald/30 border border-mastery-emerald/50" />
-            Strong (&lt;25% err)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded bg-confidence-amber/30 border border-confidence-amber/50" />
-            Moderate (25-49% err)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded bg-error/30 border border-error/50" />
-            Weak (&gt;50% err)
-          </span>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-mono-code text-[11px] text-on-surface-variant pt-1">
+          {[
+            { label: 'Strong <25% err', color: BAND.strong },
+            { label: 'Moderate 25–49%', color: BAND.moderate },
+            { label: 'Weak ≥50%', color: BAND.weak },
+          ].map((b) => (
+            <span key={b.label} className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-[3px]" style={{ backgroundColor: b.color }} />
+              {b.label}
+            </span>
+          ))}
+          <span className="text-on-surface-variant/70">Deeper tint = more attempts in that period</span>
         </div>
 
         {/* Heatmap Grid Table */}
@@ -1314,7 +1324,7 @@ export const Analytics: React.FC = () => {
           <table className="min-w-full font-mono-code text-xs">
             <thead>
               <tr className="border-b border-outline-variant/20">
-                <th className="sticky left-0 bg-surface-container-lowest px-3 py-2 text-left font-label-caps text-on-surface-variant z-10 w-48 uppercase">
+                <th className="sticky left-0 bg-surface-container-lowest px-3 py-2 text-left font-label-caps text-[11px] text-on-surface-variant z-10 w-52 uppercase tracking-wider">
                   Domain
                 </th>
                 {heatmapData?.periods?.map((p: string) => (
@@ -1324,33 +1334,43 @@ export const Analytics: React.FC = () => {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-outline-variant/10 text-on-surface">
+            <tbody className="text-on-surface">
               {heatmapData &&
                 Object.entries(heatmapData.matrix).map(([topic, cells]: any) => (
-                  <tr key={topic} className="hover:bg-surface-container/50">
-                    <td className="sticky left-0 bg-surface-container-lowest px-3 py-2 font-bold uppercase z-10 truncate max-w-[190px]">
-                      {topic}
+                  <tr key={topic} className="hover:bg-surface-container/50" style={{ transition: 'background-color 120ms ease' }}>
+                    <td className="sticky left-0 bg-surface-container-lowest px-3 py-1.5 z-10 max-w-[200px]" style={topicStyle(topic)}>
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="topic-dot h-2 w-2 rounded-full shrink-0" />
+                        <span className="truncate font-semibold text-[12px]">{topicLabel(topic)}</span>
+                      </span>
                     </td>
                     {cells.map((cell: any, i: number) => {
-                      let cellStyle = 'bg-surface-container-low text-on-surface-variant/40 border-outline-variant/20';
-                      if (cell.attemptCount > 0) {
-                        if (cell.errorRate >= 50) {
-                          cellStyle = 'bg-error/20 text-error border-error/40 font-bold';
-                        } else if (cell.errorRate >= 25) {
-                          cellStyle = 'bg-confidence-amber/20 text-confidence-amber border-confidence-amber/40 font-bold';
-                        } else {
-                          cellStyle = 'bg-mastery-emerald/20 text-mastery-emerald border-mastery-emerald/40 font-bold';
-                        }
+                      const tip = `Period: ${cell.period}\nAttempts: ${cell.attemptCount}\nError Rate: ${
+                        cell.errorRate !== null ? `${cell.errorRate}%` : 'N/A'
+                      }\nAvg Time: ${cell.avgTimeSec}s`;
+                      if (cell.attemptCount === 0) {
+                        return (
+                          <td key={i} className="p-0.5 text-center">
+                            <div title={tip} className="rounded-md py-1 text-[11px] text-on-surface-variant/30 bg-surface-container/40">
+                              ·
+                            </div>
+                          </td>
+                        );
                       }
+                      const color = bandColor(cell.errorRate);
+                      // More attempts = more evidence = deeper tint (caps at 10 attempts)
+                      const tint = 16 + Math.min(cell.attemptCount, 10) * 3.4;
                       return (
-                        <td key={i} className="p-1 text-center">
+                        <td key={i} className="p-0.5 text-center">
                           <div
-                            title={`Period: ${cell.period}\nAttempts: ${cell.attemptCount}\nError Rate: ${
-                              cell.errorRate !== null ? `${cell.errorRate}%` : 'N/A'
-                            }\nAvg Time: ${cell.avgTimeSec}s`}
-                            className={`rounded px-1.5 py-1 text-[11px] border transition-transform hover:scale-105 ${cellStyle}`}
+                            title={tip}
+                            className="rounded-md py-1 text-[11px] font-semibold tabular-nums heat-cell"
+                            style={{
+                              backgroundColor: `color-mix(in oklab, ${color} ${tint}%, transparent)`,
+                              ['--heat' as any]: color,
+                            }}
                           >
-                            {cell.attemptCount > 0 ? `${cell.errorRate}%` : '—'}
+                            {cell.errorRate}%
                           </div>
                         </td>
                       );
@@ -1506,7 +1526,7 @@ export const Analytics: React.FC = () => {
           </div>
           <button
             onClick={handleExportCSV}
-            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high border border-outline-variant/30 text-xs font-mono-code text-on-surface hover:text-primary hover:border-primary/40 transition-all"
+            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-surface-container-high border border-outline-variant/30 text-xs font-mono-code text-on-surface hover:text-primary hover:border-primary/40 transition-colors"
           >
             <span className="material-symbols-outlined text-sm">download</span>
             <span>Export CSV</span>

@@ -125,16 +125,17 @@ export const Settings: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8 animate-in fade-in duration-300">
+    // Rendered inside the Profile page, which owns page width, padding and entrance motion
+    <div className="relative w-full flex flex-col gap-8">
       {/* Header */}
       <div className="flex flex-col gap-1 pb-2 border-b border-outline-variant/20">
         <div className="flex items-center gap-2 font-mono-timer text-xs text-primary">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary animate-ping" />
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary" />
           <span>GLOBAL CONFIGURATION &amp; PREFERENCES</span>
         </div>
-        <h1 className="font-display-lg text-3xl sm:text-4xl font-bold text-on-surface tracking-tight">
+        <h2 className="font-display-lg text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
           System Settings
-        </h1>
+        </h2>
         <p className="font-body-base text-sm text-on-surface-variant leading-relaxed">
           Manage visual theme, offline diagram caching, Spaced Repetition parameters, and JSON state persistence.
         </p>

@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { QuestionsService } from '../services/questionsService';
 import { StatsDbService } from '../services/statsDb';
-import { AnalyticsEngine } from '../services/analyticsEngine';
+import { AnalyticsEngine, type DailyActivity } from '../services/analyticsEngine';
+import { DailySetService, type DailySetState } from '../services/dailySet';
 import { db } from '../db';
-import type { SRScheduleRecord, AttemptRecord } from '../db/schema';
+import type { SRScheduleRecord, AttemptRecord, QuestionData } from '../db/schema';
+import { ActivityCalendar } from '../components/ActivityCalendar';
+import { DailySetModal } from '../components/DailySetModal';
 import { CountUp } from '../components/reactbits';
 
 export const Home: React.FC = () => {
@@ -17,10 +20,12 @@ export const Home: React.FC = () => {
   const [criticalFailCount, setCriticalFailCount] = useState<number>(0);
   const [topWeakSpots, setTopWeakSpots] = useState<any[]>([]);
   const [recentAttempts, setRecentAttempts] = useState<AttemptRecord[]>([]);
-  const [weeklyCounts, setWeeklyCounts] = useState<number[]>([12, 28, 45, 19, 58, 64, 32]);
+  const [weeklyCounts, setWeeklyCounts] = useState<number[]>([0, 0, 0, 0, 0, 0, 0]);
+  const [activity, setActivity] = useState<DailyActivity | null>(null);
+  const [daily, setDaily] = useState<{ state: DailySetState; questions: QuestionData[] } | null>(null);
+  const [dailyOpen, setDailyOpen] = useState(false);
 
-  useEffect(() => {
-    const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
       try {
         const metadata = await QuestionsService.loadMetadataSummary();
         setMeta(metadata);
@@ -56,11 +61,10 @@ export const Home: React.FC = () => {
               days[6 - diffDays]++;
             }
           });
-          // Only override if there is real data
-          if (days.some((d) => d > 0)) {
-            setWeeklyCounts(days);
-          }
+          setWeeklyCounts(days);
         }
+
+        setActivity(await AnalyticsEngine.getDailyActivity());
 
         const due = await StatsDbService.getDueReviews();
         setDueReviews(due);
@@ -74,10 +78,44 @@ export const Home: React.FC = () => {
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
       }
-    };
-
-    loadDashboardData();
   }, []);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  // Today's set pops up once per day until it's been seen; afterwards it opens from its card
+  useEffect(() => {
+    let cancelled = false;
+    DailySetService.getToday()
+      .then(async (d) => {
+        if (cancelled || d.questions.length === 0) return;
+        if (!d.state.prompted && !DailySetService.isComplete(d.state)) {
+          d.state = await DailySetService.markPrompted(d.state);
+          setDailyOpen(true);
+        }
+        setDaily(d);
+      })
+      .catch((err) => console.error('Failed to load daily set:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const closeDaily = () => {
+    setDailyOpen(false);
+    // Answers were logged as attempts: refresh counts, tracker and recent activity
+    loadDashboardData();
+  };
+
+  const dailyAnswered = daily ? Object.keys(daily.state.answers).length : 0;
+  const dailyDone = daily ? DailySetService.isComplete(daily.state) : false;
+  const weekTotal = weeklyCounts.reduce((sum, n) => sum + n, 0);
+  const weekdayLabels = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return i === 6 ? 'Today' : d.toLocaleDateString(undefined, { weekday: 'short' });
+  });
 
   const handleExportCSV = async () => {
     try {
@@ -171,7 +209,7 @@ export const Home: React.FC = () => {
           </Link>
 
           <Link
-            to="/settings"
+            to="/profile"
             aria-label="Settings"
             className="w-10 h-10 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-all flex items-center justify-center border border-outline-variant/30 shrink-0"
           >
@@ -185,7 +223,7 @@ export const Home: React.FC = () => {
         <div className="flex items-center gap-2.5">
           <span className="flex items-center gap-1 font-mono-timer text-confidence-amber font-bold">
             <span className="material-symbols-outlined text-[15px]">local_fire_department</span>
-            14D Streak
+            {activity?.currentStreak ?? 0}D Streak
           </span>
           <span className="text-outline-variant">•</span>
           <span className="text-on-surface-variant font-mono-code">
@@ -232,7 +270,7 @@ export const Home: React.FC = () => {
               <CountUp to={totalAttempts} duration={1.2} separator="," />
             </div>
             <div className="text-xs text-interactive-sky font-mono-code mt-1">
-              {todayAttempts > 0 ? `+${todayAttempts} today` : `${avgTimeSeconds > 0 ? formatSeconds(avgTimeSeconds) : '1m 48s'} avg`}
+              {todayAttempts > 0 ? `+${todayAttempts} today` : avgTimeSeconds > 0 ? `${formatSeconds(avgTimeSeconds)} avg` : 'None answered yet'}
             </div>
           </div>
         </div>
@@ -245,7 +283,7 @@ export const Home: React.FC = () => {
           </div>
           <div className="mt-3">
             <div className="text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight font-mono">
-              <CountUp to={totalAttempts > 0 ? overallAccuracy : 78.4} decimals={1} suffix="%" duration={1.2} />
+              {totalAttempts > 0 ? <CountUp to={overallAccuracy} decimals={1} suffix="%" duration={1.2} /> : '—'}
             </div>
             <div className="text-xs text-mastery-emerald font-mono-code mt-1">
               Passing benchmark ≥60%
@@ -269,6 +307,70 @@ export const Home: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Daily Tracker & Daily Set */}
+      <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-8 rounded-xl bg-surface-container-low p-5 sm:p-6 border border-outline-variant/20 flex flex-col gap-4 min-w-0">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-semibold text-base text-on-surface">
+              {activity ? activity.total.toLocaleString() : 0} questions answered in the last year
+            </h2>
+            <div className="flex items-center gap-3 font-mono-code text-xs text-on-surface-variant">
+              <span>
+                <strong className="text-on-surface">{activity?.activeDays ?? 0}</strong> active days
+              </span>
+              <span className="text-outline-variant">&bull;</span>
+              <span>
+                Longest streak <strong className="text-on-surface">{activity?.longestStreak ?? 0}D</strong>
+              </span>
+            </div>
+          </div>
+          {activity && <ActivityCalendar activity={activity} />}
+        </div>
+
+        <div className="lg:col-span-4 rounded-xl bg-surface-container-low p-5 sm:p-6 border border-outline-variant/20 flex flex-col justify-between gap-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px] text-confidence-amber">wb_sunny</span>
+                <h2 className="font-semibold text-base text-on-surface">Daily Set</h2>
+              </div>
+              <p className="text-xs text-on-surface-variant mt-1 leading-relaxed">
+                {daily
+                  ? `${daily.questions.length} random question${daily.questions.length === 1 ? '' : 's'} today. Counts toward your tracker and analytics.`
+                  : 'Picking today’s questions…'}
+              </p>
+            </div>
+            {daily && (
+              <span
+                className={`shrink-0 px-2 py-0.5 rounded-full font-mono-code text-[11px] font-bold ${
+                  dailyDone ? 'bg-mastery-emerald/15 text-mastery-emerald' : 'bg-confidence-amber/15 text-confidence-amber'
+                }`}
+              >
+                {dailyAnswered}/{daily.questions.length}
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            disabled={!daily}
+            onClick={() => setDailyOpen(true)}
+            className="press-scale min-h-[40px] w-full rounded-xl bg-primary-container hover:bg-primary text-on-primary text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px]">{dailyDone ? 'visibility' : 'play_arrow'}</span>
+            <span>{dailyDone ? 'Review results' : dailyAnswered > 0 ? 'Continue' : 'Start Daily Set'}</span>
+          </button>
+        </div>
+      </section>
+
+      {dailyOpen && daily && (
+        <DailySetModal
+          state={daily.state}
+          questions={daily.questions}
+          onStateChange={(state) => setDaily((d) => (d ? { ...d, state } : d))}
+          onClose={closeDaily}
+        />
+      )}
 
       {/* Focus & Analytics Grid (Weak Spots & 7-Day Velocity) */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -322,70 +424,9 @@ export const Home: React.FC = () => {
                 );
               })
             ) : (
-              <>
-                <div className="bg-surface-container rounded-lg p-3.5 flex flex-col justify-between border border-outline-variant/20">
-                  <div className="flex items-start justify-between gap-1">
-                    <span className="font-mono text-xs text-error">NETWORKS</span>
-                    <span className="font-mono-timer text-xs text-error font-bold">48%</span>
-                  </div>
-                  <div className="my-2.5">
-                    <div className="font-semibold text-xs text-on-surface line-clamp-1">Computer Networks</div>
-                    <div className="font-mono-code text-[11px] text-on-surface-variant pt-0.5">OSI, Subnets, TLS 1.3</div>
-                  </div>
-                  <div className="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden mb-2.5">
-                    <div className="bg-error h-full rounded-full" style={{ width: '48%' }} />
-                  </div>
-                  <Link
-                    to="/quiz/topic?topic=network"
-                    className="w-full py-1.5 rounded-lg bg-surface-container-highest hover:bg-primary-container text-on-surface hover:text-on-primary font-mono-code text-xs font-semibold flex items-center justify-center gap-1 transition-all"
-                  >
-                    <span>Drill Topic</span>
-                    <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
-                  </Link>
-                </div>
-
-                <div className="bg-surface-container rounded-lg p-3.5 flex flex-col justify-between border border-outline-variant/20">
-                  <div className="flex items-start justify-between gap-1">
-                    <span className="font-mono text-xs text-confidence-amber">SYSTEM ARCH</span>
-                    <span className="font-mono-timer text-xs text-confidence-amber font-bold">54%</span>
-                  </div>
-                  <div className="my-2.5">
-                    <div className="font-semibold text-xs text-on-surface line-clamp-1">Computer Architecture</div>
-                    <div className="font-mono-code text-[11px] text-on-surface-variant pt-0.5">Pipelines, Cache Coherency</div>
-                  </div>
-                  <div className="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden mb-2.5">
-                    <div className="bg-confidence-amber h-full rounded-full" style={{ width: '54%' }} />
-                  </div>
-                  <Link
-                    to="/quiz/topic?topic=architecture"
-                    className="w-full py-1.5 rounded-lg bg-surface-container-highest hover:bg-primary-container text-on-surface hover:text-on-primary font-mono-code text-xs font-semibold flex items-center justify-center gap-1 transition-all"
-                  >
-                    <span>Drill Topic</span>
-                    <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
-                  </Link>
-                </div>
-
-                <div className="bg-surface-container rounded-lg p-3.5 flex flex-col justify-between border border-outline-variant/20">
-                  <div className="flex items-start justify-between gap-1">
-                    <span className="font-mono text-xs text-interactive-sky">DATA STRUCT</span>
-                    <span className="font-mono-timer text-xs text-interactive-sky font-bold">59%</span>
-                  </div>
-                  <div className="my-2.5">
-                    <div className="font-semibold text-xs text-on-surface line-clamp-1">Data Structures</div>
-                    <div className="font-mono-code text-[11px] text-on-surface-variant pt-0.5">AVL Trees, Hash Tables</div>
-                  </div>
-                  <div className="w-full bg-surface-container-highest h-1 rounded-full overflow-hidden mb-2.5">
-                    <div className="bg-interactive-sky h-full rounded-full" style={{ width: '59%' }} />
-                  </div>
-                  <Link
-                    to="/quiz/topic?topic=algorithms"
-                    className="w-full py-1.5 rounded-lg bg-surface-container-highest hover:bg-primary-container text-on-surface hover:text-on-primary font-mono-code text-xs font-semibold flex items-center justify-center gap-1 transition-all"
-                  >
-                    <span>Drill Topic</span>
-                    <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
-                  </Link>
-                </div>
-              </>
+              <div className="md:col-span-3 rounded-lg border border-dashed border-outline-variant/40 p-6 text-center font-mono-code text-xs text-on-surface-variant">
+                Weak spots appear after you answer a few questions.
+              </div>
             )}
           </div>
 
@@ -404,7 +445,7 @@ export const Home: React.FC = () => {
             <span className="text-xs font-mono uppercase tracking-wider text-on-surface-variant">
               7-Day Activity
             </span>
-            <span className="font-mono-code text-xs text-primary font-bold">+4.2%</span>
+            <span className="font-mono-code text-xs text-primary font-bold">{weekTotal} answered</span>
           </div>
 
           <div className="my-3 py-1">
@@ -442,13 +483,11 @@ export const Home: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between font-mono-code text-xs text-on-surface-variant pt-1">
-            <span>Mon</span>
-            <span>Tue</span>
-            <span>Wed</span>
-            <span>Thu</span>
-            <span>Fri</span>
-            <span>Sat</span>
-            <span className="text-primary font-bold">Today</span>
+            {weekdayLabels.map((d, i) => (
+              <span key={i} className={i === 6 ? 'text-primary font-bold' : undefined}>
+                {d}
+              </span>
+            ))}
           </div>
         </div>
       </section>
@@ -522,47 +561,11 @@ export const Home: React.FC = () => {
                     </tr>
                   ))
                 ) : (
-                  <>
-                    <tr className="hover:bg-surface-container/60 transition-colors group">
-                      <td className="py-2.5 px-3 font-bold text-on-surface">#FE-2024-S02</td>
-                      <td className="py-2.5 px-3 text-on-surface-variant">Full Year Morning 2024</td>
-                      <td className="py-2.5 px-3">80/80</td>
-                      <td className="py-2.5 px-3 text-on-surface-variant">1h 42m</td>
-                      <td className="py-2.5 px-3 text-confidence-amber">Level 4</td>
-                      <td className="py-2.5 px-3 text-right">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-mastery-emerald/15 text-mastery-emerald font-semibold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-mastery-emerald" />
-                          Passed
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-surface-container/60 transition-colors group">
-                      <td className="py-2.5 px-3 font-bold text-on-surface">#SRS-REV-094</td>
-                      <td className="py-2.5 px-3 text-on-surface-variant">SRS Leitner Level 3</td>
-                      <td className="py-2.5 px-3">30/30</td>
-                      <td className="py-2.5 px-3 text-on-surface-variant">24m 10s</td>
-                      <td className="py-2.5 px-3 text-confidence-amber">Level 5</td>
-                      <td className="py-2.5 px-3 text-right">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-mastery-emerald/15 text-mastery-emerald font-semibold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-mastery-emerald" />
-                          Passed
-                        </span>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-surface-container/60 transition-colors group">
-                      <td className="py-2.5 px-3 font-bold text-on-surface">#DRILL-NET-11</td>
-                      <td className="py-2.5 px-3 text-on-surface-variant">Networks (OSI &amp; TCP)</td>
-                      <td className="py-2.5 px-3">25/25</td>
-                      <td className="py-2.5 px-3 text-on-surface-variant">31m 05s</td>
-                      <td className="py-2.5 px-3 text-confidence-amber">Level 2</td>
-                      <td className="py-2.5 px-3 text-right">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error/15 text-error font-semibold">
-                          <span className="w-1.5 h-1.5 rounded-full bg-error" />
-                          Review
-                        </span>
-                      </td>
-                    </tr>
-                  </>
+                  <tr>
+                    <td colSpan={6} className="py-8 px-3 text-center text-on-surface-variant">
+                      No answered questions yet. Start a paper or today's Daily Set.
+                    </td>
+                  </tr>
                 )}
               </tbody>
             </table>

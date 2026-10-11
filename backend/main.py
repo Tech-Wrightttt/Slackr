@@ -3,7 +3,9 @@ import os
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
-from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Response
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Response, Request
+from fastapi.responses import JSONResponse
+import hmac
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -19,8 +21,31 @@ from services.analytics_service import AnalyticsService
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
-QUESTIONS_INDEX_PATH = DATA_DIR / "questions_index.json"
+FRONTEND_DATA_DIR = BASE_DIR / "../frontend/public/data"
+# The committed question bank lives in the frontend bundle; the backend copy is a local build artifact
+QUESTIONS_INDEX_PATH = next(
+    (p for p in (DATA_DIR / "questions_index.json", FRONTEND_DATA_DIR / "questions_index.json") if p.exists()),
+    DATA_DIR / "questions_index.json",
+)
 FILES_DIR = DATA_DIR / "pelnets" / "Files"
+
+# Two modes:
+# - Local (default): single-user companion API, reads/writes JSON files, CORS open for the Vite dev server.
+# - Hosted (Vercel, or SLACKR_HOSTED=1): multi-visitor and read-only filesystem. Personal stats
+#   endpoints are disabled because the stats store is one shared file with no per-user isolation;
+#   per-user progress belongs in Supabase. Content edits require the admin token.
+IS_HOSTED = bool(os.environ.get("VERCEL")) or os.environ.get("SLACKR_HOSTED") == "1"
+ADMIN_TOKEN = os.environ.get("SLACKR_ADMIN_TOKEN", "")
+_origins = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+ALLOWED_ORIGINS = _origins or ([] if IS_HOSTED else ["*"])
+
+PERSONAL_DATA_PREFIXES = (
+    "/api/attempts",
+    "/api/spaced-repetition",
+    "/api/stats",
+    "/api/analytics",
+    "/api/data",
+)
 
 app = FastAPI(
     title="SLACKR - PHILNITS Exam Reviewer API",
@@ -28,14 +53,45 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Enable CORS for local development
+# Same-origin on Vercel needs no CORS; set ALLOWED_ORIGINS to call the API from another host
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials="*" not in ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def block_shared_personal_data(request: Request, call_next):
+    if IS_HOSTED and request.url.path.startswith(PERSONAL_DATA_PREFIXES):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Personal stats are stored on your device in hosted mode. Cloud sync is not enabled yet."},
+        )
+    return await call_next(request)
+
+
+def require_admin(request: Request) -> None:
+    """Content edits: open in local mode unless a token is configured; hosted mode always needs the token."""
+    if not ADMIN_TOKEN:
+        if IS_HOSTED:
+            raise HTTPException(status_code=403, detail="Editing is disabled on this deployment.")
+        return
+    supplied = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
+    if not hmac.compare_digest(supplied, ADMIN_TOKEN):
+        raise HTTPException(status_code=403, detail="Admin token required.")
+
+
+def write_json(path: Path, payload: Dict[str, Any]) -> None:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+    except OSError:
+        # Hosted filesystems are read-only; persistence for admin edits will move to Supabase
+        raise HTTPException(status_code=503, detail="This deployment cannot save files.")
+
 
 # Mount Static Files for diagram screenshots
 if FILES_DIR.exists():
@@ -372,14 +428,12 @@ def get_learning_resources():
 
 
 @app.post("/api/learning-resources")
-def save_learning_resources(payload: Dict[str, Any]):
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    with open(LEARNING_RESOURCES_PATH, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, ensure_ascii=False)
+def save_learning_resources(payload: Dict[str, Any], request: Request):
+    require_admin(request)
+    write_json(LEARNING_RESOURCES_PATH, payload)
 
     if FRONTEND_LEARNING_RESOURCES_PATH.parent.exists():
-        with open(FRONTEND_LEARNING_RESOURCES_PATH, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=False)
+        write_json(FRONTEND_LEARNING_RESOURCES_PATH, payload)
 
     return {"status": "success", "message": "Saved to learning_resources.json"}
 
@@ -404,14 +458,12 @@ def get_analytical_breakdowns():
 
 
 @app.post("/api/analytical-breakdowns")
-def save_analytical_breakdowns(payload: Dict[str, Any]):
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    with open(ANALYTICAL_BREAKDOWNS_PATH, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, ensure_ascii=False)
+def save_analytical_breakdowns(payload: Dict[str, Any], request: Request):
+    require_admin(request)
+    write_json(ANALYTICAL_BREAKDOWNS_PATH, payload)
 
     if FRONTEND_ANALYTICAL_BREAKDOWNS_PATH.parent.exists():
-        with open(FRONTEND_ANALYTICAL_BREAKDOWNS_PATH, "w", encoding="utf-8") as f:
-            json.dump(payload, f, indent=2, ensure_ascii=False)
+        write_json(FRONTEND_ANALYTICAL_BREAKDOWNS_PATH, payload)
 
     return {"status": "success", "message": "Saved to analytical_breakdowns.json"}
 

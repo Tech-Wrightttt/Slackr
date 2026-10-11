@@ -1,4 +1,5 @@
 import { LocalJsonStore } from './localJsonStore';
+import { apiUrl } from '../config/env';
 
 export interface AnalyticalStep {
   id: string;
@@ -18,7 +19,7 @@ let memoryCache: BreakdownsData | null = null;
 
 const store = new LocalJsonStore<BreakdownsData>({
   storageKey: 'slackr_analytical_breakdowns_cache',
-  apiUrl: '/api/analytical-breakdowns',
+  apiUrl: apiUrl('/api/analytical-breakdowns'),
   staticUrl: '/data/analytical_breakdowns.json',
   empty: () => ({ questions: {} }),
 });

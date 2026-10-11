@@ -1,4 +1,5 @@
 import type { QuestionData } from '../db/schema';
+import { apiUrl } from '../config/env';
 
 let cachedQuestions: Record<string, QuestionData> | null = null;
 let cachedMetadata: any = null;
@@ -75,7 +76,7 @@ export class QuestionsService {
 
     try {
       // 2. Fallback to companion API
-      const res = await fetch('/api/questions?page_size=500');
+      const res = await fetch(apiUrl('/api/questions?page_size=500'));
       if (res.ok) {
         const data = await res.json();
         cachedQuestions = {};
