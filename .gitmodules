@@ -1,0 +1,4 @@
+[submodule "backend/data/pelnets"]
+	path = backend/data/pelnets
+	url = https://github.com/Joryuoo/pelnets.git
+	branch = main

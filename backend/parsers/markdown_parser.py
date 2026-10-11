@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from urllib.parse import quote, unquote
 from typing import Dict, Any, List, Optional, Tuple
 import frontmatter
 
@@ -120,6 +121,16 @@ def clean_obsidian_comments(text: str) -> str:
     return re.sub(r'%%.*?%%', '', text, flags=re.DOTALL)
 
 
+def files_url(img_name: str) -> str:
+    """Web path for a vault image.
+
+    Obsidian allows spaces and brackets in file names (e.g. "Pasted image 2024....png"), but a
+    Markdown link destination may not contain raw spaces, so the name is percent-encoded.
+    unquote() first keeps this idempotent for names that are already encoded.
+    """
+    return f"/files/{quote(unquote(img_name))}"
+
+
 def normalize_image_links(text: str) -> str:
     """Convert Obsidian wikilinks and relative file links to /files/ normalized web paths."""
     # First remove Obsidian comments
@@ -131,7 +142,7 @@ def normalize_image_links(text: str) -> str:
         # Remove any alias/width like ![[image.png|300]]
         img_file = raw_target.split('|')[0].strip()
         img_name = Path(img_file).name
-        return f'![{img_name}](/files/{img_name})'
+        return f'![{img_name}]({files_url(img_name)})'
     
     text = re.sub(r'!\[\[(.*?)\]\]', wikilink_sub, text)
     
@@ -139,10 +150,11 @@ def normalize_image_links(text: str) -> str:
     def md_img_sub(match):
         alt = match.group(1)
         raw_url = match.group(2).strip()
-        if not raw_url.startswith(('http://', 'https://', '/files/')):
-            img_name = Path(raw_url).name
-            return f'![{alt}](/files/{img_name})'
-        return match.group(0)
+        if raw_url.startswith(('http://', 'https://')):
+            return match.group(0)
+        # Relative links and already-/files/ links alike end up as an encoded /files/ path
+        img_name = raw_url[len('/files/'):] if raw_url.startswith('/files/') else Path(raw_url).name
+        return f'![{alt}]({files_url(img_name)})'
 
     text = re.sub(r'!\[(.*?)\]\((.*?)\)', md_img_sub, text)
     return text

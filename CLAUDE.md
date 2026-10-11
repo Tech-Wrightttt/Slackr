@@ -35,7 +35,7 @@ SLACKR is a two-layer system built around **offline-first** operation:
 
 ### Data Flow
 
-1. **Source of truth**: Markdown files in `backend/data/pelnets/` (Obsidian vault of PhilNITS questions).
+1. **Source of truth**: Markdown files in `backend/data/pelnets/` (Obsidian vault of PhilNITS questions). It is a git submodule of https://github.com/Joryuoo/pelnets pinned to one commit: clone with `git clone --recurse-submodules`, update with `git -C backend/data/pelnets pull`, then regenerate the JSON and commit both.
 2. **Compile step**: `backend/scripts/generate_index.py` parses all Markdown into `backend/data/questions_index.json`, then the build copies it to `frontend/public/data/`.
 3. **Runtime**: The frontend loads `questions_index.json` once via `fetch('/data/questions_index.json')`, caches it in-memory (module-level variable in `questionsService.ts`), and never touches the network again for question data.
 4. **User progress**: All attempts, SRS schedules, and settings are stored locally in IndexedDB via `Dexie.js` (schema at `frontend/src/db/index.ts`).

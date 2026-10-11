@@ -51,6 +51,13 @@ def run_tests():
     assert len(imgs) == 2
     assert imgs[0] == "/files/2024A_FE-A_Q12_full.png"
 
+    # Obsidian file names with spaces must become valid Markdown image URLs (percent-encoded)
+    spaced = normalize_image_links("![[Pasted image 20241017120324.png]] and ![x](Files/Drawing 1.png)")
+    assert "![Pasted image 20241017120324.png](/files/Pasted%20image%2020241017120324.png)" in spaced
+    assert "(/files/Drawing%201.png)" in spaced
+    assert normalize_image_links(spaced) == spaced  # idempotent
+    assert extract_image_paths(spaced) == ["/files/Pasted%20image%2020241017120324.png", "/files/Drawing%201.png"]
+
     # Test Answer parser
     corr, disp = parse_answer(["c) 291.25"])
     assert corr == "c"
