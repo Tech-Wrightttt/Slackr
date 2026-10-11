@@ -4,11 +4,11 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useStore } from '../store/useStore';
 import { StatsDbService } from '../services/statsDb';
 import { AnalyticsEngine } from '../services/analyticsEngine';
-import { OfflineDownloadButton } from './OfflineDownloadButton';
+import { InstallOfflineButton } from './InstallOfflineButton';
 import { BrandLogo } from './BrandLogo';
 
 export const Navbar: React.FC = () => {
-  const { isOffline, setOffline, installPrompt, setInstallPrompt, theme, toggleTheme, currentUser, hasAccount } = useStore();
+  const { isOffline, setOffline, setInstallPrompt, theme, toggleTheme, currentUser, hasAccount } = useStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dueCount, setDueCount] = useState<number>(0);
   const [streak, setStreak] = useState<number>(0);
@@ -46,16 +46,6 @@ export const Navbar: React.FC = () => {
     };
   }, []);
 
-  const handleInstallClick = async () => {
-    if (installPrompt) {
-      installPrompt.prompt();
-      const choice = await installPrompt.userChoice;
-      if (choice.outcome === 'accepted') {
-        setInstallPrompt(null);
-      }
-    }
-  };
-
   const navLinks = [
     { to: '/', label: 'Dashboard', icon: 'dashboard', end: true },
     { to: '/quiz/year', label: 'Year Papers', icon: 'calendar_month' },
@@ -82,7 +72,7 @@ export const Navbar: React.FC = () => {
       }}
       className="fixed top-0 left-0 right-0 z-50 bg-surface/95 dark:bg-obsidian-surface/90 backdrop-blur-xl border-b border-outline-variant/30 shadow-[0_1px_8px_rgba(0,0,0,0.4)]"
     >
-      <div className="h-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+      <div className="h-16 max-w-7xl 2xl:max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3">
         {/* Brand */}
         <div className="flex items-center gap-3 shrink-0">
           <Link to="/" className="flex items-center gap-2 text-on-surface decoration-0 group">
@@ -91,13 +81,13 @@ export const Navbar: React.FC = () => {
               SLACK<span className="text-primary font-extrabold">R</span>
             </span>
           </Link>
-          <span className="hidden sm:inline px-1.5 py-0.5 rounded bg-surface-container-high text-primary font-label-caps text-[11px] border border-outline-variant/30">
+          <span className="hidden 2xl:inline px-1.5 py-0.5 rounded bg-surface-container-high text-primary font-label-caps text-[11px] border border-outline-variant/30">
             FE / AP
           </span>
         </div>
 
         {/* Desktop Nav Matrix */}
-        <nav className="hidden xl:flex items-center gap-1 p-1 rounded-xl bg-surface-container-lowest/60 border border-outline-variant/20">
+        <nav className="hidden xl:flex min-w-0 items-center gap-0.5 p-1 rounded-xl bg-surface-container-lowest/60 border border-outline-variant/20">
           {navLinks.map((item) => {
             const isActive = item.end
               ? location.pathname === item.to
@@ -110,8 +100,8 @@ export const Navbar: React.FC = () => {
                 end={item.end}
                 className={
                   isActive
-                    ? 'px-3 py-1.5 transition-all text-primary font-body-bold text-sm bg-surface-container-high/80 rounded-lg shadow-inner flex items-center gap-1.5'
-                    : 'px-3 py-1.5 rounded-lg text-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-all flex items-center gap-1.5'
+                    ? 'px-2.5 py-1.5 whitespace-nowrap text-primary font-body-bold text-[13px] bg-surface-container-high/80 rounded-lg shadow-inner flex items-center gap-1.5'
+                    : 'px-2.5 py-1.5 whitespace-nowrap rounded-lg text-[13px] text-on-surface-variant hover:text-on-surface hover:bg-surface-container transition-colors flex items-center gap-1.5'
                 }
               >
                 <span>{item.label}</span>
@@ -126,10 +116,10 @@ export const Navbar: React.FC = () => {
         </nav>
 
         {/* Right Status & Quick Controls */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {/* Dexie offline status badge */}
           <div
-            className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-low border border-outline-variant/30 font-mono-code text-xs text-on-surface-variant"
+            className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-low border border-outline-variant/30 font-mono-code text-xs text-on-surface-variant whitespace-nowrap"
             title="Local Dexie.js Client Database Telemetry Active"
           >
             <span
@@ -143,7 +133,7 @@ export const Navbar: React.FC = () => {
           {/* Retention / Streak Pill */}
           <Link
             to="/quiz/srs"
-            className="flex items-center gap-1 px-2.5 py-1 rounded bg-surface-container-low border border-outline-variant/30 font-mono-timer text-xs text-confidence-amber hover:bg-surface-container transition-colors"
+            className="hidden min-[400px]:flex h-10 items-center gap-1 px-2.5 rounded-lg bg-surface-container-low border border-outline-variant/30 font-mono-timer text-xs text-confidence-amber hover:bg-surface-container transition-colors whitespace-nowrap"
             title="Spaced Repetition Review Queue"
           >
             <span className="material-symbols-outlined text-[16px] text-confidence-amber">
@@ -165,20 +155,8 @@ export const Navbar: React.FC = () => {
             </span>
           </button>
 
-          {/* Full offline download (app + data + diagrams) */}
-          <OfflineDownloadButton />
-
-          {/* Install PWA Button */}
-          {installPrompt && (
-            <button
-              onClick={handleInstallClick}
-              className="px-2.5 py-1 rounded-lg bg-primary hover:bg-primary-container text-on-primary font-mono-code text-xs font-semibold flex items-center gap-1 shadow-sm transition-all"
-              type="button"
-            >
-              <span className="material-symbols-outlined text-[14px]">download</span>
-              <span className="hidden sm:inline">Install</span>
-            </button>
-          )}
+          {/* Install + full offline download in one control */}
+          <InstallOfflineButton />
 
           {/* Profile Badge */}
           {currentUser ? (
@@ -195,7 +173,7 @@ export const Navbar: React.FC = () => {
             <Link
               to={hasAccount ? '/signin' : '/signup'}
               state={{ from: location.pathname }}
-              className="press-scale hidden sm:flex items-center gap-1 h-10 px-3.5 rounded-full border border-outline-variant/40 bg-surface-container-low text-xs font-semibold text-on-surface hover:bg-surface-container"
+              className="press-scale hidden sm:flex items-center gap-1 h-10 px-3.5 rounded-full border border-outline-variant/40 bg-surface-container-low text-xs font-semibold text-on-surface hover:bg-surface-container whitespace-nowrap"
             >
               <span className="material-symbols-outlined text-[16px]">login</span>
               {hasAccount ? 'Sign in' : 'Sign up'}

@@ -705,3 +705,23 @@ img {
     }
   }
 }
+
+/* ── Layout stability on load ────────────────────────────────────── */
+
+/* Icon glyphs are ligatures: before the icon font arrives they'd render as long words
+   ("local_fire_department") and push the navbar around. Reserve exactly one glyph. */
+.material-symbols-outlined {
+  display: inline-block;
+  width: 1em;
+  min-width: 1em;
+  overflow: hidden;
+  white-space: nowrap;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Stop mobile browsers from inflating text (the "zooms in a little" effect on rotate/refresh) */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
