@@ -1,175 +1,207 @@
-# SLACKR — Supabase + Vercel Deployment Plan
+# SLACKR — Supabase + Vercel Plan
 
-> Status: **Preparation phase.** Code is ready (Phase 2). Nothing has been deployed, pushed, or migrated.
+> Status: **App deployed on Vercel. Online accounts, sync and bug reports are implemented in the FastAPI backend (Phase B).**
+> To turn it on: run the SQL in `supabase/migrations/` and set `SUPABASE_URL` + `SUPABASE_ANON_KEY` for the backend (§5).
+> The browser never talks to Supabase and the bundle contains no Supabase URL or key.
 > Last updated: 2026-10-12
 
 ---
 
-## 1. Decisions
+## 1. What the database is for
+
+SLACKR stays offline-first. Supabase only adds three small things:
+
+| Stored online | Why | Size per user |
+| --- | --- | --- |
+| **Account** (Supabase Auth + `profiles`) | Sign up / sign in from any device | < 1 KB |
+| **Study data backup** (`user_data`, one JSON per user) | Same JSON the app already exports: attempts, SRS schedules, settings, bookmarks, deferred, sessions | typical 50–500 KB, heavy ~1–2 MB, hard cap 5 MB |
+| **Bug reports** (`bug_reports`) | Question / explanation flags and general bug reports | < 2 KB each |
+
+Not stored online: the question bank, diagrams, analytics (computed in the browser), drawings (session-only).
+
+**Size check:** Supabase Free has 500 MB of database. Even at 1 MB per user that is several hundred active users; most users are far smaller, and `jsonb` is compressed on disk. Nothing else grows.
+
+---
+
+## 2. Two storages, both ways
+
+```
+Browser (always works)            FastAPI /api (uvicorn locally, Vercel when hosted)      Supabase
+──────────────────────            ────────────────────────────────────────────────      ────────
+IndexedDB (Dexie)                 /api/account/signup|signin|signout|me                auth.users + profiles
+ ├─ attempts, schedules, ...  ⇄   /api/account/data   (GET / PUT, session cookie)  ⇄   user_data.data
+ ├─ accounts (local username)     /api/reports        (POST)                        →   bug_reports
+ └─ reports (outbox)
+                                  Session = httpOnly cookies (slackr_at, slackr_rt; path /api)
+```
+
+| Situation | Accounts | Study data | Bug reports |
+| --- | --- | --- | --- |
+| **Offline** (or Supabase not configured) | Local account only (username + password checked on the device) | IndexedDB only | Saved on the device as **Queued** |
+| **Online, guest** | Guest | IndexedDB only | Sent to `bug_reports` (anonymous) |
+| **Online, signed in** | Supabase account; a local copy is kept so offline sign-in still works | IndexedDB ⇄ `user_data` (merge both ways) | Sent to `bug_reports` with the user's id |
+| **Back online after offline use** | — | Local changes pushed, remote changes pulled | Queued reports sent automatically (already built) |
+
+### Sync rule (merge, never overwrite blindly)
+1. **Pull:** read `user_data.data` for the signed-in user.
+2. **Merge into IndexedDB** with the existing `SyncService.importLocalData(json, 'merge')`. It already de-duplicates attempts and keeps the newest schedules, so merging the same JSON twice is a no-op.
+3. **Push:** `SyncService.buildBackup()` → upsert into `user_data`.
+4. **When:** on sign-in, when the device comes back online, and a few seconds after the user answers questions (debounced). Never while offline.
+
+Result: each device keeps its full JSON locally, and the database holds the merged copy that every device converges on.
+
+---
+
+## 3. Decisions
 
 | Area | Decision |
 | --- | --- |
-| Modes | Two modes. **Local/offline** never calls Supabase and uses the local account (username + PBKDF2 password in IndexedDB). **Online** may use Supabase when configured and the device is online. |
-| Auth | Local accounts stay the offline source of truth. Supabase Auth is reserved for online mode (not wired yet). Guest mode stays the default; accounts are optional. |
-| Question bank | Stays static on Vercel (`frontend/public/data/*.json`). Not moved to a database. |
-| Diagrams | Stay on Vercel (`frontend/public/files`). Same-origin keeps the service-worker cache simple. |
-| FastAPI | Deployed as the `backend` Vercel service (root `backend/`, `main:app`), public at `/api/*`. Still runs locally exactly as before. |
-| Content edits | Learning resources and analytical breakdowns: **admin only** (you). |
-| Personal data | Never committed. Per-user progress will live in Supabase with row-level security. |
-| Committed data | Only what the app needs to show and sort questions: `questions_index.json`, `metadata_summary.json`, `image-list.json`, `manifest.json`. |
+| Online sign-in | **Email + password** with Supabase Auth. Supabase requires an email (it's also how password reset works). The username lives in `profiles` and is what the app shows. |
+| Local accounts | Kept. Signing up or in online also stores the local account on that device, so the same username + password works offline later. |
+| Guests | Still allowed. Accounts stay optional. |
+| Where Supabase is called | **Only from FastAPI** (`backend/routers/account.py` → `backend/services/supabase_gateway.py`). The browser calls `/api/account/*` and `/api/reports`; no Supabase URL, key or token reaches page scripts. |
+| Session | Supabase access + refresh tokens live in **httpOnly, SameSite=Lax cookies** scoped to `/api` (Secure on HTTPS). FastAPI refreshes expired access tokens automatically. Cookie-authenticated writes also reject cross-site `Origin` headers (CSRF). |
+| Keys | FastAPI uses the **publishable / anon** key; per-user rows are read and written with the user's own token, so row-level security still applies. **No service-role / secret key is used anywhere.** |
+| Question bank, diagrams | Static files on Vercel, cached by the service worker. |
+| Committed data | Only question/sort data (`questions_index.json`, `metadata_summary.json`, `image-list.json`, `manifest.json`). Never user data or `.env` files. |
 
 ---
 
-## 2. Architecture
+## 4. Database (SQL in the repo, you run it)
 
-```
-Browser (React PWA, offline-first)
- ├─ IndexedDB (Dexie): attempts, SRS schedules, settings, sessions, local account   ← source of truth
- ├─ Static bundle on Vercel CDN: questions_index.json, metadata, diagrams, app shell
- ├─ /api/*  → Vercel Python function (FastAPI, hosted mode)
- └─ Supabase (online mode only, lazy-loaded, anon key + RLS)                         ← future sync
+| File | Creates |
+| --- | --- |
+| `supabase/migrations/0001_bug_reports.sql` | `bug_reports` — anyone can **insert**; nobody can read through the API (you read it in the dashboard) |
+| `supabase/migrations/0002_accounts_and_user_data.sql` | `profiles` (auto-created on sign-up from the `username` metadata), `username_available()` check, `user_data` (own row only, 5 MB cap, server-set `updated_at`), `bug_reports.user_id` (filled from the caller's session, can't be spoofed) |
 
-Local machine
- ├─ bun run dev  → Vite proxies /api to FastAPI at 127.0.0.1:8000
- └─ uvicorn main:app (local mode: single-user, writes JSON files)
-```
-
-### FastAPI modes
-
-| | Local (default) | Hosted (`VERCEL` set, or `SLACKR_HOSTED=1`) |
-| --- | --- | --- |
-| Question + content reads | Open | Open |
-| Personal stats routes (`/api/attempts`, `/api/spaced-repetition`, `/api/stats`, `/api/analytics`, `/api/data`) | Open | **503** — the stats store is one shared file with no per-user isolation |
-| Content edits (`POST /api/learning-resources`, `/api/analytical-breakdowns`) | Open unless `SLACKR_ADMIN_TOKEN` is set | Require `Authorization: Bearer <SLACKR_ADMIN_TOKEN>`; 403 otherwise |
-| CORS | `*` | Only `ALLOWED_ORIGINS` (same-origin needs none) |
-| Filesystem writes | JSON files on disk | Read-only; writes return 503 |
-
-### Trade-offs
-
-| Choice | Gain | Cost |
-| --- | --- | --- |
-| Local-first sync (IndexedDB primary) | Offline keeps working; small code change | Needs merge logic; last write wins across offline devices |
-| Diagrams on Vercel | Simple, already PWA-cached | ~290 MB deploys; Vercel file/size limits |
-| FastAPI on Vercel | One deploy, same origin | Cold start loads 6.9 MB JSON; personal routes disabled until per-user storage exists |
-| Commit generated question JSON | Vercel can build (the vault is an unclonable gitlink) | ~7 MB in git; regenerate + commit after vault edits |
+Run them **in order**, once.
 
 ---
 
-## 3. Phase 2 — code changes (done)
+## 5. Setup guide — Supabase + your existing Vercel deployment
 
-### Frontend
-- `frontend/src/config/env.ts` — single source of public config. `apiUrl()` prefixes every `/api` call with `VITE_API_BASE_URL` (empty = same origin).
-- `frontend/src/services/supabaseClient.ts` — the only Supabase entry point. `getSupabase()` returns `null` when offline or unconfigured and never loads the SDK then; online it lazy-imports the SDK and returns one shared client using the **anon key only**.
-- `frontend/src/vite-env.d.ts` — types for `VITE_*` variables.
-- `questionsService`, `syncService`, `learningResourcesService`, `analyticalBreakdownService` — use `apiUrl()`.
-- `frontend/vite.config.ts` — dev proxy target from `API_PROXY_TARGET` (default `http://127.0.0.1:8000`; not bundled).
-- Dependency: `@supabase/supabase-js` (not in the bundle until something calls `getSupabase()`).
-- PWA/offline unchanged; `sw.js` already passes cross-origin (Supabase) requests through uncached.
+### Step 1. Create the Supabase project
+1. https://supabase.com → **New project**.
+2. Name `slackr`, region **Southeast Asia (Singapore)** (closest to PhilNITS users).
+3. Save the database password in a password manager. The app never needs it.
+
+### Step 2. Run the SQL
+1. Dashboard → **SQL Editor** → **New query**.
+2. Paste `supabase/migrations/0001_bug_reports.sql` → **Run**.
+3. New query → paste `supabase/migrations/0002_accounts_and_user_data.sql` → **Run**.
+4. **Table Editor** should now list `bug_reports`, `profiles`, `user_data`, each with "RLS enabled".
+
+### Step 3. Auth settings
+1. **Authentication → Sign In / Providers → Email**: enabled.
+2. **Confirm email**: turn **off** for launch. Supabase's built-in mailer only sends a few emails per hour, which would block sign-ups. Turn it back on once you add custom SMTP (Authentication → Emails → SMTP).
+3. **Authentication → URL Configuration**:
+   - **Site URL**: your Vercel production URL, e.g. `https://slackr.vercel.app`
+   - **Redirect URLs**: add
+     - `https://slackr.vercel.app/**`
+     - `https://*-<your-vercel-team>.vercel.app/**` (preview deploys)
+     - `http://localhost:5173/**` and `http://localhost:4173/**` (local dev / preview)
+
+### Step 4. Copy the two values
+**Project Settings → API Keys** (older dashboards: **Project Settings → API**):
+- **Project URL** — `https://<project-ref>.supabase.co`
+- **Publishable key** (`sb_publishable_…`) or the legacy **anon public** key. Either works.
+
+Do **not** copy the secret / service_role key. SLACKR doesn't use it.
+
+### Step 5. Add them to Vercel (backend variables)
+Vercel → your project → **Settings → Environment Variables**:
+
+| Name | Value | Environments |
+| --- | --- | --- |
+| `SUPABASE_URL` | Project URL | Production, Preview |
+| `SUPABASE_ANON_KEY` | Publishable / anon key | Production, Preview |
+
+Only the FastAPI service reads these (no `VITE_` prefix, so they never enter the frontend bundle).
+Delete `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` if you added them earlier.
+
+### Step 6. Redeploy
+Vercel → **Deployments** → latest production → **⋯ → Redeploy**, so the backend picks up the new variables.
+Check `https://<domain>/api/account/status` → `{"enabled": true}`.
+
+### Step 7. Local setup (uvicorn + Vite)
+1. Create `backend/.env` (git-ignored; `main.py` loads it):
+   ```
+   SUPABASE_URL=https://<project-ref>.supabase.co
+   SUPABASE_ANON_KEY=sb_publishable_...
+   ```
+2. Terminal 1, from the repo root, start the API:
+   ```powershell
+   backend\venv\Scripts\python.exe -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000 --reload
+   ```
+   http://127.0.0.1:8000/api/account/status should return `{"enabled": true}`.
+3. Terminal 2, from `frontend/`: `bun run dev` → http://localhost:5173. Vite proxies `/api` to uvicorn, so the session cookies are same-origin.
+   For the installed/offline build: `bun run build` then `bun run preview` → http://localhost:4173 (also proxied).
+4. `frontend/.env.local` needs nothing for accounts. Without `backend/.env`, online accounts are off and the app runs device-only.
+
+Tip: a second free "slackr-dev" Supabase project keeps test sign-ups out of real data.
+
+### Step 8. Test sign-up / sign-in locally
+1. Run both SQL files (Step 2) and set Auth settings (Step 3) in your Supabase project.
+2. Start uvicorn and Vite as in Step 7 (restart uvicorn after editing `backend/.env`).
+3. Check every endpoint against your real project (creates one throwaway account; delete it afterwards):
+   ```powershell
+   backend\venv\Scripts\python.exe backend/scripts/check_accounts.py
+   ```
+   Deployed: add the site URL, e.g. `... check_accounts.py https://<your-domain>`.
+4. Walk through the app:
+   - [ ] **Sign up** with username + email + password → you land on the dashboard. Supabase → Authentication → Users shows the user; Table Editor → `profiles` has the username; `user_data` has one row.
+   - [ ] Answer a question, open **Profile** → *Online backup* shows "Synced …". `user_data.data.attempts` grows.
+   - [ ] **New device:** open the app in a private window → Sign in with the **email** → your attempts appear (pulled from `user_data`).
+   - [ ] **Offline sign-in:** sign out, DevTools → Network → *Offline*, sign in with the **username** + same password → works from the device copy.
+   - [ ] **Device-only profile:** sign up with no email, then Profile → *Online backup* → enter email + current password → **Link account**.
+   - [ ] **Errors:** a taken username, an already-used email and a wrong password each show a clear message.
+   - [ ] **Bug report:** Profile → Report a bug → row in `bug_reports` (with `user_id` when signed in). Offline → shows *Queued*, sends when back online.
+5. Then repeat the same on the deployed site after Steps 5–6.
+
+## 6. Phase B — code (done)
 
 ### Backend
-- `backend/main.py` — local/hosted mode switch, personal-data guard, `require_admin()` (constant-time token compare), `write_json()` that returns 503 on read-only filesystems, env-driven CORS, question-bank fallback to `frontend/public/data/questions_index.json`.
-- `backend/services/stats_service.py` — stats path from `SLACKR_STATS_PATH`; `/tmp` default on Vercel (the old import-time write crashed on read-only disks).
-- `backend/main.py` — loads the question bank on first `/api` request (serverless may skip lifespan events): local index file first, else the `frontend` service's `/data/questions_index.json` over the `FRONTEND_URL` service binding.
-- `backend/requirements.txt` — converted from UTF-16 to UTF-8 (pip on Vercel can't read UTF-16).
+| File | What it does |
+| --- | --- |
+| `backend/services/supabase_gateway.py` | The only code that calls Supabase (Auth + PostgREST), using the standard library (no new dependency). Maps Supabase errors to clear messages. |
+| `backend/routers/account.py` | `GET /api/account/status`, `GET /api/account/username-available` (live check on the sign-up form), `POST /api/account/signup`, `POST /api/account/signin`, `POST /api/account/signout`, `GET /api/account/me`, `GET`/`PUT /api/account/data` (5 MB cap), `POST /api/reports`. Sets, refreshes and clears the session cookies; rejects cross-site writes. |
+| `backend/main.py` | Loads `backend/.env`, mounts the router. Hosted mode allows these routes (they're per-user via Supabase). |
 
-### Config
-- `vercel.json` — Vercel **services** mode with two services:
-  - `frontend` (root `frontend/`, Vite, bun install/build, `dist` output): SPA fallback to `index.html`, no-cache for `sw.js` / `manifest.json` / `asset-manifest.json` / `index.html`, immutable `/assets/*`.
-  - `backend` (root `backend/`, FastAPI `main:app`) with a binding to `frontend` injected as `FRONTEND_URL`.
-  - Public rewrites: `/api/(.*)` → `backend`, everything else → `frontend`. The backend receives the full `/api/...` path, matching its routes.
-- `frontend/.env.example`, `backend/.env.example` — variable names only.
-- `.gitignore` — ignores `.env` / `.env.*` (keeps `.env.example`); allowlists only the question/sort JSON + `vercel.json`; explicitly blocks `user_stats.json` and backup/export JSON.
+### Frontend
+| File | What it does |
+| --- | --- |
+| `services/accountApi.ts` | Thin `fetch` client for the routes above. Remembers whether the server offers accounts (`accountsEnabled`) for offline launches. |
+| `services/authService.ts` | `signUp({ username, password, email? })`: with an email, the backend creates the online account and starts the session; the device copy is stored with `email` + `remoteId`. Without email: device-only profile. On an existing device-only profile it **links** it online (current password required). `signIn(usernameOrEmail, password)`: online + linked, the backend checks the password and the device copy is refreshed (a new device gets its local account here); server unreachable or offline, the device copy is checked. Refuses to sign a different person into a device that already has a profile. Sign-out ends the server session (retried later if offline). |
+| `services/cloudSync.ts` | Pull `GET /api/account/data`, merge, push `PUT /api/account/data`. Runs on start, on reconnect, ~4 s after answers / schedule / setting changes, and when backgrounded. Only when the server session's user matches this profile. |
+| `services/reportService.ts` | Queued reports go to `POST /api/reports` (attached to the user when signed in online). |
+| `pages/Auth.tsx`, `components/OnlineAccountCard.tsx` | Email field, "Username or email" and the Online backup card appear when the server reports accounts are enabled. |
+| Removed | `@supabase/supabase-js`, `services/supabaseClient.ts`, `VITE_SUPABASE_*`. |
 
-### Verified
-- `bun run build` passes; no service-role key in `dist/`.
-- `backend/tests/test_backend.py` passes (local mode).
-- Hosted-mode smoke test of `backend/main.py` with the local index hidden and `FRONTEND_URL` pointed at a static copy of `frontend/public`: all 3,609 questions loaded over the binding; health/years/questions 200; personal routes 503.
+Verified with uvicorn + `bun run preview` against a local mock of the Supabase endpoints (Chrome, phone viewport): sign-up with email, `user_data` push, fresh-device sign-in pulls attempts, wrong password, taken username, existing email, offline username sign-in, device-only profile linked online, bug report stored with the user id, session cookies httpOnly and invisible to `document.cookie`, expired access token refreshed from the refresh cookie, cross-site `Origin` refused (403), unauthenticated data read refused (401). `backend/tests/test_backend.py` still passes. Not yet verified against a real Supabase project.
 
-### Environment variables
+Known limits: settings use last-pull-wins (a setting changed offline can be overwritten by the server copy on the next sync); password reset by email isn't in the app yet (use Supabase → Authentication → Users → *Send password recovery*); one profile per device.
+
+---
+
+## 7. Environment variables (current)
 
 | Variable | Where | Browser-visible | Purpose |
 | --- | --- | --- | --- |
-| `VITE_SUPABASE_URL` | frontend | Yes | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | frontend | Yes | Public anon key (RLS-protected) |
-| `VITE_API_BASE_URL` | frontend | Yes | FastAPI origin; empty = same origin |
-| `API_PROXY_TARGET` | frontend dev only | No | Vite `/api` proxy target |
-| `SUPABASE_URL` | backend | No | Server-side Supabase URL (reserved) |
-| `SUPABASE_SERVICE_ROLE_KEY` | backend | **Never** | Bypasses RLS — server only (reserved) |
-| `SLACKR_ADMIN_TOKEN` | backend | No | Required for content edits |
-| `ALLOWED_ORIGINS` | backend | No | Comma-separated cross-origin allowlist |
-| `SLACKR_HOSTED` | backend | No | `1` forces hosted mode outside Vercel |
-| `SLACKR_STATS_PATH` | backend | No | Local stats file override |
+| `SUPABASE_URL` | Vercel + `backend/.env` | No | Supabase project URL (backend only) |
+| `SUPABASE_ANON_KEY` | Vercel + `backend/.env` | No | Publishable / anon key (backend only; RLS still applies) |
+| `VITE_API_BASE_URL` | optional | Yes | FastAPI origin; keep it empty (same origin) so the session cookies work |
+| `API_PROXY_TARGET` | local dev only | No | Where Vite proxies `/api` (default `http://127.0.0.1:8000`) |
+| `SLACKR_ADMIN_TOKEN` | Vercel backend | No | Required to edit learning resources / breakdowns in hosted mode |
+| `ALLOWED_ORIGINS` | Vercel backend | No | Cross-origin allowlist (same origin needs none) |
+| `SLACKR_HOSTED`, `SLACKR_STATS_PATH` | local backend only | No | Force hosted mode / stats file path |
 
-> **Security:** the Supabase service-role key bypasses all row-level security. Only ever set it in Vercel's backend environment variables. Never in a `VITE_*` variable, frontend code, or any committed file.
+> **Security:** never add the Supabase secret / service_role key anywhere. SLACKR doesn't need it.
 
 ---
 
-## 4. Phase 3 — your checklist (dashboards)
+## 8. Reference — deployment layout (unchanged)
 
-No database migrations exist yet. Phase 2 only added the client; tables, RLS policies and the admin role come in the next phase as SQL files for you to review and run.
-
-### Before deploying (local git)
-- [ ] Regenerate the question bank: `backend\venv\Scripts\python.exe backend/scripts/generate_index.py`
-- [ ] `git status`: the only new JSON files are `frontend/public/data/questions_index.json`, `frontend/public/data/metadata_summary.json`, `frontend/public/image-list.json`, `frontend/public/manifest.json`, `vercel.json`
-- [ ] Confirm **none** of these appear: `backend/data/user_stats.json`, `.env.local`, `.env`, `slackr_backup_*.json`
-- [ ] Commit and push to GitHub yourself
-
-### Supabase
-- [ ] Create a project (region near users, e.g. Singapore)
-- [ ] Store the database password in a password manager, not the repo
-- [ ] Project Settings → API: note **Project URL**, **anon public** key, **service_role** key (service_role goes only into Vercel backend env)
-- [ ] Authentication → URL Configuration: Site URL = Vercel production URL; redirect URLs = `http://localhost:5173`, `http://localhost:4173`, `https://*-<team>.vercel.app`
-- [ ] Optional: a separate **dev** project for local testing so local runs never touch real data
-
-### Vercel
-- [ ] Add New → Project → import the repo
-- [ ] Root Directory: **repo root** (`vercel.json` defines the `frontend` and `backend` services; don't set a framework preset at the project level)
-- [ ] Settings → Environment Variables:
-
-| Variable | Value | Environments |
-| --- | --- | --- |
-| `VITE_SUPABASE_URL` | Project URL | Production, Preview |
-| `VITE_SUPABASE_ANON_KEY` | anon key | Production, Preview |
-| `VITE_API_BASE_URL` | (empty) | Production, Preview |
-| `SUPABASE_URL` | Project URL | Production |
-| `SUPABASE_SERVICE_ROLE_KEY` | service_role key — mark **Sensitive** | Production only |
-| `SLACKR_ADMIN_TOKEN` | long random string you generate — **Sensitive** | Production |
-| `ALLOWED_ORIGINS` | empty unless another host calls the API | Production |
-
-- [ ] Redeploy after changing any `VITE_*` value (they are baked in at build time)
-- [ ] Deploy; in the build log confirm both services build (bun install/build for `frontend`, pip for `backend`)
-
-### Bug reports (after Supabase exists)
-- [ ] Review `supabase/migrations/0001_bug_reports.sql`, then run it in the Supabase SQL Editor
-- [ ] Read reports in Table Editor → `bug_reports` (anon users can only insert; they can't read them back)
-- [ ] Until this runs, reports stay queued in each user's IndexedDB (`reports` table) and send automatically later
-
-### Verify after the first deploy
-- [ ] `https://<domain>/api/health` → 200 (the `/api` rewrite reaches the `backend` service)
-- [ ] `https://<domain>/api/years` → 200 with data (the backend loaded questions over the `FRONTEND_URL` binding)
-- [ ] `/api/stats/settings` → 503 (personal routes blocked in hosted mode)
-- [ ] Open `/profile` directly and reload → app loads (SPA fallback)
-- [ ] DevTools → Application: service worker active, manifest loads
-- [ ] DevTools offline + reload: questions, Daily Set and local sign-in still work
-- [ ] `/files/2007A_FE_AM_Q10_full.png` loads from Vercel
-
----
-
-## 5. Running locally after deployment
-
-Local use is unaffected.
-
-- **No `frontend/.env.local`**: fully local, as today. Supabase is never contacted.
-- **`frontend/.env.local` with Supabase URL + anon key**: online mode when connected, local mode when offline. Sign-in stays local.
-- **Backend** stays in local mode unless `VERCEL` or `SLACKR_HOSTED=1` is set. `main.py` does not auto-load `backend/.env`; set variables in your shell if needed.
-- Once cloud sync exists, local runs with real keys write to the real project. Use a dev Supabase project or leave keys empty.
-
----
-
-## 6. Next phases (not started)
-
-1. **Supabase schema (SQL files for you to run):** `attempts`, `sr_schedules`, `settings`, `deferred`, `sessions` with `user_id uuid references auth.users`, RLS `user_id = auth.uid()`; `learning_resources` and `analytical_breakdowns` readable by all, writable by an admin role only.
-2. **Online auth:** Supabase Auth (email + password or magic link) in online mode; local accounts remain for offline.
-3. **Sync:** IndexedDB stays primary. When online and signed in, push local changes, pull newer remote rows, merge (last write wins). Replaces `/api/stats/sync`.
-4. **Re-enable hosted personal routes** (optional) once FastAPI reads/writes per-user data from Supabase with the user's JWT.
-5. **Admin edits in production:** persist learning resources / breakdowns to Supabase instead of files.
+- `vercel.json` — services mode: `frontend` (Vite, `dist`, SPA fallback, no-cache `sw.js` / `manifest.json` / `index.html`, immutable `/assets/*`) and `backend` (FastAPI `main:app`, `FRONTEND_URL` binding). `/api/*` → backend, everything else → frontend.
+- `.vercelignore` — keeps the PelNETS vault, venv and tests out of the backend function (size limit).
+- FastAPI hosted mode: question reads open; personal stats routes return 503; content edits need `SLACKR_ADMIN_TOKEN`.
+- After vault updates: `backend\venv\Scripts\python.exe backend/scripts/generate_index.py`, commit the regenerated JSON, push.

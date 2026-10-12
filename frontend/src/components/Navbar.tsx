@@ -14,7 +14,7 @@ const ROW_GAP = 12; // gap-3 between brand, nav and controls
 const CLUSTER_GAP = 8; // gap-2 inside the right cluster
 
 export const Navbar: React.FC = () => {
-  const { isOffline, setOffline, setInstallPrompt, theme, toggleTheme, currentUser, hasAccount } = useStore();
+  const { isOffline, setOffline, setInstallPrompt, theme, toggleTheme, currentUser } = useStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dueCount, setDueCount] = useState<number>(0);
   const [streak, setStreak] = useState<number>(0);
@@ -226,15 +226,24 @@ export const Navbar: React.FC = () => {
               <span className="material-symbols-outlined text-[18px]">person</span>
             </Link>
           ) : (
-            // Guests: optional sign-in entry point, returns them to where they were
-            <Link
-              to={hasAccount ? '/signin' : '/signup'}
-              state={{ from: location.pathname }}
-              className="press-scale hidden sm:flex items-center gap-1 h-10 px-3.5 rounded-full border border-outline-variant/40 bg-surface-container-low text-xs font-semibold text-on-surface hover:bg-surface-container whitespace-nowrap"
-            >
-              <span className="material-symbols-outlined text-[16px]">login</span>
-              {hasAccount ? 'Sign in' : 'Sign up'}
-            </Link>
+            // Guests: both entry points (phones get them in the menu); both return to the current page
+            <>
+              <Link
+                to="/signin"
+                state={{ from: location.pathname }}
+                className="press-scale hidden md:flex items-center h-10 px-3 rounded-full text-xs font-semibold text-on-surface-variant hover:text-on-surface hover:bg-surface-container whitespace-nowrap"
+              >
+                Sign in
+              </Link>
+              <Link
+                to="/signup"
+                state={{ from: location.pathname }}
+                className="press-scale hidden sm:flex items-center gap-1 h-10 px-3.5 rounded-full bg-primary text-on-primary text-xs font-semibold hover:bg-primary-container whitespace-nowrap"
+              >
+                <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+                Sign up
+              </Link>
+            </>
           )}
           </div>
 
@@ -304,6 +313,30 @@ export const Navbar: React.FC = () => {
                   </motion.div>
                 );
               })}
+
+              {/* Guests: account actions live here on phones, where the bar has no room for them */}
+              {!currentUser && (
+                <div className="mt-2 pt-3 border-t border-outline-variant/20 grid grid-cols-2 gap-2">
+                  <Link
+                    to="/signin"
+                    state={{ from: location.pathname }}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="press-scale min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl border border-outline-variant/40 bg-surface-container-low text-sm font-semibold text-on-surface hover:bg-surface-container"
+                  >
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">login</span>
+                    Sign in
+                  </Link>
+                  <Link
+                    to="/signup"
+                    state={{ from: location.pathname }}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="press-scale min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-primary text-sm font-semibold text-on-primary hover:bg-primary-container"
+                  >
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">person_add</span>
+                    Sign up
+                  </Link>
+                </div>
+              )}
             </div>
           </motion.div>
         )}

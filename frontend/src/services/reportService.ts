@@ -1,14 +1,14 @@
 import { db } from '../db';
 import type { ReportKind, ReportRecord } from '../db/schema';
-import { getSupabase } from './supabaseClient';
+import { AccountApi, AccountApiError } from './accountApi';
 
 /**
  * Bug reports and content flags.
  *
  * Every report is saved to IndexedDB first, so reporting works offline and nothing is lost if
- * sending fails. `flush()` then sends queued reports to the Supabase `bug_reports` table
- * (insert-only for the public anon key; only the admin can read them). In local/offline mode,
- * or before Supabase is configured, reports simply wait on the device.
+ * sending fails. `flush()` then sends queued reports to the backend (`POST /api/reports`), which
+ * stores them in the Supabase `bug_reports` table (insert-only; only the admin can read them).
+ * Offline, or while the server can't store them, reports simply wait on the device.
  */
 
 export const REPORT_MESSAGE_MAX = 1000;
@@ -44,10 +44,14 @@ export interface NewReport {
   message: string;
 }
 
-const newClientId = () =>
+// randomUUID needs a secure context; plain-http LAN testing on a phone falls back to a v4-shaped id
+const newClientId = (): string =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
-    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+    : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = (Math.random() * 16) | 0;
+        return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+      });
 
 const isStandalone = () =>
   window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
@@ -88,22 +92,28 @@ export class ReportService {
   }
 
   private static async sendQueued(): Promise<number> {
-    const supabase = await getSupabase();
-    if (!supabase) return 0;
+    if (!navigator.onLine) return 0;
     const queued = await db.reports.where('status').equals('queued').toArray();
     let sent = 0;
     for (const r of queued) {
-      const { error } = await supabase.from('bug_reports').insert({
-        client_id: r.clientId,
-        kind: r.kind,
-        question_id: r.questionId ?? null,
-        category: r.category,
-        message: r.message,
-        context: r.context,
-        created_at: r.createdAt,
-      });
-      // 23505 = already on the server from an earlier attempt whose response was lost
-      if (error && error.code !== '23505') break;
+      try {
+        await AccountApi.submitReport({
+          client_id: r.clientId,
+          kind: r.kind,
+          question_id: r.questionId ?? null,
+          category: r.category,
+          message: r.message,
+          context: r.context,
+          created_at: r.createdAt,
+        });
+      } catch (err) {
+        // An id from an older app version the server rejects: give it a valid one and retry next flush
+        if (err instanceof AccountApiError && err.status === 422) {
+          await db.reports.update(r.id!, { clientId: newClientId() });
+          continue;
+        }
+        break; // offline, backend down or not configured: keep the rest queued
+      }
       await db.reports.update(r.id!, { status: 'sent', sentAt: new Date().toISOString() });
       sent++;
     }

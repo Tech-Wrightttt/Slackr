@@ -90,6 +90,9 @@ export interface AccountRecord {
   passwordHash: string; // hex PBKDF2-SHA256
   salt: string; // hex
   createdAt: string; // ISO timestamp
+  /** Set once the profile is linked to an online (Supabase) account */
+  email?: string;
+  remoteId?: string;
 }
 
 

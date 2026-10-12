@@ -15,6 +15,12 @@ export interface OfflineDownloadState {
   completedAt: string | null;
 }
 
+export interface CloudState {
+  status: 'off' | 'idle' | 'syncing' | 'error';
+  lastSyncedAt: string | null;
+  error: string | null;
+}
+
 interface AppState {
   offlineDownload: OfflineDownloadState;
   setOfflineDownload: (patch: Partial<OfflineDownloadState>) => void;
@@ -38,6 +44,12 @@ interface AppState {
   hasAccount: boolean;
   currentUser: string | null;
   setAuth: (patch: { hasAccount?: boolean; currentUser?: string | null }) => void;
+  /** Online backup of the signed-in profile (see services/cloudSync.ts) */
+  cloud: CloudState;
+  setCloud: (patch: Partial<CloudState>) => void;
+  /** Backend reports online accounts are configured (cached for offline launches) */
+  accountsEnabled: boolean;
+  setAccountsEnabled: (enabled: boolean) => void;
   toggleTheme: () => void;
   setTheme: (theme: ThemeMode) => void;
   setOffline: (offline: boolean) => void;
@@ -111,6 +123,16 @@ export const useStore = create<AppState>((set, get) => ({
   hasAccount: false,
   currentUser: null,
   setAuth: (patch) => set({ ...patch, authReady: true }),
+  cloud: { status: 'off', lastSyncedAt: null, error: null },
+  setCloud: (patch) => set((s) => ({ cloud: { ...s.cloud, ...patch } })),
+  accountsEnabled: (() => {
+    try {
+      return localStorage.getItem('slackr_accounts_enabled') === '1';
+    } catch {
+      return false;
+    }
+  })(),
+  setAccountsEnabled: (enabled) => set({ accountsEnabled: enabled }),
 
   toggleTheme: () => {
     const nextTheme = get().theme === 'dark' ? 'light' : 'dark';

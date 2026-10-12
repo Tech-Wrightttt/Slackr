@@ -20,9 +20,18 @@ from models.schemas import (
     SyncStatsPayload
 )
 from services.stats_service import StatsService
+from routers.account import router as account_router
 from services.analytics_service import AnalyticsService
 
 BASE_DIR = Path(__file__).resolve().parent
+
+# Local runs read backend/.env (git-ignored); hosted platforms inject real environment variables instead
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv(BASE_DIR / ".env")
+except ImportError:
+    pass
 DATA_DIR = BASE_DIR / "data"
 FRONTEND_DATA_DIR = BASE_DIR / "../frontend/public/data"
 # The committed question bank lives in the frontend bundle; the backend copy is a local build artifact
@@ -64,6 +73,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Accounts, study-data backup and bug reports (Supabase is called server-side only)
+app.state.allowed_origins = ALLOWED_ORIGINS
+app.include_router(account_router)
+
 
 @app.middleware("http")
 async def block_shared_personal_data(request: Request, call_next):

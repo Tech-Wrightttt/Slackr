@@ -39,7 +39,7 @@ SLACKR is a two-layer system built around **offline-first** operation:
 2. **Compile step**: `backend/scripts/generate_index.py` parses all Markdown into `backend/data/questions_index.json`, then the build copies it to `frontend/public/data/`.
 3. **Runtime**: The frontend loads `questions_index.json` once via `fetch('/data/questions_index.json')`, caches it in-memory (module-level variable in `questionsService.ts`), and never touches the network again for question data.
 4. **User progress**: All attempts, SRS schedules, and settings are stored locally in IndexedDB via `Dexie.js` (schema at `frontend/src/db/index.ts`).
-5. **Optional sync**: The FastAPI backend (`backend/main.py`) is a companion service — it mirrors the IndexedDB operations server-side and provides `/api/stats/sync` for cross-device backup. The app works 100% without it.
+5. **Optional online accounts**: The FastAPI backend (`backend/main.py`) owns online sign-up/sign-in, the per-user JSON backup and bug reports (`/api/account/*`, `/api/reports`, `backend/routers/account.py`). It is the only code that talks to Supabase (`backend/services/supabase_gateway.py`, configured by `SUPABASE_URL` / `SUPABASE_ANON_KEY` in `backend/.env`); the browser never does. The app works 100% offline without it. See `SUPABASE_VERCEL_DEPLOYMENT.md`.
 
 ### Frontend (`frontend/src/`)
 

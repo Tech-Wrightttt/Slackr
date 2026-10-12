@@ -2,7 +2,11 @@ import React, { useEffect, useId, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { MotionConfig, motion, useReducedMotion } from 'framer-motion';
 import { useStore } from '../store/useStore';
-import { AuthService, MIN_PASSWORD_LENGTH } from '../services/authService';
+import { AuthService, MIN_PASSWORD_LENGTH, USERNAME_PATTERN } from '../services/authService';
+import { AccountApi } from '../services/accountApi';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { db } from '../db';
+import { CloudSync } from '../services/cloudSync';
 import { BlurText, DecryptedText, ShinyText, Squares } from '../components/reactbits';
 import { BrandLogo } from '../components/BrandLogo';
 
@@ -19,7 +23,7 @@ const COPY: Record<Mode, { eyebrow: string; title: string; subtitle: string; sub
   signup: {
     eyebrow: 'OPTIONAL PROFILE',
     title: 'Create a profile',
-    subtitle: 'Add a username to this device. No email, no server. Your existing progress carries over.',
+    subtitle: 'Add a username to this device. Your existing progress carries over.',
     submit: 'Create profile',
     pending: 'Creating…',
   },
@@ -172,15 +176,39 @@ const BrandPanel: React.FC = () => {
 };
 
 const AuthScreen: React.FC<{ mode: Mode }> = ({ mode }) => {
-  const { authReady, hasAccount, currentUser, setAuth } = useStore();
+  const { authReady, hasAccount, currentUser, setAuth, isOffline, accountsEnabled } = useStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [showRemove, setShowRemove] = useState(false);
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  const [nameStatus, setNameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  const deviceProfile = useLiveQuery(() => db.accounts.toCollection().first(), []);
+
+  // Live "username taken?" check against online accounts while signing up (debounced, online only)
+  const checkName = mode === 'signup' && accountsEnabled && !isOffline && USERNAME_PATTERN.test(username.trim());
+  useEffect(() => {
+    if (!checkName) {
+      setNameStatus('idle');
+      return;
+    }
+    setNameStatus('checking');
+    let cancelled = false;
+    const t = setTimeout(() => {
+      AccountApi.usernameAvailable(username.trim())
+        .then((ok) => !cancelled && setNameStatus(ok ? 'available' : 'taken'))
+        .catch(() => !cancelled && setNameStatus('idle'));
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [checkName, username]);
 
   // Seen once this launch: skipping now lets the guest use the app without being sent back here
   useEffect(() => {
@@ -190,9 +218,10 @@ const AuthScreen: React.FC<{ mode: Mode }> = ({ mode }) => {
   if (!authReady) return null;
   const from = (location.state as { from?: string } | null)?.from || '/';
   if (currentUser) return <Navigate to={from} replace />;
-  // One profile per device: route to whichever screen applies
-  if (mode === 'signup' && hasAccount) return <Navigate to="/signin" replace state={location.state} />;
-  if (mode === 'signin' && !hasAccount) return <Navigate to="/signup" replace state={location.state} />;
+  // One profile per device: when one exists, sign-up offers "sign in to it" or "replace it" first
+  const deviceHasProfile = mode === 'signup' && hasAccount;
+  const notice = (location.state as { notice?: string } | null)?.notice;
+  const showEmail = mode === 'signup' && accountsEnabled;
 
   const copy = COPY[mode];
 
@@ -206,9 +235,23 @@ const AuthScreen: React.FC<{ mode: Mode }> = ({ mode }) => {
     }
     setPending(true);
     try {
-      const name =
-        mode === 'signup' ? await AuthService.signUp(username, password) : await AuthService.signIn(username, password);
-      setAuth({ hasAccount: true, currentUser: name });
+      if (mode === 'signup') {
+        const { username: name, needsConfirmation } = await AuthService.signUp({ username, password, email });
+        if (needsConfirmation) {
+          setAuth({ hasAccount: true, currentUser: null });
+          navigate('/signin', {
+            replace: true,
+            state: { from, notice: `Account created. Open the link we emailed to ${email.trim()}, then sign in.` },
+          });
+          return;
+        }
+        setAuth({ hasAccount: true, currentUser: name });
+      } else {
+        setAuth({ hasAccount: true, currentUser: await AuthService.signIn(username, password) });
+      }
+      // Pull this account's online backup (if any) and push the device's data
+      CloudSync.reset();
+      void CloudSync.sync();
       navigate(from, { replace: true });
     } catch (err: any) {
       setError(err?.message || 'Something went wrong.');
@@ -219,6 +262,7 @@ const AuthScreen: React.FC<{ mode: Mode }> = ({ mode }) => {
   const handleRemoveProfile = async () => {
     await AuthService.removeProfile();
     setAuth({ hasAccount: false, currentUser: null });
+    setConfirmReplace(false);
   };
 
   return (
@@ -239,76 +283,200 @@ const AuthScreen: React.FC<{ mode: Mode }> = ({ mode }) => {
           </div>
 
           <div className="mt-6 lg:mt-[12vh] w-full max-w-sm">
-            <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
-              <div className="enter-rise flex flex-col gap-1.5">
-                <span className="font-mono-timer text-[11px] font-semibold tracking-wider text-primary">{copy.eyebrow}</span>
-                <h1 className="font-display-lg text-3xl font-bold tracking-tight text-on-surface">{copy.title}</h1>
-                <p className="text-sm leading-relaxed text-on-surface-variant">{copy.subtitle}</p>
-              </div>
+            {deviceHasProfile ? (
+              <section aria-labelledby="existing-profile-title" className="flex flex-col gap-6">
+                <div className="enter-rise flex flex-col gap-1.5">
+                  <span className="font-mono-timer text-[11px] font-semibold tracking-wider text-primary">NEW PROFILE</span>
+                  <h1 id="existing-profile-title" className="font-display-lg text-3xl font-bold tracking-tight text-on-surface">
+                    Create a profile
+                  </h1>
+                  <p className="text-sm leading-relaxed text-on-surface-variant">
+                    This device already has the profile{' '}
+                    <strong className="text-on-surface">{deviceProfile?.username ?? '…'}</strong>. Each device keeps one
+                    profile: sign in to it, or replace it with a new one.
+                  </p>
+                </div>
 
-              <div className="enter-rise enter-rise-1 flex flex-col gap-4">
-                <Field
-                  label="Username"
-                  type="text"
-                  value={username}
-                  onChange={setUsername}
-                  autoComplete="username"
-                  autoFocus
-                  hint={mode === 'signup' ? '3–24 characters: letters, numbers, . - _' : undefined}
-                />
-                <Field
-                  label="Password"
-                  type="password"
-                  value={password}
-                  onChange={setPassword}
-                  autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
-                  hint={mode === 'signup' ? `At least ${MIN_PASSWORD_LENGTH} characters` : undefined}
-                />
-                {mode === 'signup' && (
-                  <Field label="Confirm password" type="password" value={confirm} onChange={setConfirm} autoComplete="new-password" />
+                <div className="enter-rise enter-rise-1 flex flex-col gap-3">
+                  <Link
+                    to="/signin"
+                    state={location.state}
+                    className="press-scale min-h-[46px] w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-sm hover:bg-primary-container flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[18px]" aria-hidden="true">login</span>
+                    Sign in as {deviceProfile?.username ?? 'existing profile'}
+                  </Link>
+
+                  {!confirmReplace ? (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmReplace(true)}
+                      className="press-scale min-h-[46px] w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]" aria-hidden="true">person_add</span>
+                      Replace with a new profile
+                    </button>
+                  ) : (
+                    <div role="alertdialog" aria-labelledby="replace-title" className="enter-rise rounded-xl border border-error/30 bg-error/5 p-4 flex flex-col gap-3 text-xs leading-relaxed text-on-surface-variant">
+                      <p id="replace-title" className="text-sm font-semibold text-on-surface">
+                        Remove "{deviceProfile?.username}" from this device?
+                      </p>
+                      <p>
+                        Study progress on this device stays and carries over to the new profile.
+                        {deviceProfile?.remoteId
+                          ? ' Its online account and backup are kept; sign in with its email any time to restore it.'
+                          : ' Its device password is deleted.'}
+                      </p>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmReplace(false)}
+                          className="press-scale min-h-[44px] rounded-lg px-4 bg-surface-container text-on-surface cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveProfile}
+                          className="press-scale min-h-[44px] rounded-lg px-4 bg-error/15 border border-error/30 text-error font-semibold cursor-pointer"
+                        >
+                          Remove and continue
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            ) : (
+              <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">
+                <div className="enter-rise flex flex-col gap-1.5">
+                  <span className="font-mono-timer text-[11px] font-semibold tracking-wider text-primary">{copy.eyebrow}</span>
+                  <h1 className="font-display-lg text-3xl font-bold tracking-tight text-on-surface">{copy.title}</h1>
+                  <p className="text-sm leading-relaxed text-on-surface-variant">
+                    {showEmail
+                      ? 'Add an email to back up and sync your progress across devices, or leave it empty for a device-only profile. Your existing progress carries over.'
+                      : copy.subtitle}
+                  </p>
+                </div>
+
+                <div className="enter-rise enter-rise-1 flex flex-col gap-4">
+                  <Field
+                    label={mode === 'signin' && accountsEnabled ? 'Username or email' : 'Username'}
+                    type="text"
+                    value={username}
+                    onChange={setUsername}
+                    autoComplete="username"
+                    autoFocus
+                    hint={
+                    mode !== 'signup'
+                      ? undefined
+                      : nameStatus === 'checking'
+                      ? 'Checking availability…'
+                      : nameStatus === 'available'
+                      ? 'Available'
+                      : nameStatus === 'taken'
+                      ? 'Taken online. Pick another username.'
+                      : '3–24 characters: letters, numbers, . - _'
+                  }
+                  />
+                  {showEmail &&
+                    (isOffline ? (
+                      <p className="rounded-xl border border-outline-variant/40 bg-surface-container-low px-3 py-2.5 text-xs leading-relaxed text-on-surface-variant">
+                        You're offline. This profile is saved on this device; link it to an online account from Profile
+                        when you're back online.
+                      </p>
+                    ) : (
+                      <Field
+                        label="Email (optional)"
+                        type="email"
+                        value={email}
+                        onChange={setEmail}
+                        autoComplete="email"
+                        hint="Backs up your progress and lets you sign in on other devices"
+                      />
+                    ))}
+                  <Field
+                    label="Password"
+                    type="password"
+                    value={password}
+                    onChange={setPassword}
+                    autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                    hint={mode === 'signup' ? `At least ${MIN_PASSWORD_LENGTH} characters` : undefined}
+                  />
+                  {mode === 'signup' && (
+                    <Field label="Confirm password" type="password" value={confirm} onChange={setConfirm} autoComplete="new-password" />
+                  )}
+                </div>
+
+                {error && (
+                  <div
+                    role="alert"
+                    className="flex items-start gap-2 rounded-xl border border-error/30 bg-error-container/60 px-3 py-2.5 text-xs leading-relaxed text-on-error-container dark:bg-error/10 dark:text-error"
+                  >
+                    <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
+                    <span>{error}</span>
+                  </div>
                 )}
-              </div>
 
-              {error && (
-                <div
-                  role="alert"
-                  className="flex items-start gap-2 rounded-xl border border-error/30 bg-error-container/60 px-3 py-2.5 text-xs leading-relaxed text-on-error-container dark:bg-error/10 dark:text-error"
-                >
-                  <span className="material-symbols-outlined text-[16px] shrink-0">error</span>
-                  <span>{error}</span>
+                <div className="enter-rise enter-rise-2 flex flex-col gap-3">
+                  <button
+                    type="submit"
+                    disabled={pending}
+                    className="press-scale min-h-[46px] w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-sm hover:bg-primary-container disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {pending && <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>}
+                    <span>{pending ? copy.pending : copy.submit}</span>
+                  </button>
+
+                  <div className="flex items-center gap-3 font-mono-code text-[11px] text-on-surface-variant/70" aria-hidden="true">
+                    <span className="h-px flex-1 bg-outline-variant/40" />
+                    or
+                    <span className="h-px flex-1 bg-outline-variant/40" />
+                  </div>
+
+                  {/* The launch screen is often sign-in: keep sign-up one tap away, not hidden in fine print */}
+                  {mode === 'signin' && (
+                    <Link
+                      to="/signup"
+                      state={location.state}
+                      className="press-scale min-h-[46px] w-full rounded-xl border border-primary/50 bg-primary/10 px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-primary/15 flex items-center justify-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">person_add</span>
+                      Create an account
+                    </Link>
+                  )}
+
+                  <Link
+                    to={from}
+                    className="press-scale min-h-[46px] w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">person_off</span>
+                    Continue without an account
+                  </Link>
                 </div>
-              )}
-
-              <div className="enter-rise enter-rise-2 flex flex-col gap-3">
-                <button
-                  type="submit"
-                  disabled={pending}
-                  className="press-scale min-h-[46px] w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-on-primary shadow-sm hover:bg-primary-container disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2"
-                >
-                  {pending && <span className="material-symbols-outlined text-[18px] animate-spin">progress_activity</span>}
-                  <span>{pending ? copy.pending : copy.submit}</span>
-                </button>
-
-                <div className="flex items-center gap-3 font-mono-code text-[11px] text-on-surface-variant/70" aria-hidden="true">
-                  <span className="h-px flex-1 bg-outline-variant/40" />
-                  or
-                  <span className="h-px flex-1 bg-outline-variant/40" />
-                </div>
-
-                <Link
-                  to={from}
-                  className="press-scale min-h-[46px] w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-4 py-2.5 text-sm font-semibold text-on-surface hover:bg-surface-container flex items-center justify-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-[18px]">person_off</span>
-                  Continue without an account
-                </Link>
-              </div>
-            </form>
+              </form>
+            )}
 
             <div className="mt-6 text-xs leading-relaxed text-on-surface-variant">
+              {notice && (
+                <p role="status" className="mb-4 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2.5 text-on-surface">
+                  {notice}
+                </p>
+              )}
               {mode === 'signup' ? (
-                <p>Guests get every feature. A profile only adds a username and a lock on this device.</p>
-              ) : !showRemove ? (
+                <p>
+                  Guests get every feature. A profile adds a username, a lock on this device
+                  {accountsEnabled ? ' and, with an email, an online backup' : ''}.
+                  {accountsEnabled && (
+                    <>
+                      {' '}
+                      <Link to="/signin" state={location.state} className="font-semibold text-primary underline-offset-4 hover:underline">
+                        Already have an account? Sign in
+                      </Link>
+                    </>
+                  )}
+                </p>
+              ) : !hasAccount ? null : !showRemove ? (
                 <button
                   type="button"
                   onClick={() => setShowRemove(true)}
@@ -319,8 +487,9 @@ const AuthScreen: React.FC<{ mode: Mode }> = ({ mode }) => {
               ) : (
                 <div className="enter-rise rounded-xl border border-outline-variant/40 bg-surface-container-low p-4 flex flex-col gap-3">
                   <p>
-                    Passwords are stored only on this device and cannot be recovered. You can remove the profile and
-                    create a new one. Your attempts, review schedules and settings are kept.
+                    The device password can't be recovered. You can remove the profile and create a new one; your
+                    attempts, review schedules and settings stay on this device. If the profile was linked online,
+                    sign in again with its email afterwards to restore it.
                   </p>
                   <div className="flex justify-end gap-2">
                     <button

@@ -5,8 +5,5 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '
 
 export const apiUrl = (path: string) => `${API_BASE_URL}${path}`;
 
-export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? '';
-/** Public anon key: safe in the browser because row-level security guards every table. */
-export const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY ?? '';
-
-export const isSupabaseConfigured = SUPABASE_URL !== '' && SUPABASE_ANON_KEY !== '';
+// Online accounts, sync and bug reports go through the FastAPI backend (/api/account, /api/reports).
+// No Supabase URL or key is ever bundled into the browser app.

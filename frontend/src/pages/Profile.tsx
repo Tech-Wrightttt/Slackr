@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useStore } from '../store/useStore';
 import { AuthService } from '../services/authService';
 import { Settings } from './Settings';
+import { OnlineAccountCard } from '../components/OnlineAccountCard';
+import { CloudSync } from '../services/cloudSync';
 import { ReportDialog } from '../components/ReportDialog';
 import { REPORT_CATEGORIES } from '../services/reportService';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -25,6 +27,7 @@ export const Profile: React.FC = () => {
 
   const handleSignOut = () => {
     AuthService.signOut();
+    CloudSync.reset();
     // Signing out drops back to guest mode; study data on this device stays
     setAuth({ currentUser: null });
     navigate('/', { replace: true });
@@ -64,16 +67,36 @@ export const Profile: React.FC = () => {
             <span>Sign out</span>
           </button>
         ) : (
-          <Link
-            to={hasAccount ? '/signin' : '/signup'}
-            state={{ from: '/profile' }}
-            className="press-scale self-start sm:self-auto min-h-[44px] flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-xs font-semibold text-on-primary hover:bg-primary-container"
-          >
-            <span className="material-symbols-outlined text-[16px]">login</span>
-            <span>{hasAccount ? 'Sign in' : 'Create profile'}</span>
-          </Link>
+          <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+            <Link
+              to="/signin"
+              state={{ from: '/profile' }}
+              className={`press-scale min-h-[44px] flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-semibold ${
+                hasAccount
+                  ? 'bg-primary text-on-primary hover:bg-primary-container'
+                  : 'border border-outline-variant/40 bg-surface-container text-on-surface hover:bg-surface-container-high'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">login</span>
+              <span>Sign in</span>
+            </Link>
+            <Link
+              to="/signup"
+              state={{ from: '/profile' }}
+              className={`press-scale min-h-[44px] flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-semibold ${
+                hasAccount
+                  ? 'border border-outline-variant/40 bg-surface-container text-on-surface hover:bg-surface-container-high'
+                  : 'bg-primary text-on-primary hover:bg-primary-container'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">person_add</span>
+              <span>Sign up</span>
+            </Link>
+          </div>
         )}
       </section>
+
+      {currentUser && <OnlineAccountCard />}
 
       {/* Bug reports: question/explanation flags live on each question; this is for everything else */}
       <section

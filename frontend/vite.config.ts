@@ -174,6 +174,9 @@ export default defineConfig(({ mode }) => {
   // App version shown on the News page and attached to bug reports; bump it in package.json per release
   const { version } = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'));
 
+  // xfwd: pass X-Forwarded-Host so the backend's same-origin check sees the page's host, not the target's
+  const apiProxy = { '/api': { target: apiProxyTarget, changeOrigin: true, xfwd: true } };
+
   return {
     define: {
       __APP_VERSION__: JSON.stringify(version),
@@ -193,12 +196,11 @@ export default defineConfig(({ mode }) => {
     },
     server: {
       port: 5173,
-      proxy: {
-        '/api': {
-          target: apiProxyTarget,
-          changeOrigin: true,
-        },
-      },
+      proxy: apiProxy,
+    },
+    // `bun run preview` too, so the built/installed app can sign in locally against uvicorn
+    preview: {
+      proxy: apiProxy,
     },
   };
 });

@@ -6,6 +6,7 @@ import { useStore } from './store/useStore';
 import { StatsDbService } from './services/statsDb';
 import { AuthService } from './services/authService';
 import { ReportService } from './services/reportService';
+import { CloudSync } from './services/cloudSync';
 import type { SRAlgorithm } from './services/srsEngine';
 import { WifiOff, Loader2 } from 'lucide-react';
 
@@ -110,7 +111,9 @@ export const App: React.FC = () => {
   useEffect(() => {
     AuthService.restore()
       .then(({ hasAccount, username }) => setAuth({ hasAccount, currentUser: username }))
-      .catch(() => setAuth({ hasAccount: false, currentUser: null }));
+      .catch(() => setAuth({ hasAccount: false, currentUser: null }))
+      // Online backup: syncs now, on reconnect and after local changes (no-op offline or signed out)
+      .finally(() => CloudSync.start());
   }, [setAuth]);
 
   useEffect(() => {

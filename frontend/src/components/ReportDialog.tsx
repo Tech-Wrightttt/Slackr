@@ -2,7 +2,7 @@ import React, { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ReportKind } from '../db/schema';
 import { REPORT_CATEGORIES, REPORT_MESSAGE_MAX, ReportService } from '../services/reportService';
-import { isOnlineMode } from '../services/supabaseClient';
+import { useStore } from '../store/useStore';
 
 interface ReportDialogProps {
   kind: ReportKind;
@@ -101,9 +101,10 @@ export const ReportDialog: React.FC<ReportDialogProps> = ({ kind, questionId, on
     }
   };
 
+  const accountsEnabled = useStore((s) => s.accountsEnabled);
   const queuedNote = !navigator.onLine
     ? "You're offline. It's saved on this device and sends automatically when you reconnect."
-    : isOnlineMode()
+    : accountsEnabled
     ? "Couldn't reach the server. It's saved on this device and will retry automatically."
     : 'Saved on this device. It sends automatically once online reporting is available.';
 

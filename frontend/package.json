@@ -23,7 +23,6 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.117.3",
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-table": "^9.2.4",
     "@types/katex": "^0.16.8",
