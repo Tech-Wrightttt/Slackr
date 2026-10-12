@@ -26,9 +26,13 @@ export const Profile: React.FC = () => {
   }, [currentUser]);
 
   const handleSignOut = () => {
-    AuthService.signOut();
+    const reload = AuthService.signOut();
     CloudSync.reset();
-    // Signing out drops back to guest mode; study data on this device stays
+    // Signing out drops back to guest mode; the profile's study data stays on this device
+    if (reload) {
+      window.location.assign('/');
+      return;
+    }
     setAuth({ currentUser: null });
     navigate('/', { replace: true });
   };

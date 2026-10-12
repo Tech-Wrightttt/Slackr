@@ -1,9 +1,10 @@
 import React, { useEffect, useId, useState } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
 import { useStore } from '../store/useStore';
-import { AuthService, MIN_PASSWORD_LENGTH } from '../services/authService';
+import { AuthService } from '../services/authService';
 import { CloudSync } from '../services/cloudSync';
+import { passwordProblem } from '../services/passwordPolicy';
+import { PasswordChecklist } from './PasswordChecklist';
 
 const formatWhen = (iso: string | null) =>
   iso
@@ -12,14 +13,15 @@ const formatWhen = (iso: string | null) =>
 
 /**
  * Profile → online backup. Linked profiles see their email, sync status and "Sync now";
- * device-only profiles can link an online account (email + their current password).
+ * device-only profiles can link an online account (email, current password, new account password).
  */
 export const OnlineAccountCard: React.FC = () => {
   const uid = useId();
-  const { isOffline, cloud, accountsEnabled } = useStore();
-  const account = useLiveQuery(() => db.accounts.toCollection().first(), []);
+  const { isOffline, cloud, accountsEnabled, currentUser } = useStore();
+  const account = useLiveQuery(() => AuthService.getAccount(), [currentUser]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -38,8 +40,9 @@ export const OnlineAccountCard: React.FC = () => {
     setError(null);
     setPending(true);
     try {
-      const { needsConfirmation } = await AuthService.signUp({ username: account.username, password, email });
+      const { needsConfirmation } = await AuthService.linkOnline(email, password, newPassword);
       setPassword('');
+      setNewPassword('');
       if (needsConfirmation) {
         setNotice(`Check ${email.trim()} for a confirmation link, then sign out and sign in with that email.`);
       } else {
@@ -118,7 +121,7 @@ export const OnlineAccountCard: React.FC = () => {
           {notice}
         </p>
       ) : (
-        <form onSubmit={handleLink} noValidate className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 sm:items-end">
+        <form onSubmit={handleLink} noValidate className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:items-start">
           <div className="flex flex-col gap-1.5">
             <label htmlFor={`${uid}-email`} className="font-mono-code text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
               Email
@@ -144,25 +147,40 @@ export const OnlineAccountCard: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
-              aria-describedby={`${uid}-pw-hint`}
               className="min-h-[44px] rounded-xl border border-outline-variant/50 bg-surface-container-lowest px-3.5 text-base sm:text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
             />
           </div>
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <label htmlFor={`${uid}-new-password`} className="font-mono-code text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">
+              Account password
+            </label>
+            <input
+              id={`${uid}-new-password`}
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+              aria-describedby={`${uid}-pw-rules ${uid}-pw-hint`}
+              className="min-h-[44px] rounded-xl border border-outline-variant/50 bg-surface-container-lowest px-3.5 text-base sm:text-sm text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+            />
+            <PasswordChecklist id={`${uid}-pw-rules`} password={newPassword} username={account.username} />
+          </div>
           <button
             type="submit"
-            disabled={pending || !email.trim() || password.length < MIN_PASSWORD_LENGTH}
-            className="press-scale min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-container disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            disabled={pending || !email.trim() || !password || !!passwordProblem(newPassword, account.username)}
+            className="press-scale sm:col-span-2 sm:justify-self-start min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 text-xs font-semibold text-on-primary hover:bg-primary-container disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <span className={`material-symbols-outlined text-[16px] ${pending ? 'animate-spin' : ''}`} aria-hidden="true">
               {pending ? 'progress_activity' : 'link'}
             </span>
             {pending ? 'Linking…' : 'Link account'}
           </button>
-          <p id={`${uid}-pw-hint`} className="sm:col-span-3 text-[11px] text-on-surface-variant">
-            Uses this profile's username ({account.username}) and its current password for the online account.
+          <p id={`${uid}-pw-hint`} className="sm:col-span-2 text-[11px] text-on-surface-variant">
+            The online account uses this profile's username ({account.username}). The account password replaces the
+            current one on this device too.
           </p>
           {error && (
-            <p role="alert" className="sm:col-span-3 rounded-xl border border-error/30 bg-error-container/60 px-3 py-2.5 text-xs text-on-error-container">
+            <p role="alert" className="sm:col-span-2 rounded-xl border border-error/30 bg-error-container/60 px-3 py-2.5 text-xs text-on-error-container">
               {error}
             </p>
           )}

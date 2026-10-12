@@ -5,6 +5,7 @@ import { AnswerFeedback } from './AnswerFeedback';
 import { ReportDialog } from './ReportDialog';
 import type { QuestionData, SRScheduleRecord } from '../db/schema';
 import { StatsDbService } from '../services/statsDb';
+import { BOOKMARKS_KEY } from '../db';
 import { useStore } from '../store/useStore';
 
 interface QuestionCardProps {
@@ -66,7 +67,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const [schedule, setSchedule] = useState<SRScheduleRecord | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   // All bookmarked IDs, so the Question Grid can mark them too
-  const [bookmarks, setBookmarks] = useState<string[]>(() => JSON.parse(localStorage.getItem('slackr_bookmarks') || '[]'));
+  const [bookmarks, setBookmarks] = useState<string[]>(() => JSON.parse(localStorage.getItem(BOOKMARKS_KEY) || '[]'));
   const bookmarked = bookmarks.includes(question.id);
   const [reporting, setReporting] = useState(false);
 
@@ -89,7 +90,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     startTimeRef.current = Date.now();
 
     // Re-read bookmarks (an import may have changed them)
-    setBookmarks(JSON.parse(localStorage.getItem('slackr_bookmarks') || '[]'));
+    setBookmarks(JSON.parse(localStorage.getItem(BOOKMARKS_KEY) || '[]'));
 
     timerIntervalRef.current = setInterval(() => {
       setElapsedTime((Date.now() - startTimeRef.current) / 1000);
@@ -141,11 +142,11 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   };
 
   const toggleBookmark = () => {
-    const savedBookmarks: string[] = JSON.parse(localStorage.getItem('slackr_bookmarks') || '[]');
+    const savedBookmarks: string[] = JSON.parse(localStorage.getItem(BOOKMARKS_KEY) || '[]');
     const updated = savedBookmarks.includes(question.id)
       ? savedBookmarks.filter((id) => id !== question.id)
       : [...savedBookmarks, question.id];
-    localStorage.setItem('slackr_bookmarks', JSON.stringify(updated));
+    localStorage.setItem(BOOKMARKS_KEY, JSON.stringify(updated));
     setBookmarks(updated);
   };
 

@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db, BOOKMARKS_KEY } from '../db';
 import type { AttemptRecord, DeferredRecord, SessionRecord, SRScheduleRecord, TopicStatRecord } from '../db/schema';
 import { StatsDbService } from './statsDb';
 import type { SRAlgorithm } from './srsEngine';
@@ -7,7 +7,6 @@ import { AnalyticalBreakdownService } from './analyticalBreakdownService';
 import { apiUrl } from '../config/env';
 import { convertPelnetsExport, isPelnetsExport } from './pelnetsImport';
 
-const BOOKMARKS_KEY = 'slackr_bookmarks';
 // Older builds mirrored these JSON blobs into the settings table; they live in their own block now
 const LEGACY_SETTING_KEYS = new Set(['learning_resources', 'analytical_breakdowns']);
 const VALID_ALGOS: SRAlgorithm[] = ['SM-2', 'FSRS', 'Custom'];

@@ -89,7 +89,11 @@ export interface AccountRecord {
   username: string;
   passwordHash: string; // hex PBKDF2-SHA256
   salt: string; // hex
+  /** PBKDF2 rounds used for passwordHash; absent on older profiles (150,000) */
+  iterations?: number;
   createdAt: string; // ISO timestamp
+  /** This profile's study-data scope; absent = the device's default database (first profile) */
+  dataId?: string;
   /** Set once the profile is linked to an online (Supabase) account */
   email?: string;
   remoteId?: string;

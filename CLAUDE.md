@@ -45,7 +45,7 @@ SLACKR is a two-layer system built around **offline-first** operation:
 
 - **Router**: React Router v7 with lazy-loaded page components. Routes defined in `App.tsx`.
 - **State**: Zustand store (`store/useStore.ts`) holds only transient UI state: theme, offline flag, active SRS algorithm, session preferences. **No question data lives in Zustand**.
-- **IndexedDB**: `db/index.ts` exports a singleton `db` (Dexie `SlackrDatabase`) with seven tables: `attempts`, `srSchedules`, `topicStats`, `settings`, `deferred`, `sessions`, `accounts` (local profile). Schema versions must be incremented when adding tables or indexes.
+- **IndexedDB**: `db/index.ts` exports a singleton `db` (Dexie `SlackrDatabase`) with eight tables: `attempts`, `srSchedules`, `topicStats`, `settings`, `deferred`, `sessions`, `accounts` (device profiles), `reports`. Schema versions must be incremented when adding tables or indexes. Profiles live in `registry` (`SlackrDB`); study data opens per profile (`SlackrDB` for the first profile and guests, `SlackrDB_<dataId>` for later ones). Per-profile localStorage keys go through `scopedKey()`.
 - **Services** (pure static classes, no React):
   - `questionsService.ts` — loads and filters question data; implements the PelNETS sorting algorithm (Year desc → Season S before A → Paper FE-A/AM before FE-B/PM → Question# → Sub#).
   - `srsEngine.ts` — in-browser implementations of SM-2, FSRS, and Custom SRS algorithms.

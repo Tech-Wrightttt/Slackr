@@ -2,7 +2,8 @@
 Smoke test for SLACKR's online-account endpoints against a running API and your real Supabase project.
 
 Creates one throwaway account, then exercises every route the app uses:
-  status -> signup -> me -> data PUT/GET -> signout -> me (401) -> signin -> me -> report -> signout
+  status -> signup -> me -> data PUT/GET -> signout -> me (401) -> signin (email, username) -> report
+  -> password reset email -> signout
 
 Usage (API must be running):
   backend\\venv\\Scripts\\python.exe backend/scripts/check_accounts.py                      # local uvicorn
@@ -52,7 +53,7 @@ def check(label, ok, detail=""):
 
 tag = uuid.uuid4().hex[:8]
 local, _, domain = (sys.argv[2] if len(sys.argv) > 2 else "smoke@example.com").partition("@")
-username, email, password = f"smoke_{tag}", f"{local}+smoke{tag}@{domain}", f"Smoke-{tag}-pw"
+username, email, password = f"smoke_{tag}", f"{local}+smoke{tag}@{domain}", f"Rv-{tag}#9x"
 print(f"API: {BASE}\nTest account: {username} / {email}\n")
 
 status, body = call("GET", "/api/account/status")
@@ -62,6 +63,9 @@ if not check("GET /api/account/status -> enabled", status == 200 and body == {"e
 
 status, body = call("GET", f"/api/account/username-available?name={username}")
 check("GET /api/account/username-available (new name) -> true", status == 200 and body == {"available": True}, f"{status} {body}")
+
+status, body = call("POST", "/api/account/signup", {"username": username, "email": email, "password": "weakpass"})
+check("POST /api/account/signup with a weak password -> 422", status == 422, f"{status} {body}")
 
 status, body = call("POST", "/api/account/signup", {"username": username, "email": email, "password": password})
 if not check("POST /api/account/signup", status == 200, f"{status} {body}"):
@@ -99,10 +103,18 @@ check("GET /api/account/me after sign-out -> 401", status == 401, f"{status} {bo
 status, body = call("GET", "/api/account/data")
 check("GET /api/account/data signed out -> 401", status == 401, f"{status} {body}")
 
-status, body = call("POST", "/api/account/signin", {"email": email, "password": "wrong-password"})
+status, body = call("POST", "/api/account/signin", {"login": email, "password": "wrong-password"})
 check("POST /api/account/signin wrong password -> 401", status == 401, f"{status} {body}")
-status, body = call("POST", "/api/account/signin", {"email": email, "password": password})
-check("POST /api/account/signin", status == 200 and body["user"]["username"] == username, f"{status} {body}")
+status, body = call("POST", "/api/account/signin", {"login": username, "password": password})
+if status == 400:
+    print("  [SKIP] sign-in with username: set SUPABASE_LOGIN_LOOKUP_KEY (migration 0003) to enable it")
+else:
+    check("POST /api/account/signin with username (0003 lookup)", status == 200 and body["user"]["id"] == user_id, f"{status} {body}")
+    call("POST", "/api/account/signout")
+status, body = call("POST", "/api/account/signin", {"login": f"nobody_{tag}", "password": password})
+check("sign-in with an unknown username -> 400/401", status in (400, 401), f"{status} {body}")
+status, body = call("POST", "/api/account/signin", {"login": email, "password": password})
+check("POST /api/account/signin with email", status == 200 and body["user"]["username"] == username, f"{status} {body}")
 status, body = call("GET", "/api/account/data")
 check("backup still there after signing back in", status == 200 and (body or {}).get("data") is not None, f"{status} {body}")
 
@@ -115,6 +127,11 @@ check("sign-up with a registered email -> 409", status == 409, f"{status} {body}
 status, body = call("POST", "/api/reports", {"client_id": str(uuid.uuid4()), "kind": "general", "category": "other",
                                               "message": f"smoke test {tag}", "context": {"source": "check_accounts.py"}})
 check("POST /api/reports (bug_reports insert)", status == 200, f"{status} {body}")
+
+status, body = call("POST", "/api/account/password/forgot", {"email": email})
+check("POST /api/account/password/forgot (reset email sent)", status == 200, f"{status} {body}")
+status, body = call("POST", "/api/account/password/forgot", {"email": f"nobody{tag}@{domain}"})
+check("forgot for an unknown email -> same 200 reply", status == 200, f"{status} {body}")
 
 call("POST", "/api/account/signout")
 print(f"\n{'All checks passed.' if failures == 0 else f'{failures} check(s) failed.'}")

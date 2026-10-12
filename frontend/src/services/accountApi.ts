@@ -72,8 +72,20 @@ export const AccountApi = {
   signUp: (username: string, email: string, password: string) =>
     call<{ user: OnlineUser; needsConfirmation: boolean }>('POST', '/api/account/signup', { username, email, password }),
 
-  signIn: (email: string, password: string) =>
-    call<{ user: OnlineUser }>('POST', '/api/account/signin', { email, password }).then((r) => r.user),
+  /** `login` is an email or a username. */
+  signIn: (login: string, password: string) =>
+    call<{ user: OnlineUser }>('POST', '/api/account/signin', { login, password }).then((r) => r.user),
+
+  /** Emails a reset link if the address has an account (the reply never says whether it does). */
+  forgotPassword: (email: string) => call<{ ok: boolean }>('POST', '/api/account/password/forgot', { email }),
+
+  /** Sets a new password using the tokens from the emailed reset link, and signs in. */
+  resetPassword: (accessToken: string, refreshToken: string, password: string) =>
+    call<{ user: OnlineUser }>('POST', '/api/account/password/reset', {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      password,
+    }).then((r) => r.user),
 
   signOut: () => call<{ ok: boolean }>('POST', '/api/account/signout'),
 

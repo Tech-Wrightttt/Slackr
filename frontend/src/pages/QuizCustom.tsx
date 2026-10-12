@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { QuestionsService } from '../services/questionsService';
 import { StatsDbService } from '../services/statsDb';
-import { db } from '../db';
+import { db, CUSTOM_SETS_KEY } from '../db';
 import { QuestionCard } from '../components/QuestionCard';
 import { AdvancedSearchInput } from '../components/SearchHelperDropdown';
 import { HighlightText } from '../components/HighlightText';
@@ -49,7 +49,7 @@ export const QuizCustom: React.FC = () => {
         }
         setAttemptedMap(aMap);
 
-        const saved = localStorage.getItem('slackr_custom_quiz_sets');
+        const saved = localStorage.getItem(CUSTOM_SETS_KEY);
         if (saved) {
           setSavedSets(JSON.parse(saved));
         }
@@ -109,7 +109,7 @@ export const QuizCustom: React.FC = () => {
       [newSetName.trim()]: Array.from(selectedIds),
     };
     setSavedSets(updated);
-    localStorage.setItem('slackr_custom_quiz_sets', JSON.stringify(updated));
+    localStorage.setItem(CUSTOM_SETS_KEY, JSON.stringify(updated));
     setNewSetName('');
   };
 
@@ -117,7 +117,7 @@ export const QuizCustom: React.FC = () => {
     const updated = { ...savedSets };
     delete updated[name];
     setSavedSets(updated);
-    localStorage.setItem('slackr_custom_quiz_sets', JSON.stringify(updated));
+    localStorage.setItem(CUSTOM_SETS_KEY, JSON.stringify(updated));
   };
 
   const handleLoadSet = (name: string) => {

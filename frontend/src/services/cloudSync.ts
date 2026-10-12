@@ -1,4 +1,4 @@
-import { db } from '../db';
+import { db, scopedKey } from '../db';
 import { useStore } from '../store/useStore';
 import { AuthService } from './authService';
 import { SyncService } from './syncService';
@@ -17,7 +17,7 @@ import { AccountApi } from './accountApi';
 // Admin content and derived stats don't belong in a personal backup
 const NOT_SYNCED = ['learning_resources', 'analytical_breakdowns', 'topic_stats', 'exportedAt'] as const;
 const PUSH_DELAY_MS = 4000;
-const LAST_SYNC_KEY = 'slackr_last_cloud_sync';
+const LAST_SYNC_KEY = scopedKey('slackr_last_cloud_sync');
 
 let running: Promise<void> | null = null;
 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -38,8 +38,7 @@ async function buildCloudBackup() {
 async function linked(): Promise<boolean> {
   if (!navigator.onLine || !useStore.getState().accountsEnabled) return false;
   await AuthService.finishPendingSignOut();
-  const { username } = await AuthService.restore();
-  const account = username ? await AuthService.getAccount() : undefined;
+  const account = await AuthService.getAccount();
   if (!account?.remoteId) return false;
   // A leftover session from another account must never receive this device's data
   const user = await AccountApi.me();

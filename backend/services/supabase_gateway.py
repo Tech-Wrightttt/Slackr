@@ -8,6 +8,8 @@ with the user's own access token, so Supabase row-level security still decides w
 Configuration (backend environment only, e.g. backend/.env locally, Vercel env vars when hosted):
   SUPABASE_URL       https://<project-ref>.supabase.co
   SUPABASE_ANON_KEY  publishable / anon key (no service-role key is needed or used)
+  SUPABASE_LOGIN_LOOKUP_KEY  optional: lets people sign in with their username on a new device
+                             (the value stored by supabase/migrations/0003_username_sign_in.sql)
 """
 
 import json
@@ -39,7 +41,7 @@ def _friendly(status: int, body: Any) -> SupabaseError:
         # The profile insert failed: in practice the username was taken a moment earlier
         return SupabaseError(409, "That username is taken. Pick another one.", code)
     if code == "invalid_credentials" or "invalid login credentials" in text:
-        return SupabaseError(401, "Incorrect email/username or password.", code)
+        return SupabaseError(401, "Incorrect username/email or password.", code)
     if code == "email_not_confirmed" or "email not confirmed" in text:
         return SupabaseError(403, "Confirm your email first: open the link we sent, then sign in.", code)
     if code == "over_request_rate_limit" or "rate limit" in text or status == 429:
@@ -63,6 +65,10 @@ class SupabaseGateway:
     @property
     def configured(self) -> bool:
         return bool(self.url and self.key)
+
+    @property
+    def login_lookup_configured(self) -> bool:
+        return bool(os.environ.get("SUPABASE_LOGIN_LOOKUP_KEY"))
 
     def _request(
         self,
@@ -131,6 +137,23 @@ class SupabaseGateway:
     def get_user(self, access_token: str) -> Dict[str, Any]:
         _, res = self._request("GET", "/auth/v1/user", token=access_token)
         return res or {}
+
+    def recover(self, email: str, redirect_to: str) -> None:
+        """Emails a password-reset link that opens redirect_to with a recovery session in the #fragment."""
+        self._request("POST", "/auth/v1/recover", query={"redirect_to": redirect_to}, body={"email": email})
+
+    def update_password(self, access_token: str, password: str) -> Dict[str, Any]:
+        _, res = self._request("PUT", "/auth/v1/user", token=access_token, body={"password": password})
+        return res or {}
+
+    def email_for_username(self, name: str) -> Optional[str]:
+        """Email of the account with this username (case-insensitive), via the key-gated 0003 RPC."""
+        _, res = self._request(
+            "POST",
+            "/rest/v1/rpc/email_for_login",
+            body={"p_username": name, "p_key": os.environ.get("SUPABASE_LOGIN_LOOKUP_KEY", "")},
+        )
+        return res or None
 
     def username_available(self, name: str) -> bool:
         _, res = self._request("POST", "/rest/v1/rpc/username_available", body={"name": name})

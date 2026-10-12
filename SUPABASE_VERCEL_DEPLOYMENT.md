@@ -56,8 +56,10 @@ Result: each device keeps its full JSON locally, and the database holds the merg
 
 | Area | Decision |
 | --- | --- |
-| Online sign-in | **Email + password** with Supabase Auth. Supabase requires an email (it's also how password reset works). The username lives in `profiles` and is what the app shows. |
-| Local accounts | Kept. Signing up or in online also stores the local account on that device, so the same username + password works offline later. |
+| Online sign-in | **Username or email + password**, on any device. Supabase Auth signs in by email; for a username the backend looks the email up through a key-gated function (0003), so emails are never exposed. The username lives in `profiles` and is what the app shows. |
+| Passwords | New passwords need 8+ characters with lowercase, uppercase, a number and a symbol, and can't contain the username or common words. Checked in the form and enforced by FastAPI. Device copies use PBKDF2-SHA256 with 600,000 rounds (older profiles are upgraded on their next sign-in). |
+| Password reset | "Forgot password?" emails a Supabase recovery link that opens `/reset-password`; the new password applies everywhere and signs the user in. Device-only profiles can't be reset; they can be removed from the device instead. |
+| Local accounts | Kept, and a device can hold **any number of profiles**. Signing up or in online also stores the local account on that device, so the same username + password works offline later. The device's first profile keeps the progress already on it; each later profile gets its own IndexedDB database (`SlackrDB_<id>`) and its own bookmarks / custom sets. Switching profile reloads the app on that profile's data. |
 | Guests | Still allowed. Accounts stay optional. |
 | Where Supabase is called | **Only from FastAPI** (`backend/routers/account.py` → `backend/services/supabase_gateway.py`). The browser calls `/api/account/*` and `/api/reports`; no Supabase URL, key or token reaches page scripts. |
 | Session | Supabase access + refresh tokens live in **httpOnly, SameSite=Lax cookies** scoped to `/api` (Secure on HTTPS). FastAPI refreshes expired access tokens automatically. Cookie-authenticated writes also reject cross-site `Origin` headers (CSRF). |
@@ -73,6 +75,7 @@ Result: each device keeps its full JSON locally, and the database holds the merg
 | --- | --- |
 | `supabase/migrations/0001_bug_reports.sql` | `bug_reports` — anyone can **insert**; nobody can read through the API (you read it in the dashboard) |
 | `supabase/migrations/0002_accounts_and_user_data.sql` | `profiles` (auto-created on sign-up from the `username` metadata), `username_available()` check, `user_data` (own row only, 5 MB cap, server-set `updated_at`), `bug_reports.user_id` (filled from the caller's session, can't be spoofed) |
+| `supabase/migrations/0003_username_sign_in.sql` | `email_for_login(username, key)`: the username → email lookup for signing in with a username. Only answers when given the secret stored in `private.app_config` (unreachable through the API), which only the backend knows |
 
 Run them **in order**, once.
 
@@ -89,17 +92,26 @@ Run them **in order**, once.
 1. Dashboard → **SQL Editor** → **New query**.
 2. Paste `supabase/migrations/0001_bug_reports.sql` → **Run**.
 3. New query → paste `supabase/migrations/0002_accounts_and_user_data.sql` → **Run**.
-4. **Table Editor** should now list `bug_reports`, `profiles`, `user_data`, each with "RLS enabled".
+4. New query → paste `supabase/migrations/0003_username_sign_in.sql` → **Run**.
+5. New query → `select value from private.app_config where key = 'login_lookup_key';` → **Run**. This value is your
+   `SUPABASE_LOGIN_LOOKUP_KEY` (Steps 5 and 7). Treat it like a password: don't commit or share it.
+6. **Table Editor** should now list `bug_reports`, `profiles`, `user_data`, each with "RLS enabled".
 
 ### Step 3. Auth settings
 1. **Authentication → Sign In / Providers → Email**: enabled.
 2. **Confirm email**: turn **off** for launch. Supabase's built-in mailer only sends a few emails per hour, which would block sign-ups. Turn it back on once you add custom SMTP (Authentication → Emails → SMTP).
-3. **Authentication → URL Configuration**:
+   Password-reset emails use the same mailer, so add custom SMTP (e.g. Resend, Brevo) before many people need resets.
+3. Optional, defence in depth: **Authentication → Sign In / Providers → Email → Password requirements**: minimum length 8,
+   "Lowercase, uppercase letters, digits and symbols". The backend already enforces the same rules.
+4. **Authentication → URL Configuration**:
    - **Site URL**: your Vercel production URL, e.g. `https://slackr.vercel.app`
    - **Redirect URLs**: add
      - `https://slackr.vercel.app/**`
      - `https://*-<your-vercel-team>.vercel.app/**` (preview deploys)
      - `http://localhost:5173/**` and `http://localhost:4173/**` (local dev / preview)
+
+     The `/**` entries cover the password-reset page (`/reset-password`). Without them the reset link opens the
+     Site URL instead and the reset fails.
 
 ### Step 4. Copy the two values
 **Project Settings → API Keys** (older dashboards: **Project Settings → API**):
@@ -115,7 +127,9 @@ Vercel → your project → **Settings → Environment Variables**:
 | --- | --- | --- |
 | `SUPABASE_URL` | Project URL | Production, Preview |
 | `SUPABASE_ANON_KEY` | Publishable / anon key | Production, Preview |
+| `SUPABASE_LOGIN_LOOKUP_KEY` | Value from Step 2.5 | Production, Preview |
 
+Without `SUPABASE_LOGIN_LOOKUP_KEY` everything still works, but a new device must sign in with the email.
 Only the FastAPI service reads these (no `VITE_` prefix, so they never enter the frontend bundle).
 Delete `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` if you added them earlier.
 
@@ -128,6 +142,7 @@ Check `https://<domain>/api/account/status` → `{"enabled": true}`.
    ```
    SUPABASE_URL=https://<project-ref>.supabase.co
    SUPABASE_ANON_KEY=sb_publishable_...
+   SUPABASE_LOGIN_LOOKUP_KEY=<value from Step 2.5>
    ```
 2. Terminal 1, from the repo root, start the API:
    ```powershell
@@ -141,7 +156,7 @@ Check `https://<domain>/api/account/status` → `{"enabled": true}`.
 Tip: a second free "slackr-dev" Supabase project keeps test sign-ups out of real data.
 
 ### Step 8. Test sign-up / sign-in locally
-1. Run both SQL files (Step 2) and set Auth settings (Step 3) in your Supabase project.
+1. Run the three SQL files (Step 2) and set Auth settings (Step 3) in your Supabase project.
 2. Start uvicorn and Vite as in Step 7 (restart uvicorn after editing `backend/.env`).
 3. Check every endpoint against your real project (creates one throwaway account; delete it afterwards):
    ```powershell
@@ -151,9 +166,12 @@ Tip: a second free "slackr-dev" Supabase project keeps test sign-ups out of real
 4. Walk through the app:
    - [ ] **Sign up** with username + email + password → you land on the dashboard. Supabase → Authentication → Users shows the user; Table Editor → `profiles` has the username; `user_data` has one row.
    - [ ] Answer a question, open **Profile** → *Online backup* shows "Synced …". `user_data.data.attempts` grows.
-   - [ ] **New device:** open the app in a private window → Sign in with the **email** → your attempts appear (pulled from `user_data`).
+   - [ ] **New device:** open the app in a private window → Sign in with the **username** (or email) → your attempts appear (pulled from `user_data`).
+   - [ ] **Several accounts on one device:** sign out, **Create an account** with another username → it starts with empty progress. Sign out → the sign-in page lists both under *On this device*; each keeps its own progress.
+   - [ ] **Forgot password:** Sign in → *Forgot password?* → email → open the link → choose a new password → you're signed in. The old password no longer works.
    - [ ] **Offline sign-in:** sign out, DevTools → Network → *Offline*, sign in with the **username** + same password → works from the device copy.
-   - [ ] **Device-only profile:** sign up with no email, then Profile → *Online backup* → enter email + current password → **Link account**.
+   - [ ] **Device-only profile:** sign up with no email, then Profile → *Online backup* → email, current password and a new account password → **Link account**.
+   - [ ] **Weak password:** `password1` is refused with the list of missing rules.
    - [ ] **Errors:** a taken username, an already-used email and a wrong password each show a clear message.
    - [ ] **Bug report:** Profile → Report a bug → row in `bug_reports` (with `user_id` when signed in). Offline → shows *Queued*, sends when back online.
 5. Then repeat the same on the deployed site after Steps 5–6.
@@ -164,22 +182,25 @@ Tip: a second free "slackr-dev" Supabase project keeps test sign-ups out of real
 | File | What it does |
 | --- | --- |
 | `backend/services/supabase_gateway.py` | The only code that calls Supabase (Auth + PostgREST), using the standard library (no new dependency). Maps Supabase errors to clear messages. |
-| `backend/routers/account.py` | `GET /api/account/status`, `GET /api/account/username-available` (live check on the sign-up form), `POST /api/account/signup`, `POST /api/account/signin`, `POST /api/account/signout`, `GET /api/account/me`, `GET`/`PUT /api/account/data` (5 MB cap), `POST /api/reports`. Sets, refreshes and clears the session cookies; rejects cross-site writes. |
+| `backend/routers/account.py` | `GET /api/account/status`, `GET /api/account/username-available` (live check on the sign-up form), `POST /api/account/signup` (password rules enforced), `POST /api/account/signin` (`login` = username or email), `POST /api/account/password/forgot` (same reply whether or not the email exists), `POST /api/account/password/reset` (tokens from the emailed link), `POST /api/account/signout`, `GET /api/account/me`, `GET`/`PUT /api/account/data` (5 MB cap), `POST /api/reports`. Sets, refreshes and clears the session cookies; rejects cross-site writes. |
 | `backend/main.py` | Loads `backend/.env`, mounts the router. Hosted mode allows these routes (they're per-user via Supabase). |
 
 ### Frontend
 | File | What it does |
 | --- | --- |
 | `services/accountApi.ts` | Thin `fetch` client for the routes above. Remembers whether the server offers accounts (`accountsEnabled`) for offline launches. |
-| `services/authService.ts` | `signUp({ username, password, email? })`: with an email, the backend creates the online account and starts the session; the device copy is stored with `email` + `remoteId`. Without email: device-only profile. On an existing device-only profile it **links** it online (current password required). `signIn(usernameOrEmail, password)`: online + linked, the backend checks the password and the device copy is refreshed (a new device gets its local account here); server unreachable or offline, the device copy is checked. Refuses to sign a different person into a device that already has a profile. Sign-out ends the server session (retried later if offline). |
+| `db/index.ts` | `registry` (device profiles, in `SlackrDB`) and `db` (the signed-in profile's data: `SlackrDB` for the first profile and guests, `SlackrDB_<dataId>` for later ones), picked once per page load. `scopedKey()` does the same for localStorage. |
+| `services/authService.ts` | Any number of profiles per device. `signUp({ username, password, email? })`: with an email, the backend creates the online account and starts the session. `linkOnline(email, currentPassword, newPassword)` links a device-only profile. `signIn(usernameOrEmail, password)`: profiles with an online account (or not on this device yet) are checked by the server, so they work on any device, and the device copy is refreshed; device-only profiles, or no connection, use the device copy. `completeOnlineSignIn` is shared with the reset page. Sign-out ends the server session (retried later if offline). `removeProfile(username)` deletes a later profile's data with it. |
+| `services/passwordPolicy.ts`, `components/PasswordChecklist.tsx` | Password rules and the live checklist under new-password fields. |
+| `pages/PasswordReset.tsx` | `/forgot-password` (send link, remove profiles from this device) and `/reset-password` (reads the link's tokens, then removes them from the URL). |
 | `services/cloudSync.ts` | Pull `GET /api/account/data`, merge, push `PUT /api/account/data`. Runs on start, on reconnect, ~4 s after answers / schedule / setting changes, and when backgrounded. Only when the server session's user matches this profile. |
 | `services/reportService.ts` | Queued reports go to `POST /api/reports` (attached to the user when signed in online). |
-| `pages/Auth.tsx`, `components/OnlineAccountCard.tsx` | Email field, "Username or email" and the Online backup card appear when the server reports accounts are enabled. |
+| `pages/Auth.tsx`, `components/OnlineAccountCard.tsx` | Email field and the Online backup card appear when the server reports accounts are enabled. Sign-in lists the profiles on this device and links to *Forgot password?*. |
 | Removed | `@supabase/supabase-js`, `services/supabaseClient.ts`, `VITE_SUPABASE_*`. |
 
 Verified with uvicorn + `bun run preview` against a local mock of the Supabase endpoints (Chrome, phone viewport): sign-up with email, `user_data` push, fresh-device sign-in pulls attempts, wrong password, taken username, existing email, offline username sign-in, device-only profile linked online, bug report stored with the user id, session cookies httpOnly and invisible to `document.cookie`, expired access token refreshed from the refresh cookie, cross-site `Origin` refused (403), unauthenticated data read refused (401). `backend/tests/test_backend.py` still passes. Not yet verified against a real Supabase project.
 
-Known limits: settings use last-pull-wins (a setting changed offline can be overwritten by the server copy on the next sync); password reset by email isn't in the app yet (use Supabase → Authentication → Users → *Send password recovery*); one profile per device.
+Known limits: settings use last-pull-wins (a setting changed offline can be overwritten by the server copy on the next sync); the device password locks the UI but doesn't encrypt study data on the device; Supabase's built-in mailer limits reset emails until custom SMTP is set up.
 
 ---
 
@@ -189,6 +210,7 @@ Known limits: settings use last-pull-wins (a setting changed offline can be over
 | --- | --- | --- | --- |
 | `SUPABASE_URL` | Vercel + `backend/.env` | No | Supabase project URL (backend only) |
 | `SUPABASE_ANON_KEY` | Vercel + `backend/.env` | No | Publishable / anon key (backend only; RLS still applies) |
+| `SUPABASE_LOGIN_LOOKUP_KEY` | Vercel + `backend/.env` | No | Optional. Secret from migration 0003 that enables sign-in with a username on new devices |
 | `VITE_API_BASE_URL` | optional | Yes | FastAPI origin; keep it empty (same origin) so the session cookies work |
 | `API_PROXY_TARGET` | local dev only | No | Where Vite proxies `/api` (default `http://127.0.0.1:8000`) |
 | `SLACKR_ADMIN_TOKEN` | Vercel backend | No | Required to edit learning resources / breakdowns in hosted mode |

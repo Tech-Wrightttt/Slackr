@@ -26,6 +26,8 @@ const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.P
 const News = lazy(() => import('./pages/News').then((m) => ({ default: m.News })));
 const SignIn = lazy(() => import('./pages/Auth').then((m) => ({ default: m.SignIn })));
 const SignUp = lazy(() => import('./pages/Auth').then((m) => ({ default: m.SignUp })));
+const ForgotPassword = lazy(() => import('./pages/PasswordReset').then((m) => ({ default: m.ForgotPassword })));
+const ResetPassword = lazy(() => import('./pages/PasswordReset').then((m) => ({ default: m.ResetPassword })));
 
 const LoadingFallback: React.FC = () => (
   <div className="flex min-h-[60vh] items-center justify-center text-on-surface-variant">
@@ -138,6 +140,8 @@ export const App: React.FC = () => {
         <Routes>
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route element={<AppShell />}>
             <Route path="/" element={<Home />} />
             <Route path="/quiz/year" element={<QuizByYear />} />

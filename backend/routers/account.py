@@ -7,8 +7,10 @@ The Supabase session lives in httpOnly cookies scoped to /api, so page scripts n
   GET  /api/account/status                 is online sign-up available on this server?
   GET  /api/account/username-available     ?name=  (live check on the sign-up form)
   POST /api/account/signup                 {username, email, password}
-  POST /api/account/signin                 {email, password}
+  POST /api/account/signin                 {login, password}   login = email or username
   POST /api/account/signout
+  POST /api/account/password/forgot        {email}: emails a reset link (same reply either way)
+  POST /api/account/password/reset         {access_token, refresh_token, password} from that link
   GET  /api/account/me                     signed-in online user, or 401
   GET  /api/account/data                   this user's backup JSON (or null)
   PUT  /api/account/data                   {data}: replace this user's backup JSON
@@ -37,6 +39,38 @@ USERNAME_RE = r"^[A-Za-z0-9_.-]{3,24}$"
 EMAIL_RE = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
 MAX_BACKUP_BYTES = 5 * 1024 * 1024  # matches the user_data size check in 0002
 
+# New-password rules, mirrored by frontend/src/services/passwordPolicy.ts (this is the check that counts)
+PASSWORD_MIN, PASSWORD_MAX = 8, 128
+PASSWORD_RULES = [
+    (lambda pw: len(pw) >= PASSWORD_MIN, f"{PASSWORD_MIN}+ characters"),
+    (lambda pw: re.search(r"[a-z]", pw), "lowercase letter"),
+    (lambda pw: re.search(r"[A-Z]", pw), "uppercase letter"),
+    (lambda pw: re.search(r"[0-9]", pw), "number"),
+    (lambda pw: re.search(r"[^A-Za-z0-9\s]", pw), "symbol (! ? # @ ...)"),
+]
+COMMON_PARTS = ("password", "passw0rd", "qwerty", "123456", "letmein", "iloveyou", "welcome", "admin", "slackr", "philnits")
+
+
+def password_problem(password: str, username: str = "") -> Optional[str]:
+    """First problem with a new password, or None when it meets every rule."""
+    if len(password) > PASSWORD_MAX:
+        return f"Use at most {PASSWORD_MAX} characters."
+    missing = [label for test, label in PASSWORD_RULES if not test(password)]
+    if missing:
+        return f"Password needs: {', '.join(missing)}."
+    lower, name = password.lower(), username.strip().lower()
+    if len(name) >= 3 and name in lower:
+        return "Don't use your username in the password."
+    if any(word in lower for word in COMMON_PARTS):
+        return 'That password is too easy to guess. Avoid common words like "password".'
+    return None
+
+
+def _require_strong(password: str, username: str = "") -> None:
+    problem = password_problem(password, username)
+    if problem:
+        raise HTTPException(status_code=422, detail=problem)
+
 
 # ── Request bodies ───────────────────────────────────────────────────────────
 
@@ -44,12 +78,22 @@ MAX_BACKUP_BYTES = 5 * 1024 * 1024  # matches the user_data size check in 0002
 class SignUpBody(BaseModel):
     username: str = Field(pattern=USERNAME_RE)
     email: str = Field(max_length=254, pattern=EMAIL_RE)
-    password: str = Field(min_length=6, max_length=128)
+    password: str = Field(min_length=1, max_length=PASSWORD_MAX)
 
 
 class SignInBody(BaseModel):
+    login: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=PASSWORD_MAX)
+
+
+class ForgotBody(BaseModel):
     email: str = Field(max_length=254, pattern=EMAIL_RE)
-    password: str = Field(min_length=1, max_length=128)
+
+
+class ResetBody(BaseModel):
+    access_token: str = Field(min_length=20, max_length=4096)
+    refresh_token: str = Field(default="", max_length=512)
+    password: str = Field(min_length=1, max_length=PASSWORD_MAX)
 
 
 class UserDataBody(BaseModel):
@@ -158,9 +202,31 @@ def _public_user(user: Dict[str, Any], username: Optional[str] = None) -> Dict[s
     return {"id": user.get("id"), "email": user.get("email"), "username": username or meta.get("username")}
 
 
-def _redirect_url(request: Request) -> str:
+def _redirect_url(request: Request, path: str = "/signin") -> str:
+    # Supabase only follows redirect URLs on its allow list (Authentication -> URL Configuration)
     origin = request.headers.get("origin") or str(request.base_url).rstrip("/")
-    return f"{origin}/signin"
+    return f"{origin}{path}"
+
+
+def _login_email(login: str) -> str:
+    """The email to sign in with: the login itself, or the email of that username's account."""
+    login = login.strip()
+    if "@" in login:
+        if not re.match(EMAIL_RE, login):
+            raise HTTPException(status_code=422, detail="Enter a valid email address.")
+        return login.lower()
+    if not re.match(USERNAME_RE, login):
+        raise HTTPException(status_code=401, detail="Incorrect username/email or password.")
+    if not gateway.login_lookup_configured:
+        raise HTTPException(status_code=400, detail="Sign in with your email address.")
+    try:
+        email = gateway.email_for_username(login)
+    except SupabaseError as err:
+        _fail(err)
+    if not email:
+        # Same reply as a wrong password, so the form doesn't reveal which usernames exist
+        raise HTTPException(status_code=401, detail="Incorrect username/email or password.")
+    return email
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -181,6 +247,7 @@ def username_available(name: str = Query(pattern=USERNAME_RE)):
 
 @router.post("/api/account/signup", dependencies=[Depends(same_origin_only)])
 def sign_up(body: SignUpBody, request: Request, response: Response):
+    _require_strong(body.password, body.username)
     try:
         if not gateway.username_available(body.username):
             raise HTTPException(status_code=409, detail="That username is taken. Pick another one.")
@@ -199,8 +266,9 @@ def sign_up(body: SignUpBody, request: Request, response: Response):
 
 @router.post("/api/account/signin", dependencies=[Depends(same_origin_only)])
 def sign_in(body: SignInBody, request: Request, response: Response):
+    email = _login_email(body.login)
     try:
-        session = gateway.sign_in(body.email.lower(), body.password)
+        session = gateway.sign_in(email, body.password)
         user = session.get("user") or {}
         username = (user.get("user_metadata") or {}).get("username") or gateway.profile_username(
             session["access_token"], user.get("id", "")
@@ -208,6 +276,45 @@ def sign_in(body: SignInBody, request: Request, response: Response):
     except SupabaseError as err:
         _fail(err)
     _set_session(request, response, session)
+    return {"user": _public_user(user, username)}
+
+
+@router.post("/api/account/password/forgot", dependencies=[Depends(same_origin_only)])
+def forgot_password(body: ForgotBody, request: Request):
+    try:
+        gateway.recover(body.email.lower(), _redirect_url(request, "/reset-password"))
+    except SupabaseError as err:
+        # Only say what the user can act on; never whether the email has an account
+        if err.status in (429, 502, 503):
+            _fail(err)
+    return {"ok": True}
+
+
+@router.post("/api/account/password/reset", dependencies=[Depends(same_origin_only)])
+def reset_password(body: ResetBody, request: Request, response: Response):
+    claims = _claims(body.access_token)
+    try:
+        # The link's token proves control of the email; Supabase verifies it here
+        current = gateway.get_user(body.access_token)
+    except SupabaseError as err:
+        if err.status == 401:
+            raise HTTPException(status_code=401, detail="This reset link expired. Request a new one.")
+        _fail(err)
+    _require_strong(body.password, (current.get("user_metadata") or {}).get("username") or "")
+    try:
+        user = gateway.update_password(body.access_token, body.password)
+        username = gateway.profile_username(body.access_token, user.get("id", ""))
+    except SupabaseError as err:
+        _fail(err)
+    _set_session(
+        request,
+        response,
+        {
+            "access_token": body.access_token,
+            "refresh_token": body.refresh_token,
+            "expires_in": max(60, int(claims.get("exp", 0) - time.time())),
+        },
+    )
     return {"user": _public_user(user, username)}
 
 
