@@ -169,9 +169,9 @@ export const Settings: React.FC = () => {
       )}
 
       {/* 1. Theme Configuration Mode */}
-      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col gap-4">
+      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 sm:p-6 shadow-md flex flex-col gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-primary">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-badge-indigo/12 text-badge-indigo">
             <span className="material-symbols-outlined text-[20px]">palette</span>
           </div>
           <div>
@@ -232,10 +232,10 @@ export const Settings: React.FC = () => {
       </div>
 
       {/* 2. Progressive Web App (PWA) & Offline Shell Manager */}
-      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col gap-4">
+      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 sm:p-6 shadow-md flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-primary">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-primary/12 text-primary">
               <span className="material-symbols-outlined text-[20px]">install_mobile</span>
             </div>
             <div>
@@ -310,7 +310,7 @@ export const Settings: React.FC = () => {
       <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-4 sm:p-6 shadow-md flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-interactive-sky shrink-0">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-interactive-sky/12 text-interactive-sky shrink-0">
               <span className="material-symbols-outlined text-[20px]">download_for_offline</span>
             </div>
             <div>
@@ -390,9 +390,9 @@ export const Settings: React.FC = () => {
       </div>
 
       {/* 3. Spaced Repetition Scheduling Protocol */}
-      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col gap-4">
+      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 sm:p-6 shadow-md flex flex-col gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-confidence-amber">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-confidence-amber/12 text-confidence-amber">
             <span className="material-symbols-outlined text-[20px]">repeat</span>
           </div>
           <div>
@@ -440,9 +440,9 @@ export const Settings: React.FC = () => {
       </div>
 
       {/* 4. Session Preferences */}
-      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col gap-4">
+      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 sm:p-6 shadow-md flex flex-col gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-tertiary">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-tertiary/12 text-tertiary">
             <span className="material-symbols-outlined text-[20px]">tune</span>
           </div>
           <div>
@@ -454,7 +454,7 @@ export const Settings: React.FC = () => {
         </div>
 
         <div className="space-y-3 divide-y divide-outline-variant/10 text-xs font-mono-code text-on-surface">
-          <div className="flex items-center justify-between pt-2">
+          <label className="flex items-center justify-between gap-4 cursor-pointer pt-2">
             <div>
               <div className="font-bold">Confidence Calibration (1-5 Rating)</div>
               <div className="text-on-surface-variant text-[11px]">
@@ -467,9 +467,9 @@ export const Settings: React.FC = () => {
               onChange={(e) => setConfidenceTracking(e.target.checked)}
               className="h-4 w-4 rounded accent-primary cursor-pointer"
             />
-          </div>
+          </label>
 
-          <div className="flex items-center justify-between pt-3">
+          <label className="flex items-center justify-between gap-4 cursor-pointer pt-3">
             <div>
               <div className="font-bold">Elapsed Stopwatch Timer</div>
               <div className="text-on-surface-variant text-[11px]">
@@ -482,9 +482,9 @@ export const Settings: React.FC = () => {
               onChange={(e) => setShowTimer(e.target.checked)}
               className="h-4 w-4 rounded accent-primary cursor-pointer"
             />
-          </div>
+          </label>
 
-          <div className="flex items-center justify-between pt-3">
+          <label className="flex items-center justify-between gap-4 cursor-pointer pt-3">
             <div>
               <div className="font-bold">Auto-Advance on Correct Answer</div>
               <div className="text-on-surface-variant text-[11px]">
@@ -497,19 +497,20 @@ export const Settings: React.FC = () => {
               onChange={(e) => setAutoAdvance(e.target.checked)}
               className="h-4 w-4 rounded accent-primary cursor-pointer"
             />
-          </div>
+          </label>
 
-          <div className="flex items-center justify-between pt-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 pt-3">
             <div>
-              <div className="font-bold">Default Rapid Quiz Length</div>
+              <label htmlFor="session-length" className="font-bold">Default Rapid Quiz Length</label>
               <div className="text-on-surface-variant text-[11px]">
                 Number of questions staged for rapid custom sprint sets
               </div>
             </div>
             <select
+              id="session-length"
               value={sessionLength}
               onChange={(e) => setSessionLength(Number(e.target.value))}
-              className="rounded-lg border border-outline-variant/30 bg-surface-container px-3 py-1.5 text-xs font-mono-code text-on-surface focus:outline-none"
+              className="self-start sm:self-auto min-h-[36px] rounded-lg border border-outline-variant/30 bg-surface-container px-3 py-1.5 text-xs font-mono-code text-on-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
             >
               <option value={10}>10 Questions</option>
               <option value={20}>20 Questions</option>
@@ -521,9 +522,9 @@ export const Settings: React.FC = () => {
       </div>
 
       {/* 5. Backup & Restore Data */}
-      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col gap-4">
+      <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 sm:p-6 shadow-md flex flex-col gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-surface-container-high flex items-center justify-center text-primary">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-mastery-emerald/12 text-mastery-emerald">
             <span className="material-symbols-outlined text-[20px]">database</span>
           </div>
           <div>

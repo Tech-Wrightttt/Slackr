@@ -11,6 +11,8 @@ import { ActivityCalendar } from '../components/ActivityCalendar';
 import { DailySetModal } from '../components/DailySetModal';
 import { CountUp } from '../components/reactbits';
 import { BrandLogo } from '../components/BrandLogo';
+import { Mascot } from '../components/Mascot';
+import { StreakMark, streakLabel } from '../components/StreakMark';
 
 export const Home: React.FC = () => {
   const [meta, setMeta] = useState<any>(null);
@@ -185,10 +187,10 @@ export const Home: React.FC = () => {
         </div>
 
         {/* Action Controls */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+        <div className="grid grid-cols-[1fr_1fr_auto] sm:flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
           <Link
             to="/quiz/year"
-            className="flex-1 sm:flex-initial min-h-[40px] px-4 py-2 rounded-xl bg-primary-container hover:bg-primary text-on-primary font-semibold text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-sm"
+            className="min-w-0 whitespace-nowrap min-h-[40px] px-3 sm:px-4 py-2 rounded-xl bg-primary-container hover:bg-primary text-on-primary font-semibold text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 shadow-sm"
           >
             <span className="material-symbols-outlined text-[16px]">play_arrow</span>
             <span>Start Year Paper</span>
@@ -196,7 +198,7 @@ export const Home: React.FC = () => {
 
           <Link
             to="/quiz/srs"
-            className="flex-1 sm:flex-initial min-h-[40px] px-3.5 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 border border-outline-variant/30"
+            className="min-w-0 whitespace-nowrap min-h-[40px] px-3 sm:px-3.5 py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-xs transition-all active:scale-[0.98] flex items-center justify-center gap-1.5 border border-outline-variant/30"
           >
             <span className="material-symbols-outlined text-confidence-amber text-[16px]">schedule</span>
             <span>Review Due</span>
@@ -216,13 +218,13 @@ export const Home: React.FC = () => {
       </section>
 
       {/* Streamlined Daily Cadence Strip */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-xs">
-        <div className="flex items-center gap-2.5">
-          <span className="flex items-center gap-1 font-mono-timer text-confidence-amber font-bold">
-            <span className="material-symbols-outlined text-[15px]">local_fire_department</span>
-            {activity?.currentStreak ?? 0}D Streak
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 rounded-xl bg-surface-container-low border border-outline-variant/20 text-xs">
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 min-w-0">
+          <span className="flex items-center gap-1.5 font-mono-timer text-primary font-bold whitespace-nowrap">
+            <StreakMark active={(activity?.currentStreak ?? 0) > 0} className="w-4 h-4" />
+            {activity?.currentStreak ?? 0}-day streak
           </span>
-          <span className="text-outline-variant">•</span>
+          <span className="hidden sm:inline text-outline-variant" aria-hidden="true">•</span>
           <span className="text-on-surface-variant font-mono-code">
             {dueReviews.length > 0
               ? `${dueReviews.length} spaced repetition cards queued for review`
@@ -231,7 +233,7 @@ export const Home: React.FC = () => {
         </div>
         <Link
           to="/quiz/srs"
-          className="font-mono-code text-primary hover:underline flex items-center gap-1 font-semibold self-start sm:self-auto"
+          className="font-mono-code text-primary hover:underline underline-offset-2 flex items-center gap-1 font-semibold whitespace-nowrap"
         >
           <span>Open SRS Queue</span>
           <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
@@ -241,26 +243,35 @@ export const Home: React.FC = () => {
       {/* Minimalist Metric Cards */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Metric 1: Item Bank */}
-        <div className="rounded-xl bg-surface-container-low p-4 sm:p-5 border border-outline-variant/20 flex flex-col justify-between">
+        <div
+          style={{ '--tile': 'var(--color-primary)' } as React.CSSProperties}
+          className="metric-tile rounded-xl p-4 sm:p-5 border border-outline-variant/20 flex flex-col justify-between">
           <div className="flex items-center justify-between text-on-surface-variant">
             <span className="text-xs font-mono uppercase tracking-wider">Item Bank</span>
-            <span className="material-symbols-outlined text-primary text-[18px]">library_books</span>
+            <span className="w-8 h-8 rounded-lg bg-primary/12 text-primary flex items-center justify-center" aria-hidden="true">
+              <span className="material-symbols-outlined text-[18px]">library_books</span>
+            </span>
           </div>
           <div className="mt-3">
             <div className="text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight font-mono">
               <CountUp to={meta?.total_questions || 3609} duration={1.2} separator="," />
             </div>
             <div className="text-xs text-on-surface-variant font-mono-code mt-1">
-              FE: 2,189 • AP: 1,420
+              <span className="whitespace-nowrap">FE: 2,189</span> <span aria-hidden="true">•</span>{' '}
+              <span className="whitespace-nowrap">AP: 1,420</span>
             </div>
           </div>
         </div>
 
         {/* Metric 2: Attempts Logged */}
-        <div className="rounded-xl bg-surface-container-low p-4 sm:p-5 border border-outline-variant/20 flex flex-col justify-between">
+        <div
+          style={{ '--tile': 'var(--color-interactive-sky)' } as React.CSSProperties}
+          className="metric-tile rounded-xl p-4 sm:p-5 border border-outline-variant/20 flex flex-col justify-between">
           <div className="flex items-center justify-between text-on-surface-variant">
             <span className="text-xs font-mono uppercase tracking-wider">Attempts</span>
-            <span className="material-symbols-outlined text-interactive-sky text-[18px]">history_edu</span>
+            <span className="w-8 h-8 rounded-lg bg-interactive-sky/12 text-interactive-sky flex items-center justify-center" aria-hidden="true">
+              <span className="material-symbols-outlined text-[18px]">history_edu</span>
+            </span>
           </div>
           <div className="mt-3">
             <div className="text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight font-mono">
@@ -273,10 +284,14 @@ export const Home: React.FC = () => {
         </div>
 
         {/* Metric 3: Overall Accuracy */}
-        <div className="rounded-xl bg-surface-container-low p-4 sm:p-5 border border-outline-variant/20 flex flex-col justify-between">
+        <div
+          style={{ '--tile': 'var(--color-mastery-emerald)' } as React.CSSProperties}
+          className="metric-tile rounded-xl p-4 sm:p-5 border border-outline-variant/20 flex flex-col justify-between">
           <div className="flex items-center justify-between text-on-surface-variant">
             <span className="text-xs font-mono uppercase tracking-wider">Accuracy</span>
-            <span className="material-symbols-outlined text-mastery-emerald text-[18px]">verified</span>
+            <span className="w-8 h-8 rounded-lg bg-mastery-emerald/12 text-mastery-emerald flex items-center justify-center" aria-hidden="true">
+              <span className="material-symbols-outlined text-[18px]">verified</span>
+            </span>
           </div>
           <div className="mt-3">
             <div className="text-2xl sm:text-3xl font-extrabold text-on-surface tracking-tight font-mono">
@@ -289,10 +304,14 @@ export const Home: React.FC = () => {
         </div>
 
         {/* Metric 4: SRS Due Deck */}
-        <div className="rounded-xl bg-surface-container-low p-4 sm:p-5 border border-outline-variant/20 flex flex-col justify-between">
+        <div
+          style={{ '--tile': 'var(--color-confidence-amber)' } as React.CSSProperties}
+          className="metric-tile rounded-xl p-4 sm:p-5 border border-outline-variant/20 flex flex-col justify-between">
           <div className="flex items-center justify-between text-on-surface-variant">
             <span className="text-xs font-mono uppercase tracking-wider">SRS Deck</span>
-            <span className="material-symbols-outlined text-confidence-amber text-[18px]">bolt</span>
+            <span className="w-8 h-8 rounded-lg bg-confidence-amber/12 text-confidence-amber flex items-center justify-center" aria-hidden="true">
+              <span className="material-symbols-outlined text-[18px]">bolt</span>
+            </span>
           </div>
           <div className="mt-3">
             <div className="text-2xl sm:text-3xl font-extrabold text-confidence-amber tracking-tight font-mono">
@@ -318,7 +337,7 @@ export const Home: React.FC = () => {
               </span>
               <span className="text-outline-variant">&bull;</span>
               <span>
-                Longest streak <strong className="text-on-surface">{activity?.longestStreak ?? 0}D</strong>
+                Longest streak <strong className="text-on-surface">{streakLabel(activity?.longestStreak ?? 0)}</strong>
               </span>
             </div>
           </div>
@@ -347,6 +366,9 @@ export const Home: React.FC = () => {
                 {dailyAnswered}/{daily.questions.length}
               </span>
             )}
+          </div>
+          <div className="hidden lg:flex flex-1 items-center justify-center min-h-0" aria-hidden="true">
+            <Mascot pose={dailyDone ? 'success' : 'studying'} className="h-20 w-20" />
           </div>
           <button
             type="button"

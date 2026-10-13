@@ -31,7 +31,38 @@
     <title>SLACKR - PHILNITS FE / AP Academic Telemetry Engine</title>
   </head>
   <body class="bg-surface-container-lowest font-body-base text-body-base text-on-surface min-h-screen selection:bg-primary-container selection:text-on-primary">
-    <div id="root"></div>
+    <div id="root">
+      <!-- Shown only if the app never starts (scripts blocked or failed to load). React replaces it on a normal launch. -->
+      <style>
+        .boot-fail { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px;
+          font-family: Inter, system-ui, sans-serif; background: #f8faf4; color: #191c19; text-align: center;
+          opacity: 0; animation: boot-fail-in 300ms ease 8s forwards; }
+        .boot-fail div { max-width: 26rem; }
+        .boot-fail img { width: 128px; height: 128px; }
+        .boot-fail h1 { font-size: 1.5rem; margin: 12px 0 8px; }
+        .boot-fail p { font-size: 0.875rem; line-height: 1.6; color: #42493c; margin: 0 0 20px; }
+        .boot-fail a { display: inline-block; padding: 12px 18px; border-radius: 12px; background: #215105; color: #fff;
+          font-weight: 600; font-size: 0.875rem; text-decoration: none; }
+        @media (prefers-color-scheme: dark) {
+          .boot-fail { background: #0a0e17; color: #dfe2ef; }
+          .boot-fail p { color: #c2c9b8; }
+          .boot-fail a { background: #84d656; color: #0b2600; }
+        }
+        @keyframes boot-fail-in { to { opacity: 1; } }
+      </style>
+      <noscript><style>.boot-fail { animation: none; opacity: 1; }</style></noscript>
+      <div class="boot-fail" role="alert">
+        <div>
+          <picture>
+            <source srcset="/mascot/koala-error-dark.svg" media="(prefers-color-scheme: dark)" />
+            <img src="/mascot/koala-error-light.svg" alt="" />
+          </picture>
+          <h1>SLACKR couldn&rsquo;t start</h1>
+          <p>The app files didn&rsquo;t load. Check your connection, make sure JavaScript is on, then reload. Your progress is stored on this device and is not lost.</p>
+          <a href="/">Reload SLACKR</a>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -5,6 +5,7 @@ import { useStore } from '../store/useStore';
 import { StatsDbService } from '../services/statsDb';
 import { AnalyticsEngine } from '../services/analyticsEngine';
 import { InstallOfflineButton } from './InstallOfflineButton';
+import { StreakMark, streakLabel } from './StreakMark';
 import { BrandLogo } from './BrandLogo';
 
 // Counters never grow past three characters, so a big review queue can't push the bar around
@@ -190,13 +191,17 @@ export const Navbar: React.FC = () => {
           {/* Retention / Streak Pill */}
           <Link
             to="/quiz/srs"
-            className="hidden min-[400px]:flex h-10 items-center gap-1 px-2.5 rounded-lg bg-surface-container-low border border-outline-variant/30 font-mono-timer text-xs text-confidence-amber hover:bg-surface-container transition-colors whitespace-nowrap"
-            title="Spaced Repetition Review Queue"
+            className={`hidden min-[400px]:flex h-10 items-center gap-1.5 px-2.5 rounded-lg bg-surface-container-low border border-outline-variant/30 font-mono-timer text-xs font-semibold hover:bg-surface-container transition-colors whitespace-nowrap ${
+              dueCount > 0 ? 'text-confidence-amber' : 'text-primary'
+            }`}
+            title={dueCount > 0 ? 'Spaced Repetition Review Queue' : `Study streak: ${streakLabel(streak)}`}
           >
-            <span className="material-symbols-outlined text-[16px] text-confidence-amber">
-              local_fire_department
-            </span>
-            <span className="tabular-nums">{dueCount > 0 ? `${compactCount(dueCount)} DUE` : `${streak}D`}</span>
+            {dueCount > 0 ? (
+              <span className="material-symbols-outlined text-[16px]" aria-hidden="true">schedule</span>
+            ) : (
+              <StreakMark active={streak > 0} className="w-4 h-4" />
+            )}
+            <span className="tabular-nums">{dueCount > 0 ? `${compactCount(dueCount)} due` : streakLabel(streak)}</span>
           </Link>
 
           {/* Theme Toggle Button */}

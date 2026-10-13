@@ -10,6 +10,11 @@ import { REPORT_CATEGORIES } from '../services/reportService';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db';
 
+const LEGAL_LINKS = [
+  { to: '/legal/terms', icon: 'description', title: 'Terms of Service', hint: 'Using SLACKR, accounts and exam content' },
+  { to: '/legal/privacy', icon: 'shield_person', title: 'Privacy Policy', hint: 'What is stored, where, and your choices' },
+];
+
 export const Profile: React.FC = () => {
   const { currentUser, hasAccount, setAuth } = useStore();
   const navigate = useNavigate();
@@ -193,6 +198,46 @@ export const Profile: React.FC = () => {
       {reporting && <ReportDialog kind="general" onClose={() => setReporting(false)} />}
 
       <Settings />
+
+      {/* Legal: Terms of Service and Privacy Policy */}
+      <section
+        aria-labelledby="legal-title"
+        className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-5 sm:p-6 shadow-md flex flex-col gap-4"
+      >
+        <div className="flex items-start gap-3">
+          <span className="w-9 h-9 shrink-0 rounded-xl bg-tertiary/12 text-tertiary flex items-center justify-center" aria-hidden="true">
+            <span className="material-symbols-outlined text-[20px]">gavel</span>
+          </span>
+          <div className="min-w-0">
+            <h2 id="legal-title" className="font-title-sm text-base font-bold text-on-surface">
+              Legal
+            </h2>
+            <p className="text-xs text-on-surface-variant mt-0.5">
+              How SLACKR handles your data and the rules for using it.
+            </p>
+          </div>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {LEGAL_LINKS.map((l) => (
+            <Link
+              key={l.to}
+              to={l.to}
+              className="press-scale group flex items-center gap-3 rounded-xl bg-surface-container px-4 py-3 min-h-[56px] hover:bg-surface-container-high"
+            >
+              <span className="material-symbols-outlined text-[20px] text-on-surface-variant group-hover:text-primary" aria-hidden="true">
+                {l.icon}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-on-surface">{l.title}</span>
+                <span className="block text-xs text-on-surface-variant truncate">{l.hint}</span>
+              </span>
+              <span className="material-symbols-outlined text-[18px] text-on-surface-variant group-hover:text-primary" aria-hidden="true">
+                chevron_right
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
     </div>
   );
 };

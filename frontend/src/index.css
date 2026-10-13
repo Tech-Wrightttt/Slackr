@@ -46,16 +46,16 @@
   --color-obsidian-surface-elevated: #1E293B;
   --color-obsidian-outline: #334155;
   
-  --color-mastery-emerald: #10B981;
+  --color-mastery-emerald: var(--color-mastery-emerald);
   --color-mastery-emerald-glow: rgba(16, 185, 129, 0.20);
   
-  --color-confidence-amber: #F59E0B;
+  --color-confidence-amber: var(--color-confidence-amber);
   --color-confidence-amber-glow: rgba(245, 158, 11, 0.20);
   
-  --color-interactive-sky: #38BDF8;
+  --color-interactive-sky: var(--color-interactive-sky);
   --color-interactive-sky-glow: rgba(56, 189, 248, 0.25);
   
-  --color-badge-indigo: #6366F1;
+  --color-badge-indigo: var(--color-badge-indigo);
   
   --color-error: var(--color-error);
   --color-error-container: var(--color-error-container);
@@ -116,6 +116,12 @@
   --color-error-container: #ffdad6;
   --color-on-error: #ffffff;
   --color-on-error-container: #93000a;
+
+  /* Status accents: deeper shades on paper so text and icons clear 4.5:1 on light surfaces */
+  --color-mastery-emerald: #047857;
+  --color-confidence-amber: #b45309;
+  --color-interactive-sky: #0369a1;
+  --color-badge-indigo: #4f46e5;
 }
 
 .dark {
@@ -162,6 +168,11 @@
   --color-error-container: #FEDAD6;
   --color-on-error: #690005;
   --color-on-error-container: #ffdad6;
+
+  --color-mastery-emerald: #10B981;
+  --color-confidence-amber: #F59E0B;
+  --color-interactive-sky: #38BDF8;
+  --color-badge-indigo: #818cf8;
 }
 
 :root {
@@ -761,4 +772,32 @@ body:has([role='dialog'][aria-modal='true']) .draw-fab {
   clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
   filter: drop-shadow(0 0 0.5px rgb(0 0 0 / 0.6));
   pointer-events: none;
+}
+
+/* Home metric tiles: a faint wash of the tile's own hue (set inline as --tile) over the card surface */
+.metric-tile {
+  background-color: color-mix(in oklab, var(--tile) 5%, var(--color-surface-container-low));
+}
+.dark .metric-tile {
+  background-color: color-mix(in oklab, var(--tile) 7%, var(--color-surface-container-low));
+}
+
+/* Text selection and focus carry the brand instead of browser blue.
+   Base layer, so components that style their own focus (rings, outline-none) still win. */
+@layer base {
+::selection {
+  background-color: color-mix(in oklab, var(--color-primary) 28%, transparent);
+  color: var(--color-on-surface);
+}
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+}
+
+/* News: the newest release sits on a soft wash of the brand green */
+.news-latest {
+  background:
+    radial-gradient(120% 60% at 0% 0%, color-mix(in oklab, var(--color-primary) 9%, transparent), transparent 70%),
+    var(--color-surface-container-low);
 }
