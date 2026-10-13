@@ -3,12 +3,30 @@ import { QuestionsService, type ExamSession } from '../services/questionsService
 import { StatsDbService } from '../services/statsDb';
 import { db } from '../db';
 import { QuestionCard } from '../components/QuestionCard';
+import { AnalyticsEngine } from '../services/analyticsEngine';
+
+// Sitting length per paper: Subject A (FE-A) 90 min, Subject B (FE-B) 100 min; legacy AM/PM papers ran 150 min.
+const paperMinutes = (sess: ExamSession) => {
+  if (sess.paper === 'FE-A') return 90;
+  if (sess.paper === 'FE-B') return 100;
+  return 150;
+};
 import type { QuestionData, SRScheduleRecord } from '../db/schema';
 
 export const QuizByYear: React.FC = () => {
   const [years, setYears] = useState<string[]>([]);
   const [yearCounts, setYearCounts] = useState<Record<string, number>>({});
   const [selectedYear, setSelectedYear] = useState<string | null>('2024');
+  // Real accuracy per year from this device's attempts (null = nothing answered in that year yet)
+  const [yearAccuracy, setYearAccuracy] = useState<Record<string, number | null>>({});
+
+  useEffect(() => {
+    AnalyticsEngine.getCompletionRates()
+      .then(({ byYear }) =>
+        setYearAccuracy(Object.fromEntries(byYear.map((y) => [y.year, y.attempted > 0 ? y.accuracyPercent : null])))
+      )
+      .catch(() => {});
+  }, []);
 
   // Strip scrolling, dragging, and view mode state
   const stripRef = useRef<HTMLDivElement>(null);
@@ -436,13 +454,9 @@ export const QuizByYear: React.FC = () => {
             <h1 className="font-display-lg text-4xl sm:text-5xl font-bold text-on-surface tracking-tight">
               Year Papers
             </h1>
-            <span className="font-mono-timer text-xs px-2.5 py-0.5 rounded-full bg-surface-container-high text-primary font-bold border border-outline-variant/30">
-              {years.length} YEARS ACTIVE
-            </span>
           </div>
           <p className="font-body-base text-sm text-on-surface-variant leading-relaxed">
-            Complete, verified question papers for Fundamental Engineer (FE) and Applied Information Technology
-            Engineer (AP) exams. Select an archival cycle to trigger full-sequence simulations.
+            Every PhilNITS FE past paper from 2007 to 2026. Pick a year, then practice one paper or the whole year.
           </p>
         </div>
 
@@ -462,8 +476,15 @@ export const QuizByYear: React.FC = () => {
         {/* Quick Metrics Ribbon */}
         <div className="flex items-center gap-4 bg-surface-container-low p-3 rounded-xl border border-outline-variant/30 shadow-sm shrink-0">
           <div className="flex flex-col px-2">
-            <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">Archive Mastery</span>
-            <span className="font-mono-timer text-sm text-mastery-emerald font-bold">78.4% AVG</span>
+            <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">Year Accuracy</span>
+            <span
+              className={`font-mono-timer text-sm font-bold ${
+                yearAccuracy[selectedYear ?? ''] == null ? 'text-on-surface-variant' : 'text-mastery-emerald'
+              }`}
+              title={yearAccuracy[selectedYear ?? ''] == null ? 'No answers in this year yet' : undefined}
+            >
+              {yearAccuracy[selectedYear ?? ''] == null ? '—' : `${yearAccuracy[selectedYear ?? '']}%`}
+            </span>
           </div>
           <div className="w-px h-8 bg-outline-variant/30" />
           <div className="flex flex-col px-2">
@@ -625,7 +646,7 @@ export const QuizByYear: React.FC = () => {
                       <span className={`font-title-sm text-lg font-bold ${isSelected ? 'text-primary' : 'text-on-surface'}`}>
                         {year}
                       </span>
-                      <span className="font-label-caps text-[9px] px-1.5 py-0.5 rounded bg-surface-container-highest text-tertiary">
+                      <span className="font-label-caps text-[10px] px-1.5 py-0.5 rounded bg-surface-container-highest text-tertiary">
                         {isNewFormat ? 'FE-A/B' : 'AM/PM'}
                       </span>
                     </div>
@@ -684,14 +705,14 @@ export const QuizByYear: React.FC = () => {
                     <span className={`font-title-sm text-base font-bold ${isSelected ? 'text-primary' : 'text-on-surface'}`}>
                       {year}
                     </span>
-                    <span className="font-label-caps text-[8px] px-1 py-0.5 rounded bg-surface-container-highest text-tertiary">
+                    <span className="font-label-caps text-[10px] px-1 py-0.5 rounded bg-surface-container-highest text-tertiary">
                       {isNewFormat ? 'FE' : 'AP'}
                     </span>
                   </div>
                   <div className="mt-2 flex flex-col gap-0.5">
                     <span className="font-mono-timer text-[11px] text-on-surface-variant">{count} Qs</span>
                     <span
-                      className={`font-label-caps text-[9px] truncate ${
+                      className={`font-label-caps text-[10px] truncate ${
                         isSelected
                           ? 'text-primary font-bold'
                           : isNewFormat
@@ -712,6 +733,87 @@ export const QuizByYear: React.FC = () => {
       {/* 2. Active Year Details View */}
       {selectedYear && (
         <div className="flex flex-col gap-6">
+          {/* Individual Exam Session Cards (Spring vs Autumn) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {yearSessions.map((sess) => {
+              const isSpring = sess.season === 'S';
+              const isExpanded = expandedSessionIds.has(sess.session_id);
+              const sessionQuestions = allYearQuestions.filter((q) => q.session_id === sess.session_id);
+
+              return (
+                <div
+                  key={sess.session_id}
+                  className="rounded-xl bg-surface-container-low p-6 shadow-sm flex flex-col justify-between border border-outline-variant/30 hover:border-outline-variant/50 transition-all"
+                >
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`material-symbols-outlined text-[20px] ${isSpring ? 'text-pink-600 dark:text-pink-300' : 'text-confidence-amber'}`}
+                          aria-hidden="true"
+                        >
+                          {isSpring ? 'local_florist' : 'eco'}
+                        </span>
+                        <span className="font-title-sm text-base font-bold text-on-surface">
+                          {sess.session_title}
+                        </span>
+                      </div>
+                      <span className="font-label-caps text-xs px-2.5 py-0.5 rounded bg-surface-container-highest text-tertiary font-bold">
+                        {sess.question_count} Items
+                      </span>
+                    </div>
+
+                    <p className="font-body-base text-xs text-on-surface-variant leading-relaxed">
+                      Questions {sess.first_q} through {sess.last_q} in official PHILNITS exam sequence.
+                    </p>
+
+                    {/* Progress indicator */}
+                    <div className="mt-2 flex flex-col gap-1.5">
+                      <div className="flex justify-between font-mono-timer text-xs text-on-surface-variant">
+                        <span>Paper Coverage: {sessionQuestions.length} Questions</span>
+                        <span className="text-mastery-emerald font-bold">{paperMinutes(sess)} min exam</span>
+                      </div>
+                      <div className="w-full h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
+                        <div className="bg-primary h-full rounded-full" style={{ width: '100%' }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 pt-4 border-t border-outline-variant/20 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => toggleExpandedSession(sess.session_id)}
+                        className="flex items-center gap-1 text-xs font-mono-code text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[15px] text-primary">tag</span>
+                        <span>{isExpanded ? 'Hide numbers' : `See Q${sess.first_q}–Q${sess.last_q}`}</span>
+                        <span className="material-symbols-outlined text-[15px]">
+                          {isExpanded ? 'expand_less' : 'expand_more'}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleStartSession(sess.session_id, 0)}
+                        className="px-4 py-2 rounded-lg bg-surface-container-high hover:bg-primary-container text-on-surface hover:text-on-primary font-body-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                      >
+                        <span>Practice Session</span>
+                        <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+                      </button>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="pt-2 animate-in fade-in duration-150">
+                        {renderNumberGrid(sessionQuestions, sess.session_id)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           {/* Full Comprehensive Mock Exam Banner */}
           <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-surface-container to-surface-container-low p-6 shadow-md border border-outline-variant/30">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
@@ -720,14 +822,13 @@ export const QuizByYear: React.FC = () => {
                   <span className="font-label-caps text-xs px-2 py-0.5 rounded bg-primary-container text-on-primary-container uppercase font-bold">
                     Integrated Simulation Mode
                   </span>
-                  <span className="font-mono-timer text-xs text-tertiary">TOTAL TIME: 300 MINS</span>
+                  <span className="font-mono-timer text-xs text-tertiary">TOTAL TIME: {yearSessions.reduce((t, x) => t + paperMinutes(x), 0)} MINS</span>
                 </div>
-                <h2 className="font-headline-md text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
-                  {selectedYear} Comprehensive Dual-Season Examination
+                <h2 className="font-headline-md text-xl sm:text-2xl font-bold text-on-surface tracking-tight">
+                  {selectedYear} full-year mock exam
                 </h2>
                 <p className="font-body-base text-sm text-on-surface-variant leading-relaxed">
-                  Full continuous chronological mock combining both Spring and Autumn sessions under real exam pacing.
-                  Zero distractors shuffled for certified archive reproducibility.
+                  Every paper from this year back to back, in official question order. Use it as a full mock exam.
                 </p>
               </div>
 
@@ -779,82 +880,6 @@ export const QuizByYear: React.FC = () => {
 
             {/* Ambient decorative line */}
             <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-interactive-sky to-tertiary opacity-30" />
-          </div>
-
-          {/* Individual Exam Session Cards (Spring vs Autumn) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {yearSessions.map((sess) => {
-              const isSpring = sess.season === 'S';
-              const isExpanded = expandedSessionIds.has(sess.session_id);
-              const sessionQuestions = allYearQuestions.filter((q) => q.session_id === sess.session_id);
-
-              return (
-                <div
-                  key={sess.session_id}
-                  className="rounded-xl bg-surface-container-low p-6 shadow-sm flex flex-col justify-between border border-outline-variant/30 hover:border-outline-variant/50 transition-all"
-                >
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xl">{isSpring ? '🌸' : '🍂'}</span>
-                        <span className="font-title-sm text-base font-bold text-on-surface">
-                          {sess.session_title}
-                        </span>
-                      </div>
-                      <span className="font-label-caps text-xs px-2.5 py-0.5 rounded bg-surface-container-highest text-tertiary font-bold">
-                        {sess.question_count} Items
-                      </span>
-                    </div>
-
-                    <p className="font-body-base text-xs text-on-surface-variant leading-relaxed">
-                      Questions {sess.first_q} through {sess.last_q} in official PHILNITS exam sequence.
-                    </p>
-
-                    {/* Progress indicator */}
-                    <div className="mt-2 flex flex-col gap-1.5">
-                      <div className="flex justify-between font-mono-timer text-xs text-on-surface-variant">
-                        <span>Paper Coverage: {sessionQuestions.length} Questions</span>
-                        <span className="text-mastery-emerald font-bold">150 mins standard</span>
-                      </div>
-                      <div className="w-full h-1.5 rounded-full bg-surface-container-highest overflow-hidden">
-                        <div className="bg-primary h-full rounded-full" style={{ width: '100%' }} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 pt-4 border-t border-outline-variant/20 flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <button
-                        type="button"
-                        onClick={() => toggleExpandedSession(sess.session_id)}
-                        className="flex items-center gap-1 text-xs font-mono-code text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-                      >
-                        <span className="material-symbols-outlined text-[15px] text-primary">tag</span>
-                        <span>{isExpanded ? 'Hide numbers' : `See Q${sess.first_q}–Q${sess.last_q}`}</span>
-                        <span className="material-symbols-outlined text-[15px]">
-                          {isExpanded ? 'expand_less' : 'expand_more'}
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleStartSession(sess.session_id, 0)}
-                        className="px-4 py-2 rounded-lg bg-surface-container-high hover:bg-primary-container text-on-surface hover:text-on-primary font-body-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                      >
-                        <span>Practice Session</span>
-                        <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
-                      </button>
-                    </div>
-
-                    {isExpanded && (
-                      <div className="pt-2 animate-in fade-in duration-150">
-                        {renderNumberGrid(sessionQuestions, sess.session_id)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       )}

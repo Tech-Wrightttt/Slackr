@@ -28,6 +28,8 @@ interface AppState {
   isOffline: boolean;
   currentAlgo: SRAlgorithm;
   confidenceTracking: boolean;
+  // Block Submit until "How sure are you?" is answered (only while confidenceTracking is on)
+  requireConfidence: boolean;
   showTimer: boolean;
   autoAdvance: boolean;
   sessionLength: number;
@@ -55,6 +57,7 @@ interface AppState {
   setOffline: (offline: boolean) => void;
   setCurrentAlgo: (algo: SRAlgorithm) => void;
   setConfidenceTracking: (val: boolean) => void;
+  setRequireConfidence: (val: boolean) => void;
   setShowTimer: (val: boolean) => void;
   setAutoAdvance: (val: boolean) => void;
   setSessionLength: (val: number) => void;
@@ -110,6 +113,13 @@ export const useStore = create<AppState>((set, get) => ({
   isOffline: !navigator.onLine,
   currentAlgo: 'SM-2',
   confidenceTracking: true,
+  requireConfidence: (() => {
+    try {
+      return localStorage.getItem('slackr_require_confidence') !== '0';
+    } catch {
+      return true;
+    }
+  })(),
   showTimer: true,
   autoAdvance: false,
   sessionLength: 20,
@@ -150,6 +160,12 @@ export const useStore = create<AppState>((set, get) => ({
   setOffline: (offline) => set({ isOffline: offline }),
   setCurrentAlgo: (algo) => set({ currentAlgo: algo }),
   setConfidenceTracking: (val) => set({ confidenceTracking: val }),
+  setRequireConfidence: (val) => {
+    try {
+      localStorage.setItem('slackr_require_confidence', val ? '1' : '0');
+    } catch {}
+    set({ requireConfidence: val });
+  },
   setShowTimer: (val) => set({ showTimer: val }),
   setAutoAdvance: (val) => set({ autoAdvance: val }),
   setSessionLength: (val) => set({ sessionLength: val }),

@@ -268,7 +268,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
     : 'GENERAL SYLLABUS';
 
   return (
-    <div className="mt-6 sm:mt-8 rounded-2xl sm:rounded-3xl border border-outline-variant/30 bg-surface-container-low p-3.5 sm:p-6 lg:p-10 shadow-xl animate-in fade-in slide-in-from-bottom-3 duration-200 flex flex-col gap-6 sm:gap-8">
+    <div className="mt-6 sm:mt-8 rounded-2xl border border-outline-variant/30 bg-surface-container-low p-3 sm:p-5 shadow-xl animate-in fade-in slide-in-from-bottom-3 duration-200 flex flex-col gap-6 sm:gap-8">
       {/* Post-Evaluation Result Banner */}
       <div className="bg-surface-container rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-outline-variant/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 shadow-sm">
         <div className="flex items-center gap-3 sm:gap-4">
@@ -342,14 +342,14 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
       {/* ========================================================================= */}
       {/* Official Analytical Breakdown Header & Dual-View Switcher                 */}
       {/* ========================================================================= */}
-      <section className="bg-surface-container/50 rounded-2xl sm:rounded-3xl border border-outline-variant/30 p-4 sm:p-6 lg:p-10 space-y-6 sm:space-y-8 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-outline-variant/20 pb-5 sm:pb-6">
-          <div className="flex items-center gap-3 sm:gap-4">
+      <section className="bg-surface-container/50 rounded-2xl border border-outline-variant/30 p-4 sm:p-6 space-y-5 sm:space-y-6">
+        <div className="flex flex-col gap-4 border-b border-outline-variant/20 pb-5">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-primary/10 text-primary border border-primary/30 flex items-center justify-center shrink-0 shadow-sm">
               <span className="material-symbols-outlined text-xl sm:text-2xl">school</span>
             </div>
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight">
+            <div className="min-w-0">
+              <h2 className="text-lg sm:text-xl font-bold text-on-surface tracking-tight text-balance">
                 Official Analytical Breakdown
               </h2>
               <p className="text-[11px] sm:text-xs font-mono-code text-on-surface-variant mt-0.5">
@@ -358,9 +358,9 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center gap-2.5 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 w-full">
             {/* View Mode Segmented Switcher (Preserves Original!) */}
-            <div className="w-full sm:w-auto grid grid-cols-2 sm:flex p-1 rounded-xl bg-surface-container border border-outline-variant/30 gap-1 font-mono-code text-xs">
+            <div className="w-full sm:w-auto grid grid-cols-2 sm:flex p-1 rounded-xl bg-surface-container border border-outline-variant/30 gap-1 font-mono-code text-xs sm:whitespace-nowrap">
               <button
                 type="button"
                 onClick={() => setBreakdownView('steps')}
@@ -539,7 +539,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                                 type="text"
                                 value={step.stepNumber}
                                 onChange={(e) => handleStepChange(idx, 'stepNumber', e.target.value)}
-                                className={`w-10 h-8 rounded-lg font-mono font-bold text-xs text-center border focus:outline-none shrink-0 ${
+                                className={`w-10 h-8 rounded-lg font-mono font-bold text-xs text-center border focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 shrink-0 ${
                                   isTrap
                                     ? 'bg-error text-white border-error'
                                     : 'bg-primary text-on-primary border-primary'
@@ -581,7 +581,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                               <select
                                 value={step.type || 'standard'}
                                 onChange={(e) => handleStepChange(idx, 'type', e.target.value)}
-                                className="px-2 py-1.5 rounded-lg bg-surface-container border border-outline-variant/30 text-xs font-mono-code text-on-surface focus:outline-none min-h-[36px]"
+                                className="px-2 py-1.5 rounded-lg bg-surface-container border border-outline-variant/30 text-xs font-mono-code text-on-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 min-h-[36px]"
                               >
                                 <option value="standard">Standard Step</option>
                                 <option value="parameter">Parameter Grid</option>
@@ -620,7 +620,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                                   </span>
                                   <MarkdownRenderer
                                     content={step.content}
-                                    className="prose-p:my-1 text-xs sm:text-sm lg:text-base"
+                                    className="md-flow text-sm sm:text-[15px]"
                                   />
                                 </div>
                               ) : isTrap ? (
@@ -628,7 +628,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                                 <div className="p-4 sm:p-5 rounded-xl sm:rounded-2xl bg-error/10 border border-error/25 text-on-surface space-y-2.5 shadow-xs">
                                   <MarkdownRenderer
                                     content={step.content}
-                                    className="prose-p:my-1 text-xs sm:text-sm lg:text-base"
+                                    className="md-flow text-sm sm:text-[15px]"
                                   />
                                 </div>
                               ) : step.type === 'parameter' && step.parameters && step.parameters.length > 0 ? (
@@ -637,7 +637,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                                   {step.content && (
                                     <MarkdownRenderer
                                       content={step.content}
-                                      className="prose-p:my-1 text-xs sm:text-sm text-on-surface-variant"
+                                      className="md-flow text-sm sm:text-[15px] text-on-surface-variant"
                                     />
                                   )}
                                   <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
@@ -667,7 +667,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                                   {step.content && (
                                     <MarkdownRenderer
                                       content={step.content}
-                                      className="prose-p:my-1 text-xs sm:text-sm text-on-surface-variant"
+                                      className="md-flow text-sm sm:text-[15px] text-on-surface-variant"
                                     />
                                   )}
                                   <div className="bg-surface-container rounded-xl sm:rounded-2xl p-4 sm:p-6 border border-outline-variant/20 text-center space-y-3 sm:space-y-4 shadow-xs overflow-x-auto max-w-full styled-horizontal-scrollbar">
@@ -694,7 +694,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                                 /* 5. Standard Content — MarkdownRenderer handles LaTeX, tables, code */
                                 <MarkdownRenderer
                                   content={step.content}
-                                  className="prose-p:my-1.5 text-xs sm:text-sm lg:text-base text-on-surface"
+                                  className="md-flow text-sm sm:text-[15px] text-on-surface"
                                 />
                               )}
                             </>
@@ -706,26 +706,19 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                 </div>
 
                 {/* Quick Collapsible Drawer for Original Text Notes */}
-                <div className="pt-4 border-t border-outline-variant/15 flex items-center justify-between text-xs font-mono-code text-on-surface-variant">
+                <div className="pt-4 border-t border-outline-variant/15 flex items-center text-xs font-mono-code text-on-surface-variant">
                   <button
                     type="button"
                     onClick={() => setShowOriginalDrawer(!showOriginalDrawer)}
-                    className="hover:text-primary transition-colors flex items-center gap-1.5 cursor-pointer"
+                    aria-expanded={showOriginalDrawer}
+                    className="hover:text-primary transition-colors flex items-center gap-1.5 cursor-pointer min-h-[40px] text-left"
                   >
                     <span className="material-symbols-outlined text-[16px]">
                       {showOriginalDrawer ? 'expand_less' : 'expand_more'}
                     </span>
-                    <span>{showOriginalDrawer ? 'Hide Original Handbook Text' : 'View Original Source Handbook Derivation'}</span>
+                    <span>{showOriginalDrawer ? 'Hide original explanation' : 'Show original explanation'}</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => setBreakdownView('original')}
-                    className="text-primary hover:underline flex items-center gap-1"
-                  >
-                    <span>Open in Full Original Mode</span>
-                    <span className="material-symbols-outlined text-[14px]">open_in_new</span>
-                  </button>
                 </div>
 
                 {showOriginalDrawer && (
@@ -743,24 +736,14 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
             {/* VIEW 2: ORIGINAL DESIGN (Preserved completely as requested!)        */}
             {/* =================================================================== */}
             {breakdownView === 'original' && (
-              <div className="space-y-4 sm:space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-outline-variant/10 text-xs font-mono-code text-on-surface-variant">
-                  <span>Canonical Source Derivation View (Unmodified Original)</span>
-                  <button
-                    type="button"
-                    onClick={() => setBreakdownView('steps')}
-                    className="text-primary hover:underline flex items-center gap-1 font-semibold min-h-[36px] sm:min-h-0 w-fit"
-                  >
-                    <span>Switch to Numbered Step Breakdown</span>
-                    <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                  </button>
-                </div>
+              <div className="space-y-3">
+                <p className="text-xs font-mono-code text-on-surface-variant">Original explanation, exactly as written in the source notes.</p>
 
-                <div className="rounded-xl sm:rounded-2xl bg-surface-container/80 p-4 sm:p-8 border border-outline-variant/30 text-sm sm:text-base lg:text-[17px] leading-relaxed sm:leading-loose text-on-surface font-body-base shadow-md overflow-x-auto styled-horizontal-scrollbar">
+                <div className="rounded-xl bg-surface-container/80 p-4 sm:p-6 border border-outline-variant/30 text-[15px] sm:text-base leading-relaxed text-on-surface font-body-base overflow-x-auto styled-horizontal-scrollbar">
                   {explanation ? (
                     <MarkdownRenderer
                       content={explanation}
-                      className="prose-p:my-2.5 sm:prose-p:my-3 prose-p:leading-relaxed prose-headings:my-4 sm:prose-headings:my-5 prose-headings:font-bold prose-ul:my-2.5 sm:prose-ul:my-3 prose-li:my-1 sm:prose-li:my-1.5 prose-code:px-1.5 prose-code:py-0.5 text-sm sm:text-base lg:text-[17px] text-on-surface"
+                      className="md-flow text-[15px] sm:text-base text-on-surface"
                     />
                   ) : (
                     <p className="italic text-on-surface-variant text-xs sm:text-sm font-mono-code">
@@ -819,7 +802,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
             </div>
             <textarea
               readOnly
-              className="w-full h-28 rounded-xl bg-surface-container border border-outline-variant/20 p-3 sm:p-3.5 text-xs font-mono-code text-on-surface resize-none focus:outline-none"
+              className="w-full h-28 rounded-xl bg-surface-container border border-outline-variant/20 p-3 sm:p-3.5 text-xs font-mono-code text-on-surface resize-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
               value={`Please provide a clear, intuitive, and step-by-step educational explanation for this PHILNITS exam question.\n\nExam Details:\n- Year / Session: ${questionYear || 'PHILNITS Exam'}\n- Syllabus Domain: ${questionTopics?.join(', ') || 'Computer Systems / Software'}\n- Official Verified Answer: ${correctDisplay || correctAnswer}\n\nOfficial Solution / Current Explanation:\n${explanation || 'No step derivation given.'}\n\nTask:\n1. Break down why the correct option is right in simple terms.\n2. Explain why the other choices are incorrect.\n3. Provide a quick mnemonic or memory tip for this concept.`}
             />
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-outline-variant/15 text-xs">
@@ -981,7 +964,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
         )}
 
         {/* Video / Web Resource Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+        <div className="grid grid-cols-1 2xl:grid-cols-2 gap-3 sm:gap-4">
           {resources.map((res) => {
             const isYT = isYouTubeUrl(res.url);
             return (
@@ -1000,8 +983,8 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                       {isYT ? 'play_circle' : 'language'}
                     </span>
                   </div>
-                  <div className="truncate flex-1 min-w-0">
-                    <div className="font-bold text-xs sm:text-sm text-on-surface truncate group-hover:text-primary transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-xs sm:text-sm text-on-surface line-clamp-2 sm:line-clamp-1 break-words group-hover:text-primary transition-colors">
                       {res.label}
                     </div>
                     <div className="text-[11px] sm:text-xs font-mono-code text-on-surface-variant truncate">

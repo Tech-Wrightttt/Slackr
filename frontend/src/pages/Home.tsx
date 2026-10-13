@@ -17,6 +17,8 @@ import { StreakMark, streakLabel } from '../components/StreakMark';
 export const Home: React.FC = () => {
   const [meta, setMeta] = useState<any>(null);
   const [totalAttempts, setTotalAttempts] = useState<number>(0);
+  // Attempt count known (avoids flashing the first-run layout for returning users)
+  const [attemptsLoaded, setAttemptsLoaded] = useState(false);
   const [todayAttempts, setTodayAttempts] = useState<number>(0);
   const [overallAccuracy, setOverallAccuracy] = useState<number>(0);
   const [avgTimeSeconds, setAvgTimeSeconds] = useState<number>(0);
@@ -36,6 +38,7 @@ export const Home: React.FC = () => {
 
         const attempts = await db.attempts.toArray();
         setTotalAttempts(attempts.length);
+        setAttemptsLoaded(true);
 
         if (attempts.length > 0) {
           const correct = attempts.filter((a) => a.isCorrect).length;
@@ -167,6 +170,8 @@ export const Home: React.FC = () => {
   const polylineStr = sparkPoints.map((p) => `${p.x},${p.y}`).join(' ');
   const polygonStr = `10,95 ${polylineStr} ${sparkPoints[sparkPoints.length - 1].x},95`;
 
+  const firstRun = attemptsLoaded && totalAttempts === 0;
+
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6 animate-in fade-in duration-200">
       {/* Minimalist Editorial Header */}
@@ -231,13 +236,6 @@ export const Home: React.FC = () => {
               : 'Spaced repetition deck synchronized'}
           </span>
         </div>
-        <Link
-          to="/quiz/srs"
-          className="font-mono-code text-primary hover:underline underline-offset-2 flex items-center gap-1 font-semibold whitespace-nowrap"
-        >
-          <span>Open SRS Queue</span>
-          <span className="material-symbols-outlined text-[13px]">arrow_forward</span>
-        </Link>
       </div>
 
       {/* Minimalist Metric Cards */}
@@ -318,7 +316,7 @@ export const Home: React.FC = () => {
               <CountUp to={dueReviews.length} duration={1.0} />
             </div>
             <div className="text-xs text-on-surface-variant font-mono-code mt-1">
-              {criticalFailCount > 0 ? `${criticalFailCount} critical cards` : 'Calibrated retention'}
+              {criticalFailCount > 0 ? `${criticalFailCount} critical cards` : dueReviews.length > 0 ? 'Due for review' : 'Nothing due today'}
             </div>
           </div>
         </div>
@@ -391,7 +389,19 @@ export const Home: React.FC = () => {
         />
       )}
 
-      {/* Focus & Analytics Grid (Weak Spots & 7-Day Velocity) */}
+      {/* Focus & Analytics Grid (Weak Spots & 7-Day Velocity): hidden until the first answer */}
+      {firstRun ? (
+        <section className="flex flex-col sm:flex-row items-center gap-5 rounded-xl border border-dashed border-outline-variant/40 bg-surface-container-low px-6 py-6 text-center sm:text-left">
+          <Mascot pose="studying" className="h-20 w-20 shrink-0" />
+          <div className="flex flex-col gap-1">
+            <h2 className="font-semibold text-base text-on-surface">Your stats start with your first answer</h2>
+            <p className="text-xs text-on-surface-variant leading-relaxed max-w-[60ch]">
+              Weak spots, your 7-day activity and recent attempts show up here once you answer a question. Today&rsquo;s
+              Daily Set is the quickest way in.
+            </p>
+          </div>
+        </section>
+      ) : (
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Priority Weak Spots (8 cols) */}
         <div className="lg:col-span-8 rounded-xl bg-surface-container-low p-5 sm:p-6 border border-outline-variant/20 flex flex-col justify-between">
@@ -449,9 +459,9 @@ export const Home: React.FC = () => {
             )}
           </div>
 
-          <div className="pt-1 flex items-center justify-between font-mono-code text-xs text-on-surface-variant">
+          <div className="pt-1 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 font-mono-code text-xs text-on-surface-variant">
             <span>Automated Leitner queue reshuffles on failure</span>
-            <Link to="/analytics" className="text-primary hover:underline flex items-center gap-1">
+            <Link to="/analytics" className="text-primary hover:underline underline-offset-2 flex items-center gap-1 whitespace-nowrap">
               <span>Syllabus Heatmap</span>
               <span className="material-symbols-outlined text-[13px]">east</span>
             </Link>
@@ -510,10 +520,12 @@ export const Home: React.FC = () => {
           </div>
         </div>
       </section>
+      )}
 
       {/* Recent Activity Table & Exam Blueprint Scope */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Recent Attempts (8 cols) */}
+        {/* Recent Attempts (8 cols), or the syllabus alone on first run */}
+        {!firstRun && (
         <div className="lg:col-span-8 rounded-xl bg-surface-container-low p-5 sm:p-6 border border-outline-variant/20 flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -591,38 +603,32 @@ export const Home: React.FC = () => {
           </div>
         </div>
 
+        )}
+
         {/* Syllabus Scope (4 cols) */}
-        <div className="lg:col-span-4 rounded-xl bg-surface-container-low p-5 sm:p-6 border border-outline-variant/20 flex flex-col gap-4">
+        <div className={`${firstRun ? 'lg:col-span-12' : 'lg:col-span-4'} rounded-xl bg-surface-container-low p-5 sm:p-6 border border-outline-variant/20 flex flex-col gap-4`}>
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-base text-on-surface">Syllabus Scope</h2>
             <span className="font-mono text-xs text-primary uppercase">IPA Standard</span>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-surface-container border border-outline-variant/20 flex flex-col gap-1">
-            <div className="flex items-center justify-between text-xs font-mono font-bold text-on-surface">
-              <span>Morning Session</span>
-              <span className="text-primary">80 Questions / 150m</span>
-            </div>
-            <p className="text-[11px] font-mono-code text-on-surface-variant pt-0.5">
-              Accredited Fundamental &amp; Applied curriculum standard
-            </p>
+          <div className={`grid gap-2 ${firstRun ? 'sm:grid-cols-2' : ''}`}>
+            {[
+              { name: 'Subject A', detail: '60 questions · 90 min', note: 'Multiple choice across technology, management and strategy' },
+              { name: 'Subject B', detail: '20 questions · 100 min', note: 'Algorithms, programming and information security problems' },
+            ].map((p) => (
+              <div key={p.name} className="p-3.5 rounded-xl bg-surface-container border border-outline-variant/20 flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-3 text-xs font-mono font-bold text-on-surface">
+                  <span>{p.name}</span>
+                  <span className="text-primary whitespace-nowrap">{p.detail}</span>
+                </div>
+                <p className="text-[11px] font-mono-code text-on-surface-variant pt-0.5">{p.note}</p>
+              </div>
+            ))}
           </div>
-
-          {/* Curated Topic Stack */}
-          <div className="flex flex-col gap-1.5 font-mono-code text-xs">
-            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-container border border-outline-variant/10">
-              <span className="text-on-surface-variant">1. Technology Architecture</span>
-              <span className="text-on-surface font-semibold">45 Questions</span>
-            </div>
-            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-container border border-outline-variant/10">
-              <span className="text-on-surface-variant">2. Management Systems</span>
-              <span className="text-on-surface font-semibold">15 Questions</span>
-            </div>
-            <div className="flex items-center justify-between py-2 px-3 rounded-lg bg-surface-container border border-outline-variant/10">
-              <span className="text-on-surface-variant">3. Strategy &amp; Governance</span>
-              <span className="text-on-surface font-semibold">20 Questions</span>
-            </div>
-          </div>
+          <p className="text-[11px] font-mono-code text-on-surface-variant">
+            Current PhilNITS FE format. Pass both subjects with at least 60% each.
+          </p>
 
           <Link
             to="/analytics"

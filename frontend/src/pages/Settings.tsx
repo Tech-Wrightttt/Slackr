@@ -15,6 +15,8 @@ export const Settings: React.FC = () => {
     setCurrentAlgo,
     confidenceTracking,
     setConfidenceTracking,
+    requireConfidence,
+    setRequireConfidence,
     showTimer,
     setShowTimer,
     autoAdvance,
@@ -289,19 +291,19 @@ export const Settings: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 font-mono-code text-xs">
           <div className="p-3 rounded-lg bg-surface-container border border-outline-variant/20 flex flex-col gap-1">
-            <span className="text-on-surface-variant/70 uppercase text-[10px]">Pre-cached App Shell</span>
-            <span className="font-bold text-on-surface">3,609 Items &amp; Syllabus</span>
-            <span className="text-mastery-emerald text-[11px]">✓ Instant Launch</span>
+            <span className="text-on-surface-variant/70 uppercase text-[10px]">Works offline</span>
+            <span className="font-bold text-on-surface">3,609 questions &amp; syllabus</span>
+            <span className="text-mastery-emerald text-[11px]">✓ Opens instantly</span>
           </div>
           <div className="p-3 rounded-lg bg-surface-container border border-outline-variant/20 flex flex-col gap-1">
-            <span className="text-on-surface-variant/70 uppercase text-[10px]">Client Database</span>
-            <span className="font-bold text-on-surface">Dexie.js / IndexedDB</span>
-            <span className="text-mastery-emerald text-[11px]">✓ Local Persistence</span>
+            <span className="text-on-surface-variant/70 uppercase text-[10px]">Saved on this device</span>
+            <span className="font-bold text-on-surface">IndexedDB (Dexie.js)</span>
+            <span className="text-mastery-emerald text-[11px]">✓ Kept between visits</span>
           </div>
           <div className="p-3 rounded-lg bg-surface-container border border-outline-variant/20 flex flex-col gap-1">
-            <span className="text-on-surface-variant/70 uppercase text-[10px]">Service Worker Cache</span>
-            <span className="font-bold text-on-surface">Stale-While-Revalidate</span>
-            <span className="text-mastery-emerald text-[11px]">✓ Background Sync</span>
+            <span className="text-on-surface-variant/70 uppercase text-[10px]">Updates</span>
+            <span className="font-bold text-on-surface">Downloads in the background</span>
+            <span className="text-mastery-emerald text-[11px]">✓ Newest version on next launch</span>
           </div>
         </div>
       </div>
@@ -469,6 +471,26 @@ export const Settings: React.FC = () => {
             />
           </label>
 
+          <label
+            className={`flex items-center justify-between gap-4 pt-3 ${
+              confidenceTracking ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'
+            }`}
+          >
+            <div>
+              <div className="font-bold">Require Confidence Before Submitting</div>
+              <div className="text-on-surface-variant text-[11px]">
+                Warns you when you press Submit without answering &ldquo;How sure are you?&rdquo;
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={confidenceTracking && requireConfidence}
+              disabled={!confidenceTracking}
+              onChange={(e) => setRequireConfidence(e.target.checked)}
+              className="h-4 w-4 rounded accent-primary cursor-pointer disabled:cursor-not-allowed"
+            />
+          </label>
+
           <label className="flex items-center justify-between gap-4 cursor-pointer pt-3">
             <div>
               <div className="font-bold">Elapsed Stopwatch Timer</div>
@@ -590,7 +612,7 @@ export const Settings: React.FC = () => {
       </div>
 
       {/* 6. Danger Zone */}
-      <div className="rounded-xl border border-error/30 bg-error/5 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="rounded-xl border border-error/30 bg-error/5 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h3 className="font-title-sm text-sm font-bold text-error">Danger Zone // Reset Local Records</h3>
           <p className="font-mono-code text-xs text-on-surface-variant mt-0.5">
@@ -602,7 +624,7 @@ export const Settings: React.FC = () => {
           onClick={() => setShowResetModal(true)}
           className="px-4 py-2 rounded-xl bg-error/15 hover:bg-error/25 border border-error/30 text-error font-mono-code text-xs font-bold transition-all cursor-pointer self-start sm:self-auto"
         >
-          Reset Telemetry Database
+          Reset all progress
         </button>
       </div>
 

@@ -614,79 +614,8 @@ export class AnalyticsEngine {
     }
 
     const hasRealData = attempts.length >= 3;
-    if (!hasRealData) {
-      const now = Date.now();
-      const demoDays = [
-        { d: 14, aAcc: 52, bAcc: 30, aPace: 78, bPace: 180, aC: 15, bC: 5 },
-        { d: 11, aAcc: 58, bAcc: 36, aPace: 70, bPace: 165, aC: 20, bC: 8 },
-        { d: 8, aAcc: 64, bAcc: 42, aPace: 62, bPace: 155, aC: 25, bC: 10 },
-        { d: 6, aAcc: 68, bAcc: 48, aPace: 55, bPace: 145, aC: 30, bC: 12 },
-        { d: 4, aAcc: 72, bAcc: 52, aPace: 50, bPace: 135, aC: 25, bC: 10 },
-        { d: 2, aAcc: 76, bAcc: 56, aPace: 46, bPace: 128, aC: 35, bC: 15 },
-        { d: 0, aAcc: 80, bAcc: 62, aPace: 42, bPace: 120, aC: 40, bC: 20 },
-      ];
-
-      return {
-        hasRealData: false,
-        feA: {
-          totalAttempts: 185,
-          correctAttempts: 139,
-          accuracy: 75.1,
-          avgTimeSeconds: 52.4,
-          recentAccuracy: 80.0,
-          earlierAccuracy: 55.0,
-          improvementDelta: 25.0,
-          passReadiness: 'passed',
-          topHardTopics: [
-            { topic: 'digital-logic', errorRate: 34.2, total: 38 },
-            { topic: 'operating-systems', errorRate: 28.5, total: 42 },
-            { topic: 'math', errorRate: 25.0, total: 24 },
-          ],
-        },
-        feB: {
-          totalAttempts: 80,
-          correctAttempts: 44,
-          accuracy: 55.0,
-          avgTimeSeconds: 138.6,
-          recentAccuracy: 62.0,
-          earlierAccuracy: 33.0,
-          improvementDelta: 29.0,
-          passReadiness: 'passed',
-          topHardTopics: [
-            { topic: 'algorithms', errorRate: 52.6, total: 38 },
-            { topic: 'cybersecurity', errorRate: 46.2, total: 26 },
-            { topic: 'data-structures', errorRate: 41.7, total: 24 },
-          ],
-        },
-        difficultyGap: {
-          accuracyGap: 20.1,
-          paceRatio: 2.6,
-          feBHarderPercent: 20.1,
-        },
-        timeline: demoDays.map((dm, idx) => {
-          const dt = new Date(now - dm.d * 86400000);
-          return {
-            id: `demo-${idx}`,
-            date: dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-            time: dt.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }),
-            timestamp: dt.toISOString(),
-            feAAccuracy: dm.aAcc,
-            feBAccuracy: dm.bAcc,
-            feACount: dm.aC,
-            feBCount: dm.bC,
-            feAPace: dm.aPace,
-            feBPace: dm.bPace,
-            feARolling: dm.aAcc,
-            feBRolling: dm.bAcc,
-            feAImprovement: dm.aAcc - 52,
-            feBImprovement: dm.bAcc - 30,
-          };
-        }),
-      };
-    }
-
     return {
-      hasRealData: true,
+      hasRealData,
       feA: feABucket,
       feB: feBBucket,
       difficultyGap: {

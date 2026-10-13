@@ -176,14 +176,14 @@ export const Navbar: React.FC = () => {
             className={`flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-low border border-outline-variant/30 font-mono-code text-xs text-on-surface-variant whitespace-nowrap ${
               fit.status ? '' : 'invisible absolute right-0 top-0 pointer-events-none'
             }`}
-            title="Local Dexie.js Client Database Telemetry Active"
+            title={isOffline ? "Offline. Your progress is still saved on this device." : "Online. Your progress is saved on this device."}
           >
             <span
               className={`w-2 h-2 rounded-full inline-block ${
-                isOffline ? 'bg-confidence-amber' : 'bg-mastery-emerald animate-pulse'
+                isOffline ? 'bg-confidence-amber' : 'bg-mastery-emerald motion-safe:animate-pulse'
               }`}
             ></span>
-            <span>{isOffline ? 'Dexie Offline' : 'Dexie Active'}</span>
+            <span>{isOffline ? 'Offline · Saved locally' : 'Online · Saved locally'}</span>
           </div>
 
           {/* Always-visible controls, measured as one block */}

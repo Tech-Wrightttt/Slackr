@@ -3,10 +3,13 @@ import { Link } from 'react-router-dom';
 import { AnalyticsEngine, type ExamTypeImprovementData, type ExamTypeTimelinePoint } from '../services/analyticsEngine';
 import { db } from '../db';
 import type { AttemptRecord } from '../db/schema';
+import { Mascot } from '../components/Mascot';
+import { MetricInfo } from '../components/MetricInfo';
 import { topicLabel, topicStyle } from '../services/topicColors';
 
 // Error-rate band colors shared by the heatmap cells and legend
-const BAND = { strong: '#10B981', moderate: '#F59E0B', weak: '#E11D48' };
+// Theme tokens, so the bands and chart follow light/dark instead of fixed dark-mode hexes
+const BAND = { strong: 'var(--color-mastery-emerald)', moderate: 'var(--color-confidence-amber)', weak: 'var(--color-error)' };
 const bandColor = (errorRate: number) =>
   errorRate >= 50 ? BAND.weak : errorRate >= 25 ? BAND.moderate : BAND.strong;
 
@@ -34,6 +37,8 @@ export const Analytics: React.FC = () => {
 
   const [loading, setLoading] = useState<boolean>(true);
   const [completionRates, setCompletionRates] = useState<any>(null);
+  // Nothing answered yet: show dashes and empty states, never placeholder scores
+  const noAttempts = !loading && (completionRates?.overall?.attempted ?? 0) === 0;
 
   const loadAnalytics = async () => {
     try {
@@ -169,8 +174,9 @@ export const Analytics: React.FC = () => {
         {/* Consistency Score Card */}
         <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider font-semibold">
+            <span className="inline-flex items-center gap-1.5 font-label-caps text-xs text-on-surface-variant uppercase tracking-wider font-semibold">
               Consistency Index
+              <MetricInfo id="consistency" />
             </span>
             <span className="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-primary">
               <span className="material-symbols-outlined text-[16px]">show_chart</span>
@@ -179,11 +185,11 @@ export const Analytics: React.FC = () => {
 
           <div className="mt-4 flex items-baseline gap-2 font-mono-code">
             <span className="font-headline-md text-3xl font-extrabold text-on-surface">
-              {consistency ? `${consistency.overallConsistency}%` : '100%'}
+              {noAttempts || !consistency ? '—' : `${consistency.overallConsistency}%`}
             </span>
-            <span className="text-xs text-on-surface-variant">
-              (σ: {consistency?.stdDeviation || 0}%)
-            </span>
+            {!noAttempts && consistency && (
+              <span className="text-xs text-on-surface-variant">(σ: {consistency.stdDeviation || 0}%)</span>
+            )}
           </div>
 
           <p className="mt-2 text-xs font-mono-code text-on-surface-variant leading-relaxed">
@@ -194,8 +200,9 @@ export const Analytics: React.FC = () => {
         {/* Confidence Calibration Card */}
         <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider font-semibold">
+            <span className="inline-flex items-center gap-1.5 font-label-caps text-xs text-on-surface-variant uppercase tracking-wider font-semibold">
               Metacognitive Calibration
+              <MetricInfo id="calibration" />
             </span>
             <span className="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-confidence-amber">
               <span className="material-symbols-outlined text-[16px]">grade</span>
@@ -207,7 +214,7 @@ export const Analytics: React.FC = () => {
               {calibration?.hasData ? `${calibration.calibrationAccuracy}%` : '—'}
             </span>
             <span className="text-xs text-on-surface-variant">
-              Brier: {calibration?.brierScore || '0.00'}
+              Brier: {noAttempts ? '—' : calibration?.brierScore || '0.00'}
             </span>
           </div>
 
@@ -224,8 +231,9 @@ export const Analytics: React.FC = () => {
         {/* Priority Focus Card */}
         <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider font-semibold">
+            <span className="inline-flex items-center gap-1.5 font-label-caps text-xs text-on-surface-variant uppercase tracking-wider font-semibold">
               Priority Weak Spot
+              <MetricInfo id="weakSpot" />
             </span>
             <span className="w-7 h-7 rounded-lg bg-surface-container-high flex items-center justify-center text-error">
               <span className="material-symbols-outlined text-[16px]">warning</span>
@@ -277,7 +285,7 @@ export const Analytics: React.FC = () => {
 
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Overall Completion</span>
+              <span className="inline-flex items-center gap-1.5 font-label-caps text-xs text-on-surface-variant uppercase tracking-wider font-semibold">Overall Completion <MetricInfo id="completion" /></span>
               <span className="text-xl font-headline-md font-bold text-primary">{completionRates.overall.completionPercent}%</span>
             </div>
             <div className="w-full h-3 bg-surface-container-high rounded-full overflow-hidden">
@@ -288,11 +296,11 @@ export const Analytics: React.FC = () => {
             </div>
             <div className="flex items-center justify-between text-xs font-mono-code text-on-surface-variant">
               <span>{completionRates.overall.attempted} of {completionRates.overall.total} questions attempted</span>
-              <span>Overall Accuracy: {completionRates.overall.accuracyPercent}%</span>
+              <span className="inline-flex items-center gap-1.5">Overall Accuracy: {completionRates.overall.accuracyPercent}% <MetricInfo id="completionAccuracy" /></span>
             </div>
           </div>
 
-          <h3 className="font-title-sm text-lg font-bold text-on-surface mt-4">Progress by Exam Year</h3>
+          <h3 className="flex items-center gap-2 font-title-sm text-lg font-bold text-on-surface mt-4">Progress by Exam Year <MetricInfo id="yearProgress" /></h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {completionRates.byYear.map((yr: any) => (
               <div key={yr.year} className="rounded-xl border border-outline-variant/30 bg-surface-container p-4 shadow-sm flex flex-col gap-3">
@@ -314,7 +322,7 @@ export const Analytics: React.FC = () => {
             ))}
           </div>
 
-          <h3 className="font-title-sm text-lg font-bold text-on-surface mt-4">Progress by Topic</h3>
+          <h3 className="flex items-center gap-2 font-title-sm text-lg font-bold text-on-surface mt-4">Progress by Topic <MetricInfo id="topicProgress" /></h3>
           <div className="overflow-x-auto rounded-xl border border-outline-variant/20">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -388,15 +396,11 @@ export const Analytics: React.FC = () => {
                 <span className="material-symbols-outlined text-sm">flag</span>
                 <span>PHILNITS STANDARD: &ge; 60% PASS MARK</span>
               </div>
-              {!examTypeStats.hasRealData && (
-                <div className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container-high border border-outline-variant/30 text-[11px] text-on-surface-variant">
-                  <span className="w-1.5 h-1.5 rounded-full bg-tertiary" />
-                  <span>Benchmark Baseline</span>
-                </div>
-              )}
             </div>
           </div>
 
+          {examTypeStats.hasRealData ? (
+          <>
           {/* 3 Comparative Head-to-Head Bento Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-mono-code">
             {/* 1. Subject A (FE-A / AM) */}
@@ -411,7 +415,7 @@ export const Analytics: React.FC = () => {
                 </div>
 
                 <div>
-                  <span className="text-xs text-on-surface-variant uppercase">Current Rolling Accuracy</span>
+                  <span className="inline-flex items-center gap-1.5 text-xs text-on-surface-variant uppercase">Current Rolling Accuracy <MetricInfo id="recentAccuracy" /></span>
                   <div className="flex items-baseline gap-2 mt-0.5">
                     <span className="text-3xl font-headline font-bold text-mastery-emerald">
                       {examTypeStats.feA.recentAccuracy}%
@@ -426,13 +430,14 @@ export const Analytics: React.FC = () => {
                       </span>
                       {examTypeStats.feA.improvementDelta >= 0 ? '+' : ''}
                       {examTypeStats.feA.improvementDelta}% velocity
+                      <MetricInfo id="velocity" />
                     </span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-outline-variant/20 text-on-surface-variant">
                   <div>
-                    <span className="text-[10px] uppercase">Mean Response Pace</span>
+                    <span className="inline-flex items-center gap-1 text-[10px] uppercase">Mean Response Pace <MetricInfo id="avgTime" /></span>
                     <p className="font-bold text-on-surface text-sm mt-0.5">{examTypeStats.feA.avgTimeSeconds}s</p>
                     <span className="text-[10px] text-on-surface-variant/70">Target: &le; 108s</span>
                   </div>
@@ -485,7 +490,7 @@ export const Analytics: React.FC = () => {
                 </div>
 
                 <div>
-                  <span className="text-xs text-on-surface-variant uppercase">Current Rolling Accuracy</span>
+                  <span className="inline-flex items-center gap-1.5 text-xs text-on-surface-variant uppercase">Current Rolling Accuracy <MetricInfo id="recentAccuracy" /></span>
                   <div className="flex items-baseline gap-2 mt-0.5">
                     <span
                       className={`text-3xl font-headline font-bold ${
@@ -504,13 +509,14 @@ export const Analytics: React.FC = () => {
                       </span>
                       {examTypeStats.feB.improvementDelta >= 0 ? '+' : ''}
                       {examTypeStats.feB.improvementDelta}% velocity
+                      <MetricInfo id="velocity" />
                     </span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-outline-variant/20 text-on-surface-variant">
                   <div>
-                    <span className="text-[10px] uppercase">Mean Response Pace</span>
+                    <span className="inline-flex items-center gap-1 text-[10px] uppercase">Mean Response Pace <MetricInfo id="avgTime" /></span>
                     <p className="font-bold text-on-surface text-sm mt-0.5">{examTypeStats.feB.avgTimeSeconds}s</p>
                     <span className="text-[10px] text-on-surface-variant/70">Target: &le; 240s</span>
                   </div>
@@ -561,8 +567,9 @@ export const Analytics: React.FC = () => {
             <div className="rounded-xl border border-outline-variant/30 bg-surface-container/60 p-5 shadow-sm flex flex-col justify-between">
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
+                  <span className="inline-flex items-center gap-1.5 font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider font-semibold">
                     Cognitive Difficulty Differential
+                    <MetricInfo id="difficultyGap" />
                   </span>
                   <span className="material-symbols-outlined text-tertiary text-base">psychology</span>
                 </div>
@@ -602,7 +609,7 @@ export const Analytics: React.FC = () => {
             {/* Graph Controls Toolbar */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-outline-variant/20">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono-timer text-xs text-on-surface-variant uppercase">Telemetry Metric:</span>
+                <span className="inline-flex items-center gap-1.5 font-mono-timer text-xs text-on-surface-variant uppercase">Telemetry Metric: <MetricInfo id="progressionGraph" /></span>
                 <div className="flex items-center p-0.5 rounded-lg bg-surface-container border border-outline-variant/30 text-xs font-mono-code">
                   <button
                     type="button"
@@ -821,12 +828,12 @@ export const Analytics: React.FC = () => {
                   >
                     <defs>
                       <linearGradient id="gradFEA" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#10B981" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="#10B981" stopOpacity="0.0" />
+                        <stop offset="0%" stopColor="var(--color-mastery-emerald)" stopOpacity="0.25" />
+                        <stop offset="100%" stopColor="var(--color-mastery-emerald)" stopOpacity="0.0" />
                       </linearGradient>
                       <linearGradient id="gradFEB" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#F59E0B" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="#F59E0B" stopOpacity="0.0" />
+                        <stop offset="0%" stopColor="var(--color-confidence-amber)" stopOpacity="0.25" />
+                        <stop offset="100%" stopColor="var(--color-confidence-amber)" stopOpacity="0.0" />
                       </linearGradient>
                     </defs>
 
@@ -841,7 +848,7 @@ export const Analytics: React.FC = () => {
                             y1={y}
                             x2={chartWidth - padRight}
                             y2={y}
-                            stroke={isPassLine ? '#F59E0B' : 'currentColor'}
+                            stroke={isPassLine ? 'var(--color-confidence-amber)' : 'currentColor'}
                             strokeOpacity={isPassLine ? 0.6 : 0.08}
                             strokeDasharray={isPassLine ? '4 3' : undefined}
                           />
@@ -850,7 +857,7 @@ export const Analytics: React.FC = () => {
                             y={y + 3}
                             textAnchor="end"
                             fontSize="9"
-                            fill={isPassLine ? '#F59E0B' : 'currentColor'}
+                            fill={isPassLine ? 'var(--color-confidence-amber)' : 'currentColor'}
                             opacity={isPassLine ? 0.9 : 0.5}
                             fontWeight={isPassLine ? 'bold' : 'normal'}
                           >
@@ -868,7 +875,7 @@ export const Analytics: React.FC = () => {
                           textAnchor="end"
                           fontSize="9"
                           fontWeight="bold"
-                          fill="#F59E0B"
+                          fill="var(--color-confidence-amber)"
                           opacity="0.85"
                           letterSpacing="0.05em"
                         >
@@ -908,7 +915,7 @@ export const Analytics: React.FC = () => {
                           pathLength={1}
                           className="line-draw"
                           fill="none"
-                          stroke="#10B981"
+                          stroke="var(--color-mastery-emerald)"
                           strokeWidth="2.5"
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -926,7 +933,7 @@ export const Analytics: React.FC = () => {
                           pathLength={1}
                           className="line-draw"
                           fill="none"
-                          stroke="#F59E0B"
+                          stroke="var(--color-confidence-amber)"
                           strokeWidth="2.5"
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -963,8 +970,8 @@ export const Analytics: React.FC = () => {
                               cx={x}
                               cy={ptA.y}
                               r={isHovered ? 5.5 : 3.5}
-                              fill="#10B981"
-                              stroke="#090D16"
+                              fill="var(--color-mastery-emerald)"
+                              stroke="var(--color-surface-container-low)"
                               strokeWidth={isHovered ? 2.5 : 1.5}
                               className="chart-node"
                             />
@@ -976,8 +983,8 @@ export const Analytics: React.FC = () => {
                               cx={x}
                               cy={ptB.y}
                               r={isHovered ? 5.5 : 3.5}
-                              fill="#F59E0B"
-                              stroke="#090D16"
+                              fill="var(--color-confidence-amber)"
+                              stroke="var(--color-surface-container-low)"
                               strokeWidth={isHovered ? 2.5 : 1.5}
                               className="chart-node"
                             />
@@ -1207,6 +1214,26 @@ export const Analytics: React.FC = () => {
               </table>
             </div>
           </div>
+          </>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-center gap-5 rounded-xl border border-dashed border-outline-variant/40 bg-surface-container/50 px-6 py-8 text-center sm:text-left">
+              <Mascot pose="studying" className="h-24 w-24 shrink-0" />
+              <div className="flex flex-col gap-2">
+                <h3 className="font-title-sm text-base font-bold text-on-surface">No exam data yet</h3>
+                <p className="text-sm text-on-surface-variant max-w-[56ch]">
+                  Answer at least 3 questions and this matrix starts tracking your real Subject A and Subject B accuracy,
+                  pace and progress over time. Nothing here is estimated.
+                </p>
+                <Link
+                  to="/quiz/year"
+                  className="press-scale self-center sm:self-start mt-1 min-h-[40px] inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-semibold text-on-primary hover:bg-primary-container"
+                >
+                  <span className="material-symbols-outlined text-[16px]" aria-hidden="true">play_arrow</span>
+                  Start a year paper
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1215,8 +1242,9 @@ export const Analytics: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-error text-lg">error</span>
-            <h2 className="font-title-sm text-base font-bold text-on-surface">
+            <h2 className="flex items-center gap-2 font-title-sm text-base font-bold text-on-surface">
               Curriculum Vulnerabilities (Ranked by Error &amp; Recency)
+              <MetricInfo id="vulnerabilities" />
             </h2>
           </div>
           <span className="font-mono-code text-xs text-on-surface-variant">Leitner Calibrated</span>
@@ -1274,12 +1302,27 @@ export const Analytics: React.FC = () => {
         )}
       </div>
 
+      {noAttempts ? (
+        <div className="rounded-xl border border-dashed border-outline-variant/40 bg-surface-container-low px-6 py-8 flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
+          <span className="w-12 h-12 shrink-0 rounded-xl bg-primary/12 text-primary flex items-center justify-center" aria-hidden="true">
+            <span className="material-symbols-outlined text-[24px]">grid_on</span>
+          </span>
+          <div className="flex flex-col gap-1">
+            <h2 className="font-title-sm text-base font-bold text-on-surface">Topic heatmap, calibration and ledger</h2>
+            <p className="text-sm text-on-surface-variant max-w-[60ch]">
+              These fill in per topic as you answer questions. Start any paper or today&rsquo;s Daily Set and they&rsquo;ll appear here.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* 2D Topic Heatmap Matrix */}
       <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="font-title-sm text-base font-bold text-on-surface">
+            <h2 className="flex items-center gap-2 font-title-sm text-base font-bold text-on-surface">
               Topic Weakness Heatmap Matrix
+              <MetricInfo id="heatmap" />
             </h2>
             <p className="font-mono-code text-xs text-on-surface-variant mt-0.5">
               Error trajectory across all 29 domains over time periods.
@@ -1387,8 +1430,9 @@ export const Analytics: React.FC = () => {
         <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col gap-4">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-confidence-amber text-lg">grade</span>
-            <h2 className="font-title-sm text-base font-bold text-on-surface">
+            <h2 className="flex items-center gap-2 font-title-sm text-base font-bold text-on-surface">
               Pre-Reveal Confidence vs Observed Reality
+              <MetricInfo id="calibrationCurve" />
             </h2>
           </div>
           <p className="font-mono-code text-xs text-on-surface-variant">
@@ -1435,8 +1479,9 @@ export const Analytics: React.FC = () => {
       <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h2 className="font-title-sm text-base font-bold text-on-surface">
+            <h2 className="flex items-center gap-2 font-title-sm text-base font-bold text-on-surface">
               Topic Performance Ledger
+              <MetricInfo id="ledger" />
             </h2>
             <p className="font-mono-code text-xs text-on-surface-variant">
               Sort by column headers to analyze error rate velocity and attempt durations.
@@ -1509,6 +1554,8 @@ export const Analytics: React.FC = () => {
           </table>
         </div>
       </div>
+        </>
+      )}
 
       {/* Recent Attempts Audit Log (links to /history/:id) */}
       <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-6 shadow-md flex flex-col gap-4">

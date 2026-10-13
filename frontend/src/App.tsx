@@ -80,7 +80,7 @@ const AppShell: React.FC = () => {
           style={{ top: 'calc(4rem + env(safe-area-inset-top, 0px))' }}
           className="fixed left-0 right-0 z-40 flex items-center justify-center gap-2 bg-confidence-amber/15 border-b border-confidence-amber/30 px-4 py-1.5 text-xs font-mono-code font-semibold text-confidence-amber backdrop-blur-md">
           <WifiOff className="h-3.5 w-3.5" />
-          <span>Telemetry Offline: Local Dexie.js cache active for all 3,609 PHILNITS items.</span>
+          <span>Offline: everything still works, and your progress is saved on this device.</span>
         </div>
       )}
 
@@ -120,7 +120,7 @@ const AppShell: React.FC = () => {
               Questions © PhilNITS
             </a>
             <span aria-hidden="true">•</span>
-            <span>© 2025</span>
+            <span>© {new Date().getFullYear()}</span>
           </div>
         </div>
       </footer>

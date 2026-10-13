@@ -801,3 +801,83 @@ body:has([role='dialog'][aria-modal='true']) .draw-fab {
     radial-gradient(120% 60% at 0% 0%, color-mix(in oklab, var(--color-primary) 9%, transparent), transparent 70%),
     var(--color-surface-container-low);
 }
+
+/* Long-form markdown (explanations). The app has no typography plugin, so `prose-*` utilities are no-ops:
+   give paragraphs, lists, rules and display math real rhythm here. */
+.md-flow > * + * { margin-top: 0.75em; }
+.md-flow p { margin: 0; }
+.md-flow h1, .md-flow h2, .md-flow h3, .md-flow h4 { font-weight: 700; color: var(--color-on-surface); line-height: 1.3; margin-top: 1.25em; }
+.md-flow h1 { font-size: 1.2em; } .md-flow h2 { font-size: 1.1em; } .md-flow h3, .md-flow h4 { font-size: 1em; }
+.md-flow ul, .md-flow ol { padding-left: 1.4em; }
+.md-flow ul { list-style: disc; } .md-flow ol { list-style: decimal; }
+.md-flow li + li { margin-top: 0.35em; }
+.md-flow li::marker { color: var(--color-primary); }
+.md-flow strong { color: var(--color-on-surface); font-weight: 700; }
+.md-flow a { color: var(--color-primary); text-decoration: underline; text-underline-offset: 3px; }
+.md-flow hr { border: 0; border-top: 1px solid color-mix(in oklab, var(--color-outline-variant) 60%, transparent); margin: 1.5em 0; }
+.md-flow blockquote { border-left: 2px solid var(--color-outline-variant); padding-left: 1em; color: var(--color-on-surface-variant); }
+.md-flow .katex-display { margin: 0.5em 0; overflow-x: auto; overflow-y: hidden; padding: 0.25em 0; }
+
+/* Metric (i) tips: 20px glyph, 44px touch target */
+.metric-info-btn::after {
+  content: '';
+  position: absolute;
+  inset: -12px;
+}
+.metric-info-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.metric-pop {
+  transform-origin: top center;
+  transition: opacity 140ms var(--ease-out), transform 140ms var(--ease-out);
+}
+.metric-pop[data-above='true'] {
+  transform-origin: bottom center;
+}
+@starting-style {
+  .metric-pop {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+.metric-sheet {
+  transition: transform 260ms var(--ease-drawer);
+}
+@starting-style {
+  .metric-sheet {
+    transform: translateY(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .metric-pop,
+    .metric-sheet {
+      transform: none;
+    }
+  }
+}
+
+/* "How sure are you?" reminder: one short nudge, no loop */
+@keyframes confidence-nudge {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+.confidence-warn {
+  animation: confidence-nudge 260ms var(--ease-out) 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .confidence-warn { animation: none; }
+}
+
+/* News: expanded change list fades in under its toggle */
+@keyframes news-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+.news-changes {
+  animation: news-reveal 200ms var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .news-changes { animation: none; }
+}

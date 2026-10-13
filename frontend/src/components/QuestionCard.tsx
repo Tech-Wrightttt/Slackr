@@ -50,7 +50,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   onSelectIndex,
   attemptStatusMap = {},
 }) => {
-  const { confidenceTracking, showTimer } = useStore();
+  const { confidenceTracking, requireConfidence, showTimer } = useStore();
   const setDrawKey = useStore((s) => s.setDrawKey);
 
   // The global draw overlay keeps one in-memory sketch per visible question
@@ -61,7 +61,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   useEffect(() => () => setDrawKey(null), [setDrawKey]);
 
   const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
-  const [confidence, setConfidence] = useState<number>(4);
+  // No default: the student must pick how sure they are (null = not rated yet)
+  const [confidence, setConfidence] = useState<number | null>(null);
+  const [confidenceWarn, setConfidenceWarn] = useState(false);
+  const confidenceRef = useRef<HTMLDivElement>(null);
   const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
   const [isCorrect, setIsCorrect] = useState<boolean>(false);
   const [schedule, setSchedule] = useState<SRScheduleRecord | null>(null);
@@ -82,7 +85,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   // Reset state when new question loads
   useEffect(() => {
     setSelectedChoice(null);
-    setConfidence(4);
+    setConfidence(null);
+    setConfidenceWarn(false);
     setIsSubmitted(false);
     setIsCorrect(false);
     setSchedule(null);
@@ -102,8 +106,20 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   }, [question.id]);
 
   // Handle choice submission
-  const handleSubmit = async () => {
+  const handleSubmit = async (skipConfidenceCheck = false) => {
     if (!selectedChoice || isSubmitted) return;
+
+    // Remind before revealing the answer; the rating must be given blind to count for calibration
+    if (!skipConfidenceCheck && confidenceTracking && requireConfidence && confidence === null) {
+      setConfidenceWarn(true);
+      // Short buzz on Android/installed PWAs; silently ignored where unsupported (iOS, desktop)
+      try {
+        navigator.vibrate?.(35);
+      } catch {}
+      confidenceRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      confidenceRef.current?.focus({ preventScroll: true });
+      return;
+    }
 
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     const finalTime = (Date.now() - startTimeRef.current) / 1000;
@@ -133,7 +149,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       selectedChoice,
       correct,
       finalTime,
-      confidenceTracking ? confidence : 3
+      // Unrated answers keep the neutral 3 the attempt log has always used
+      confidenceTracking ? confidence ?? 3 : 3
     );
 
     if (result && result.schedule) {
@@ -170,7 +187,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedChoice, isSubmitted, question]);
+  }, [selectedChoice, isSubmitted, question, confidence, confidenceTracking, requireConfidence]);
 
   const hasOptionsDict = question.options && Object.keys(question.options).length > 0;
   const choicesList = hasOptionsDict
@@ -211,7 +228,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container font-mono-code text-xs text-on-surface-variant">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="w-1.5 h-1.5 rounded-full bg-primary motion-safe:animate-pulse" aria-hidden="true" />
               {question.year} {question.season_title || question.season || 'Annual'}
             </span>
             <span className="text-on-surface-variant/40 font-mono-code text-xs">•</span>
@@ -240,8 +257,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             {/* Target Pace Pacer */}
             <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded bg-surface-container-low font-mono-code text-xs text-on-surface-variant border border-outline-variant/20">
               <span className="text-on-surface-variant/60">Pace:</span>
-              <span className="text-mastery-emerald font-body-bold">
-                {elapsedTime < 90 ? 'Optimal (+25s)' : elapsedTime < 150 ? 'On Track' : 'Caution'}
+              <span
+                className={`font-body-bold ${
+                  elapsedTime < 90 ? 'text-mastery-emerald' : elapsedTime < 150 ? 'text-confidence-amber' : 'text-error'
+                }`}
+              >
+                {elapsedTime < 90 ? 'On pace' : elapsedTime < 150 ? 'Slowing' : 'Over time'}
               </span>
             </div>
 
@@ -288,11 +309,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         {/* Left Column: Core Focus Canvas (Stem, Schematic, Choices, Action Bar) (8 cols / 65%) */}
         <div className="w-full lg:w-8/12 flex flex-col gap-4">
           {/* Metadata Tag Strip & Paper Subheader */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-surface-container font-mono-code text-xs text-secondary border border-outline-variant/20">
-              <span className="material-symbols-outlined text-[15px] text-primary">calendar_month</span>
-              {question.year} {question.season_title || question.season || 'Examination Paper'}
-            </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <div className="flex items-center gap-2">
               <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-widest">
                 Category:
@@ -329,18 +346,42 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               </div>
             )}
 
+            <p className="sr-only" aria-live="polite">
+              {isSubmitted
+                ? isCorrect
+                  ? 'Correct.'
+                  : `Incorrect. The correct answer is ${question.correct.toUpperCase()}.`
+                : ''}
+            </p>
+
             {/* Multiple Choice Options Matrix */}
             <div className="flex flex-col gap-3 pt-2">
               <div className="flex items-center justify-between">
-                <span className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">
-                  Select Candidate Answer
+                <span id={`choices-${question.id}`} className="font-label-caps text-xs text-on-surface-variant uppercase tracking-wider">
+                  Select your answer
                 </span>
                 <span className="font-mono-code text-on-surface-variant/70 text-xs hidden sm:inline">
                   Shortcut: Keys 1 to 4 or A to D
                 </span>
               </div>
 
-              <div className="flex flex-col gap-2.5">
+              {/* Radio group: Tab lands on the group, arrows move between choices, Enter/Space picks */}
+              <div
+                role="radiogroup"
+                aria-labelledby={`choices-${question.id}`}
+                aria-disabled={isSubmitted || undefined}
+                className="flex flex-col gap-2.5"
+                onKeyDown={(e) => {
+                  if (!['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+                  const radios = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[role="radio"]'));
+                  const i = radios.indexOf(document.activeElement as HTMLElement);
+                  if (i < 0) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const step = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1;
+                  radios[(i + step + radios.length) % radios.length].focus();
+                }}
+              >
                 {choicesList.map(([key, optText], idx) => {
                   const isSelected = selectedChoice === key;
                   const isChoiceCorrect =
@@ -367,8 +408,20 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   return (
                     <div
                       key={key}
+                      role="radio"
+                      aria-checked={isSelected}
+                      aria-disabled={isSubmitted || undefined}
+                      tabIndex={isSelected || (!selectedChoice && idx === 0) ? 0 : -1}
                       onClick={() => !isSubmitted && setSelectedChoice(key)}
-                      className={`group relative flex items-center gap-3 sm:gap-3.5 p-3 sm:p-3.5 rounded-xl cursor-pointer min-h-[48px] transition-all active:scale-[0.99] ${cardStyle}`}
+                      onKeyDown={(e) => {
+                        if (e.key !== ' ' && e.key !== 'Enter') return;
+                        // Space selects; Enter keeps its global "submit" meaning once something is selected
+                        if (e.key === 'Enter' && isSelected) return;
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!isSubmitted) setSelectedChoice(key);
+                      }}
+                      className={`group relative flex items-center gap-3 sm:gap-3.5 p-3 sm:p-3.5 rounded-xl cursor-pointer min-h-[48px] transition-all active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${cardStyle}`}
                     >
                       <div
                         className={`w-8 h-8 rounded flex items-center justify-center font-mono-code text-sm font-bold uppercase shrink-0 transition-colors ${
@@ -390,8 +443,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                             <MarkdownRenderer content={optText} className="prose-p:my-0 text-sm" />
                             {isChoiceCorrect && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-fixed-dim/20 text-primary-fixed font-label-caps text-[10px] uppercase tracking-wider shrink-0 w-fit">
-                                <span className="material-symbols-outlined text-[13px]">check_circle</span>
-                                Key Verified Answer
+                                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">check_circle</span>
+                                Correct answer
                               </span>
                             )}
                           </div>
@@ -400,15 +453,21 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                             <span>Option {key.toUpperCase()}</span>
                             {isChoiceCorrect && (
                               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-fixed-dim/20 text-primary-fixed font-label-caps text-[10px] uppercase tracking-wider shrink-0">
-                                <span className="material-symbols-outlined text-[13px]">check_circle</span>
-                                Key Verified Answer
+                                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">check_circle</span>
+                                Correct answer
                               </span>
                             )}
                           </div>
                         )}
                       </div>
 
-                      <span className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-surface-container font-mono-code text-[11px] text-on-surface-variant/60">
+                      {isChoiceWrong && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-error/15 font-label-caps text-[10px] uppercase tracking-wider shrink-0">
+                          <span className="material-symbols-outlined text-[13px]" aria-hidden="true">cancel</span>
+                          Your answer
+                        </span>
+                      )}
+                      <span className="hidden sm:inline-block px-1.5 py-0.5 rounded bg-surface-container font-mono-code text-[11px] text-on-surface-variant/60" aria-hidden="true">
                         [{idx + 1}]
                       </span>
                     </div>
@@ -419,24 +478,36 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
             {/* Confidence Calibration Strip */}
             {confidenceTracking && !isSubmitted && (
-              <div className="pt-2 flex flex-col gap-2">
+              <div
+                ref={confidenceRef}
+                tabIndex={-1}
+                className={`outline-none pt-2 flex flex-col gap-2 rounded-xl transition-shadow ${
+                  confidenceWarn ? 'confidence-warn ring-2 ring-confidence-amber/60 ring-offset-2 sm:ring-offset-4 ring-offset-surface-container-low' : ''
+                }`}
+              >
                 <div className="flex items-center justify-between text-on-surface-variant font-label-caps text-xs uppercase tracking-wider">
-                  <span>Metacognitive Calibration</span>
+                  <span id={`confidence-${question.id}`}>How sure are you?</span>
                   <span className="text-confidence-amber flex items-center gap-1 font-mono-code">
                     <span className="material-symbols-outlined text-[14px]">grade</span>
-                    Level {confidence}: {confidenceLevels.find((l) => l.value === confidence)?.label}
+                    {confidence === null
+                      ? 'Not rated yet'
+                      : `Level ${confidence}: ${confidenceLevels.find((l) => l.value === confidence)?.label}`}
                   </span>
                 </div>
 
-                <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+                <div role="group" aria-labelledby={`confidence-${question.id}`} className="grid grid-cols-5 gap-1 min-[400px]:gap-1.5 sm:gap-2">
                   {confidenceLevels.map((lvl) => {
                     const isSelected = confidence === lvl.value;
                     return (
                       <button
                         key={lvl.value}
                         type="button"
-                        onClick={() => setConfidence(lvl.value)}
-                        className={`py-2 px-1 rounded font-mono-code text-xs flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                        onClick={() => {
+                          setConfidence(lvl.value);
+                          setConfidenceWarn(false);
+                        }}
+                        aria-pressed={isSelected}
+                        className={`min-h-[48px] py-2 px-0.5 min-[400px]:px-1 rounded-lg font-mono-code text-xs flex flex-col items-center justify-center gap-1 transition-all cursor-pointer touch-manipulation ${
                           isSelected
                             ? 'bg-confidence-amber/20 text-confidence-amber font-body-bold shadow-[0_0_12px_rgba(245,158,11,0.2)] border border-confidence-amber/40 ring-1 ring-confidence-amber/30'
                             : 'bg-surface-container hover:bg-surface-container-high text-on-surface-variant border border-outline-variant/20'
@@ -445,11 +516,35 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                         <span className={`text-[10px] ${isSelected ? 'text-confidence-amber font-bold' : 'text-on-surface-variant/60'}`}>
                           {lvl.value}
                         </span>
-                        <span className="truncate text-[11px]">{lvl.label}</span>
+                        <span className="max-w-full truncate text-[10px] tracking-tight min-[400px]:text-[11px] min-[400px]:tracking-normal">{lvl.label}</span>
                       </button>
                     );
                   })}
                 </div>
+
+                {confidenceWarn && (
+                  <div
+                    role="alert"
+                    className="flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3 rounded-lg bg-confidence-amber/12 px-3 py-3 sm:py-2.5 text-[13px] sm:text-xs leading-relaxed text-on-surface"
+                  >
+                    <span className="flex items-start gap-2 flex-1">
+                      <span className="material-symbols-outlined text-[16px] text-confidence-amber mt-px" aria-hidden="true">
+                        priority_high
+                      </span>
+                      <span>
+                        <strong className="font-semibold">You haven&rsquo;t answered &ldquo;How sure are you?&rdquo;</strong> Pick a
+                        level before submitting so your calibration stays accurate.
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleSubmit(true)}
+                      className="press-scale self-stretch sm:self-auto min-h-[44px] px-3 rounded-lg border border-confidence-amber/30 sm:border-transparent font-semibold text-confidence-amber hover:bg-confidence-amber/15 whitespace-nowrap cursor-pointer"
+                    >
+                      Submit without rating
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -518,7 +613,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 {!isSubmitted ? (
                   <button
                     type="button"
-                    onClick={handleSubmit}
+                    onClick={() => handleSubmit()}
                     disabled={!selectedChoice}
                     className="px-5 py-2.5 min-h-[46px] rounded-lg bg-primary text-on-primary hover:bg-primary-fixed-dim font-body-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
@@ -548,7 +643,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 explanation={question.explanation}
                 schedule={schedule}
                 timeSeconds={elapsedTime}
-                confidence={confidenceTracking ? confidence : undefined}
+                confidence={confidenceTracking && confidence !== null ? confidence : undefined}
                 onNext={onNextQuestion}
                 hasNext={hasNext}
                 hideExplanation={hideAnswers ?? false}
