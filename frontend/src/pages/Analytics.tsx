@@ -5,6 +5,7 @@ import { db } from '../db';
 import type { AttemptRecord } from '../db/schema';
 import { Mascot } from '../components/Mascot';
 import { MetricInfo } from '../components/MetricInfo';
+import { RecentReports } from '../components/RecentReports';
 import { topicLabel, topicStyle } from '../services/topicColors';
 
 // Error-rate band colors shared by the heatmap cells and legend
@@ -168,6 +169,9 @@ export const Analytics: React.FC = () => {
           <span>Export Attempt Ledger (CSV)</span>
         </button>
       </div>
+
+      {/* Past after-session reports; each reopens in full */}
+      <RecentReports />
 
       {/* Top 3 KPI Telemetry Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

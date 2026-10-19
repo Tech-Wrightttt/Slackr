@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { QuestionsService, type ExamSession } from '../services/questionsService';
 import { StatsDbService } from '../services/statsDb';
 import { db } from '../db';
-import { QuestionCard } from '../components/QuestionCard';
+import { QuizSession } from '../components/QuizSession';
+import { ExamLaunchButton } from '../components/ExamLaunchButton';
+import { YearStatsPanel } from '../components/YearStatsPanel';
 import { AnalyticsEngine } from '../services/analyticsEngine';
 
 // Sitting length per paper: Subject A (FE-A) 90 min, Subject B (FE-B) 100 min; legacy AM/PM papers ran 150 min.
@@ -11,7 +13,7 @@ const paperMinutes = (sess: ExamSession) => {
   if (sess.paper === 'FE-B') return 100;
   return 150;
 };
-import type { QuestionData, SRScheduleRecord } from '../db/schema';
+import type { QuestionData } from '../db/schema';
 
 export const QuizByYear: React.FC = () => {
   const [years, setYears] = useState<string[]>([]);
@@ -42,6 +44,7 @@ export const QuizByYear: React.FC = () => {
   const [selectedSessionId, setSelectedSessionId] = useState<string>('all');
 
   // Track which session cards have "See all numbers" expanded
+  const [statsOpen, setStatsOpen] = useState(false);
   const [expandedSessionIds, setExpandedSessionIds] = useState<Set<string>>(new Set());
 
   // Attempt history status map: questionId -> { isCorrect: boolean }
@@ -51,13 +54,7 @@ export const QuizByYear: React.FC = () => {
   const [isQuizActive, setIsQuizActive] = useState<boolean>(false);
   const [questions, setQuestions] = useState<QuestionData[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [sessionCompleted, setSessionCompleted] = useState<boolean>(false);
 
-  const [sessionStats, setSessionStats] = useState<{
-    correct: number;
-    incorrect: number;
-    totalTime: number;
-  }>({ correct: 0, incorrect: 0, totalTime: 0 });
   const [loading, setLoading] = useState<boolean>(true);
 
   // Load years on mount
@@ -186,8 +183,6 @@ export const QuizByYear: React.FC = () => {
     if (!year) return;
     setSelectedSessionId(sessionId);
     setLoading(true);
-    setSessionCompleted(false);
-    setSessionStats({ correct: 0, incorrect: 0, totalTime: 0 });
 
     try {
       const qList = await QuestionsService.getQuestionsByYear(year, sessionId);
@@ -226,57 +221,6 @@ export const QuizByYear: React.FC = () => {
     } finally {
       setPickingRandom(false);
     }
-  };
-
-  const handleAnswerSubmitted = async (
-    questionId: string,
-    topic: string,
-    selectedAnswer: string,
-    isCorrect: boolean,
-    timeSeconds: number,
-    confidence: number
-  ): Promise<{ schedule: SRScheduleRecord }> => {
-    const res = await StatsDbService.recordAttempt(
-      questionId,
-      topic,
-      selectedAnswer,
-      isCorrect,
-      timeSeconds,
-      confidence
-    );
-
-    setAttemptStatusMap((prev) => ({
-      ...prev,
-      [questionId]: { isCorrect },
-    }));
-
-    setSessionStats((prev) => ({
-      correct: prev.correct + (isCorrect ? 1 : 0),
-      incorrect: prev.incorrect + (isCorrect ? 0 : 1),
-      totalTime: prev.totalTime + timeSeconds,
-    }));
-
-    return { schedule: res.schedule };
-  };
-
-  const handleNextQuestion = () => {
-    if (currentIndex + 1 < questions.length) {
-      setCurrentIndex((prev) => prev + 1);
-    } else {
-      setSessionCompleted(true);
-    }
-  };
-
-  const handlePrevQuestion = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex((prev) => prev - 1);
-    }
-  };
-
-  const handleRestartQuiz = () => {
-    setCurrentIndex(0);
-    setSessionCompleted(false);
-    setSessionStats({ correct: 0, incorrect: 0, totalTime: 0 });
   };
 
   // Helper to render question number buttons
@@ -327,114 +271,25 @@ export const QuizByYear: React.FC = () => {
 
   // View 1: Active Quiz Interface
   if (isQuizActive) {
-    const currentQ = questions[currentIndex];
     const activeSessionTitle =
       selectedSessionId === 'all'
         ? `Full ${selectedYear} Mock Exam`
         : yearSessions.find((s) => s.session_id === selectedSessionId)?.session_title || selectedYear;
 
-    if (sessionCompleted) {
-      const totalAnswered = sessionStats.correct + sessionStats.incorrect;
-      const accuracy = totalAnswered > 0 ? Math.round((sessionStats.correct / totalAnswered) * 100) : 0;
-
-      return (
-        <div className="max-w-3xl mx-auto px-4 py-12 text-center animate-in fade-in duration-300">
-          <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-8 shadow-2xl flex flex-col gap-6">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-mastery-emerald/15 text-mastery-emerald border border-mastery-emerald/30">
-              <span className="material-symbols-outlined text-4xl">emoji_events</span>
-            </div>
-
-            <div>
-              <span className="font-label-caps text-xs text-primary uppercase tracking-widest font-bold">
-                Simulation Finished
-              </span>
-              <h2 className="font-headline-md text-2xl sm:text-3xl font-bold text-on-surface mt-1">
-                Exam Session Complete
-              </h2>
-              <p className="mt-1 text-sm font-mono-code text-on-surface-variant">
-                Year {selectedYear} • {activeSessionTitle}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3 font-mono-code">
-              <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-4">
-                <span className="text-xs text-on-surface-variant uppercase">Accuracy</span>
-                <p className="mt-1 text-2xl font-bold text-mastery-emerald">{accuracy}%</p>
-              </div>
-              <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-4">
-                <span className="text-xs text-on-surface-variant uppercase">Score</span>
-                <p className="mt-1 text-2xl font-bold text-on-surface">
-                  {sessionStats.correct} / {totalAnswered}
-                </p>
-              </div>
-              <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-4">
-                <span className="text-xs text-on-surface-variant uppercase">Total Time</span>
-                <p className="mt-1 text-2xl font-bold text-interactive-sky">
-                  {Math.round(sessionStats.totalTime)}s
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-              <button
-                onClick={handleRestartQuiz}
-                className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary-fixed-dim px-6 py-3 text-sm font-body-bold text-on-primary shadow-lg transition-all active:scale-95 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">replay</span>
-                <span>Retry Session</span>
-              </button>
-              <button
-                onClick={() => setIsQuizActive(false)}
-                className="flex items-center gap-2 rounded-xl border border-outline-variant/30 bg-surface-container px-6 py-3 text-sm font-body-bold text-on-surface hover:bg-surface-container-high transition-all active:scale-95 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                <span>Choose Another Paper</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4">
-        {/* Top Back Action Bar */}
-        <div className="flex items-center justify-between pb-1 border-b border-outline-variant/20">
-          <button
-            onClick={() => setIsQuizActive(false)}
-            className="flex items-center gap-1.5 text-xs font-mono-code text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-            <span>Exit to Year Papers ({activeSessionTitle})</span>
-          </button>
-
-          <span className="font-mono-code text-xs text-on-surface-variant">
-            Question {currentIndex + 1} of {questions.length}
-          </span>
-        </div>
-
-        {currentQ ? (
-          <QuestionCard
-            question={currentQ}
-            questionNumber={currentIndex + 1}
-            totalQuestions={questions.length}
-            onAnswerSubmitted={handleAnswerSubmitted}
-            onNextQuestion={handleNextQuestion}
-            onPreviousQuestion={handlePrevQuestion}
-            onSkipQuestion={handleNextQuestion}
-            hasNext={currentIndex + 1 < questions.length}
-            hasPrevious={currentIndex > 0}
-            questions={questions}
-            currentIndex={currentIndex}
-            onSelectIndex={(idx) => setCurrentIndex(idx)}
-            attemptStatusMap={attemptStatusMap}
-          />
-        ) : (
-          <div className="py-20 text-center text-on-surface-variant font-mono-code text-sm">
-            No questions found for this selection.
-          </div>
-        )}
-      </div>
+      <QuizSession
+        key={`${selectedYear}:${selectedSessionId}`}
+        questions={questions}
+        initialIndex={currentIndex}
+        sessionType="year"
+        filterKey={`${selectedYear}:${selectedSessionId}`}
+        title={`${selectedYear} · ${activeSessionTitle}`}
+        exitLabel={`Exit to Year Papers (${activeSessionTitle})`}
+        onExit={() => setIsQuizActive(false)}
+        attemptStatusMap={attemptStatusMap}
+        onAttempt={(id, isCorrect) => setAttemptStatusMap((prev) => ({ ...prev, [id]: { isCorrect } }))}
+        withMockScore
+      />
     );
   }
 
@@ -473,8 +328,19 @@ export const QuizByYear: React.FC = () => {
           </span>
           <span>Random Paper</span>
         </button>
-        {/* Quick Metrics Ribbon */}
-        <div className="flex items-center gap-4 bg-surface-container-low p-3 rounded-xl border border-outline-variant/30 shadow-sm shrink-0">
+        {/* Quick Metrics Ribbon: opens the year's detailed progress */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3 bg-surface-container-low p-3 rounded-xl border border-outline-variant/30 shadow-sm min-w-0 sm:shrink-0">
+          <button
+            type="button"
+            onClick={() => setStatsOpen(true)}
+            disabled={!selectedYear}
+            className="press-scale flex w-full sm:w-auto justify-center min-h-[44px] items-center gap-1.5 rounded-lg bg-surface-container-high px-3 text-xs font-semibold text-on-surface hover:bg-surface-container-highest cursor-pointer"
+            title="Accuracy, repeat traps, weak topics, time and trend for this year"
+          >
+            <span className="material-symbols-outlined text-[16px] text-primary" aria-hidden="true">insights</span>
+            Year stats
+          </button>
+          <div className="hidden sm:block w-px h-8 bg-outline-variant/30" />
           <div className="flex flex-col px-2">
             <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">Year Accuracy</span>
             <span
@@ -486,14 +352,14 @@ export const QuizByYear: React.FC = () => {
               {yearAccuracy[selectedYear ?? ''] == null ? '—' : `${yearAccuracy[selectedYear ?? '']}%`}
             </span>
           </div>
-          <div className="w-px h-8 bg-outline-variant/30" />
+          <div className="hidden sm:block w-px h-8 bg-outline-variant/30" />
           <div className="flex flex-col px-2">
             <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">Questions Total</span>
             <span className="font-mono-timer text-sm text-on-surface font-bold">
               {yearCounts[selectedYear || '2024'] ? `${yearCounts[selectedYear || '2024']} Qs` : '160 Qs'}
             </span>
           </div>
-          <div className="w-px h-8 bg-outline-variant/30" />
+          <div className="hidden sm:block w-px h-8 bg-outline-variant/30" />
           <div className="flex flex-col px-2">
             <span className="font-label-caps text-[10px] text-on-surface-variant uppercase">Sim Mode</span>
             <span className="font-mono-timer text-sm text-interactive-sky font-bold">OFFLINE-STRICT</span>
@@ -780,7 +646,7 @@ export const QuizByYear: React.FC = () => {
                   </div>
 
                   <div className="mt-6 pt-4 border-t border-outline-variant/20 flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <button
                         type="button"
                         onClick={() => toggleExpandedSession(sess.session_id)}
@@ -793,14 +659,25 @@ export const QuizByYear: React.FC = () => {
                         </span>
                       </button>
 
-                      <button
-                        type="button"
-                        onClick={() => handleStartSession(sess.session_id, 0)}
-                        className="px-4 py-2 rounded-lg bg-surface-container-high hover:bg-primary-container text-on-surface hover:text-on-primary font-body-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                      >
-                        <span>Practice Session</span>
-                        <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
-                      </button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <ExamLaunchButton
+                          compact
+                          questions={sessionQuestions}
+                          setKey={`year:${sess.session_id}`}
+                          title={`${selectedYear} · ${sess.session_title}`}
+                          sessionType="year"
+                          filterKey={`${selectedYear}:${sess.session_id}`}
+                          minutes={paperMinutes(sess)}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleStartSession(sess.session_id, 0)}
+                          className="min-h-[36px] px-4 py-2 rounded-lg bg-surface-container-high hover:bg-primary-container text-on-surface hover:text-on-primary font-body-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
+                        >
+                          <span>Practice Session</span>
+                          <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+                        </button>
+                      </div>
                     </div>
 
                     {isExpanded && (
@@ -841,6 +718,14 @@ export const QuizByYear: React.FC = () => {
                     {allYearQuestions.length} Questions Verified
                   </span>
                 </div>
+                <ExamLaunchButton
+                  questions={allYearQuestions}
+                  setKey={`year:${selectedYear}:all`}
+                  title={`${selectedYear} full-year mock exam`}
+                  sessionType="year"
+                  filterKey={`${selectedYear}:all`}
+                  minutes={yearSessions.reduce((t, x) => t + paperMinutes(x), 0)}
+                />
                 <button
                   type="button"
                   onClick={() => handleStartSession('all', 0)}
@@ -883,6 +768,8 @@ export const QuizByYear: React.FC = () => {
           </div>
         </div>
       )}
+
+      {statsOpen && selectedYear && <YearStatsPanel year={selectedYear} onClose={() => setStatsOpen(false)} />}
     </div>
   );
 };

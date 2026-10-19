@@ -8,7 +8,8 @@ import { apiUrl } from '../config/env';
 import { convertPelnetsExport, isPelnetsExport } from './pelnetsImport';
 
 // Older builds mirrored these JSON blobs into the settings table; they live in their own block now
-const LEGACY_SETTING_KEYS = new Set(['learning_resources', 'analytical_breakdowns']);
+// Settings rows that never travel in a backup: old bundled data, and an exam running on this device
+const LEGACY_SETTING_KEYS = new Set(['learning_resources', 'analytical_breakdowns', 'exam_in_progress']);
 const VALID_ALGOS: SRAlgorithm[] = ['SM-2', 'FSRS', 'Custom'];
 
 export type ImportStrategy = 'merge' | 'replace';

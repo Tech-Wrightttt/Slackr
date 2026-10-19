@@ -12,6 +12,51 @@ if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
 from parsers.markdown_parser import parse_markdown_file, REGISTERED_TOPICS
+from parsers.question_classifier import classify_kind, weight_tier, load_overrides, repeat_groups
+
+
+def load_choice_map() -> dict:
+    """choice_map.json overlaid with choice_overrides.json (same shape; per-blank entries merge)."""
+    merged = {}
+    for name in ("choice_map.json", "choice_overrides.json"):
+        path = backend_dir / "data" / name
+        if not path.exists():
+            continue
+        for qid, entry in json.loads(path.read_text(encoding="utf-8")).items():
+            if qid.startswith("_"):
+                continue
+            current = merged.setdefault(qid, {})
+            if "choices" in entry:
+                current["choices"] = entry["choices"]
+            if "blanks" in entry:
+                current.setdefault("blanks", {}).update(entry["blanks"])
+    return merged
+
+
+def apply_choice_map(questions: dict) -> int:
+    """
+    Sets the exact letters on image-only questions: `fallback_choices` for a single answer, and
+    `choices` on each blank. Questions the map does not cover keep their estimated letters, with
+    `choices_exact` false. Returns how many questions got exact letters.
+    """
+    choice_map = load_choice_map()
+    count = 0
+    for qid, q in questions.items():
+        entry = choice_map.get(qid, {})
+        exact = bool(q["options"])
+        if not q["options"] and entry.get("choices"):
+            q["fallback_choices"] = entry["choices"]
+            exact = True
+        if q.get("blanks"):
+            letters = entry.get("blanks", {})
+            for b in q["blanks"]:
+                if b["label"] in letters:
+                    b["choices"] = letters[b["label"]]
+            exact = all("choices" in b for b in q["blanks"])
+        q["choices_exact"] = exact
+        if exact and not q["options"]:
+            count += 1
+    return count
 
 
 def generate_index():
@@ -95,6 +140,23 @@ def generate_index():
     # Convert to indexed dictionary
     questions = {q["id"]: q for q in parsed_list}
 
+    # Build-time labels: recall vs solving, mock-score weight tier, and repeats across exam years
+    overrides = load_overrides(backend_dir / "data" / "kind_overrides.json")
+    groups = repeat_groups(questions)
+    kind_counts = Counter()
+    for qid, q in questions.items():
+        q["kind"] = overrides.get(qid) or classify_kind(q)
+        q["weight_tier"] = weight_tier(q, q["kind"])
+        q["repeat_group"], q["repeat_count"] = groups[qid]
+        kind_counts[q["kind"]] += 1
+    frequent = sum(1 for q in questions.values() if q["repeat_count"] >= 2)
+    print(f"Kinds: {dict(kind_counts)} | frequently tested (2+ exam years): {frequent}")
+
+    # Exact choices for image-only questions, read from the official PDFs (build_choice_map.py),
+    # with hand fixes from choice_overrides.json on top
+    exact = apply_choice_map(questions)
+    print(f"Exact choices from the exam PDFs: {exact} image-only questions")
+
     # Format sessions grouped by year
     sessions_by_year = defaultdict(list)
     for sess_id, s_data in sessions_map.items():
@@ -174,7 +236,13 @@ def generate_index():
         "topics": sorted(list(topic_counts.keys())),
         "topic_counts": dict(topic_counts),
         "topic_subdecks": topic_subdecks,
-        "registered_topics": REGISTERED_TOPICS
+        "registered_topics": REGISTERED_TOPICS,
+        # Sizes of the ready-made question sets on Home
+        "set_counts": {
+            "frequent": frequent,
+            "recall": kind_counts["recall"],
+            "solving": kind_counts["solving"],
+        },
     }
     
     with open(backend_data_dir / "metadata_summary.json", "w", encoding="utf-8") as f:

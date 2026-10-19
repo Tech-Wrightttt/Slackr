@@ -20,6 +20,81 @@ export const UNRELEASED: Omit<Release, 'version'> | null = null;
 
 export const RELEASES: Release[] = [
   {
+    version: '2.0.0',
+    date: '2026-10-19',
+    title: 'Timed exams, session reports and exact afternoon choices',
+    summary:
+      'Take any set as a real timed exam, get a full report after every session, study with ready-made question sets, and answer Subject B and PM questions with exactly the choices printed in the official paper.',
+    highlights: [
+      'Exam mode: one timed attempt per set, forward-only, no feedback until the end, and it survives a refresh.',
+      'A full report after every session: score, estimated mock score out of 1000, slowest questions, switches and mistakes to review.',
+      'Exact choice letters for 982 picture-only questions, read from the official exam papers, blank by blank.',
+      'New sets: Frequently tested, Recall only, Solving only and a Mock paper.',
+    ],
+    changes: [
+      { area: 'Exam mode', type: 'new', text: '“Take as timed quiz” on year, topic and custom sets. A countdown runs for the whole set, matching the official paper length, and submits on its own at zero.' },
+      { area: 'Exam mode', type: 'new', text: 'Real exam rules: move forward only, no changing an answer after you move on, no feedback until the end, and skipped questions count as wrong.' },
+      { area: 'Exam mode', type: 'new', text: 'Flag questions during an exam. Pausing hides the question and stops the clock; turn on Strict Exams (No Pausing) in Profile to disable it.' },
+      { area: 'Exam mode', type: 'new', text: 'Each set can be taken as an exam once. Opening it again shows your result, and you can reset one set or all of them without losing your stats.' },
+      { area: 'Exam mode', type: 'new', text: 'An exam in progress is saved after every answer, so an accidental refresh or closed tab picks up where you left off.' },
+      { area: 'Exam mode', type: 'improved', text: 'Exam answers count in Analytics and spaced repetition like any other attempt, and are marked as exam answers.' },
+
+      { area: 'Session reports', type: 'new', text: 'Every practice set and exam ends in a report: accuracy over the whole set, total and average time, and skipped and flagged questions.' },
+      { area: 'Session reports', type: 'new', text: 'See your slowest and fastest questions, fast wrong answers marked as rushed, and answers you switched to or away from the right choice.' },
+      { area: 'Session reports', type: 'new', text: 'More stats per session: accuracy by topic, high-confidence mistakes, first half against second half, and how you did last time on the same set.' },
+      { area: 'Session reports', type: 'new', text: '“Review mistakes” starts a new set with the questions you got wrong or skipped. Past reports reopen from your recent sessions.' },
+      { area: 'Session reports', type: 'new', text: 'Estimated mock score out of 1000 next to the 600 pass line. PhilNITS does not publish its weights, so this is an estimate.' },
+      { area: 'Session reports', type: 'fixed', text: 'Scores now divide by every question in the set, not only the ones you answered, so skipping hard questions no longer raises your score.' },
+
+      { area: 'Question sets', type: 'new', text: 'Four ready-made sets on the dashboard: Frequently tested, Recall only, Solving only and a Mock paper that matches the real mix of question types.' },
+      { area: 'Question sets', type: 'new', text: 'Questions that come back across exam years show “Appeared in N exams”.' },
+      { area: 'Question sets', type: 'new', text: 'The Custom Builder can filter by question type (recall or solving) and by frequently tested questions, together with year and topic.' },
+
+      { area: 'Practice', type: 'new', text: 'Come back to a question you already answered in the set and you see your answer and the feedback, without a second attempt being saved.' },
+      { area: 'Practice', type: 'new', text: 'Quick toggles in the session header: One attempt (or a Try again button), and Shuffle choices with an order that stays put when you come back.' },
+      { area: 'Practice', type: 'new', text: 'Pause or stop the question timer. Pausing hides the question so it cannot be read ahead. A session timer adds up the whole set.' },
+      { area: 'Practice', type: 'new', text: 'Switching your pick three or more times before submitting shows a gentle hint to commit to your reasoning first.' },
+      { area: 'Practice', type: 'improved', text: 'Restyled answer states in both themes: the correct answer, your wrong pick and the other choices each have their own tint, border and icon.' },
+
+      { area: 'Afternoon & Subject B', type: 'fixed', text: 'Picture-only questions now show exactly the choice letters printed in the official exam paper, so no more missing or extra choices.' },
+      { area: 'Afternoon & Subject B', type: 'fixed', text: 'Questions with several blanks give each blank its own choices, for example a–j for blanks A to D and a–g for blank E.' },
+      { area: 'Afternoon & Subject B', type: 'fixed', text: 'Multi-blank answers like “A = c, B = e” are graded per blank instead of being impossible to mark right.' },
+      { area: 'Afternoon & Subject B', type: 'fixed', text: 'Choices that span several lines, contain bold text or sit on one line are read in full instead of being cut off.' },
+      { area: 'Afternoon & Subject B', type: 'improved', text: 'Questions whose answer key is only a picture let you check the answer and grade yourself.' },
+
+      { area: 'Drawing', type: 'new', text: 'Redo with Ctrl+Y or Ctrl+Shift+Z, plus a redo button next to undo.' },
+      { area: 'Drawing', type: 'new', text: 'Double-tap with a finger or pen to undo the last stroke.' },
+      { area: 'Drawing', type: 'new', text: 'Scribble over strokes to erase them. Undo brings them back, and Scribble to Erase can be turned off in Profile.' },
+
+      { area: 'Progress & analytics', type: 'new', text: 'Open any exam year for its own stats: accuracy and coverage per paper, repeat mistakes, weakest topics, time per question, high-confidence mistakes and your trend.' },
+
+      { area: 'Custom Builder', type: 'improved', text: 'Redesigned with pages of 25, 50 or 100 questions. Every filtered question is reachable, not only the first 100.' },
+      { area: 'Custom Builder', type: 'fixed', text: '“Select all” picks every filtered question, “Select page” picks the current page, and your selection stays when you change pages.' },
+      { area: 'Custom Builder', type: 'improved', text: 'The old “Show Answers” toggle now says what it does: reveal answers after each question.' },
+
+      { area: 'Offline & data', type: 'improved', text: 'Installed apps download the updated question bank automatically.' },
+
+      { area: 'Phones & tablets', type: 'improved', text: 'On Android phones and tablets, the session header, timer, report, Year stats and Custom Builder controls grow to a full thumb-sized target.' },
+      { area: 'Phones & tablets', type: 'fixed', text: 'Year Papers and Profile no longer scroll sideways on narrow phones.' },
+      { area: 'Look & feel', type: 'improved', text: 'The News page marks the version you are on with a glow and a sparkle.' },
+      { area: 'Look & feel', type: 'improved', text: 'Exam mode uses the slate teal reserved for time and pacing, from the launch button to the report tags.' },
+
+      { area: 'Navigation', type: 'new', text: 'A simpler top bar on computers: Dashboard, Practice, Review, Analytics and PhilNITS. The current page is underlined.' },
+      { area: 'Navigation', type: 'new', text: 'Practice opens a short menu with Year Papers, Topics, Combined and Custom Builder, each with a one-line description. It works with the keyboard too.' },
+      { area: 'Navigation', type: 'new', text: 'News moved to an icon that shows a dot until you read the latest release notes. Profile and settings sit behind the avatar.' },
+      { area: 'Navigation', type: 'improved', text: 'The phone and tablet menu groups the practice modes under one heading and has larger tap targets.' },
+      { area: 'Navigation', type: 'improved', text: 'The “Online · Saved locally” badge is gone. An Offline chip appears only when you lose your connection.' },
+
+      { area: 'About PhilNITS', type: 'new', text: 'New About PhilNITS page: what PhilNITS and ITPEC are, the two FE subjects, how to pass and retake, the fee, and where FE sits next to IP and AP.' },
+      { area: 'About PhilNITS', type: 'new', text: 'See the next exam day with a countdown, plus the dates listed on philnits.org.' },
+      { area: 'About PhilNITS', type: 'new', text: 'Every topic in the question bank with its question count. Tap one to practice it.' },
+
+      { area: 'Dashboard', type: 'improved', text: 'Syllabus Scope is replaced by a Next PhilNITS exam card that links to the About PhilNITS page.' },
+      { area: 'Dashboard', type: 'fixed', text: 'The Item Bank shows the real Subject A and Subject B question counts instead of fixed numbers.' },
+      { area: 'Look & feel', type: 'improved', text: 'Removed labels that said nothing useful: “FE / AP” next to the logo, the dashboard’s “PhilNITS FE / AP Engine” line, and the Pace chip on questions.' },
+    ],
+  },
+  {
     version: '1.1.0',
     date: '2026-10-14',
     title: 'Clearer analytics, honest numbers and better reviews',

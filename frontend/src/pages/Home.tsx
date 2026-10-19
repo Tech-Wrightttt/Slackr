@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { SET_INFO } from '../data/questionSets';
+import { daysLeftLabel, nextExam } from '../data/philnits';
 import { QuestionsService } from '../services/questionsService';
 import { StatsDbService } from '../services/statsDb';
 import { AnalyticsEngine, avgTimeOf, type DailyActivity } from '../services/analyticsEngine';
@@ -171,6 +173,14 @@ export const Home: React.FC = () => {
   const polygonStr = `10,95 ${polylineStr} ${sparkPoints[sparkPoints.length - 1].x},95`;
 
   const firstRun = attemptsLoaded && totalAttempts === 0;
+  // Item bank split by subject; older Morning (AM) papers count as Subject A, Afternoon (PM) as Subject B
+  const bankSplit = Object.values((meta?.sessions_by_year ?? {}) as Record<string, { paper: string; question_count: number }[]>)
+    .flat()
+    .reduce(
+      (acc, sess) => (sess.paper === 'FE-B' || sess.paper === 'PM' ? { ...acc, b: acc.b + sess.question_count } : { ...acc, a: acc.a + sess.question_count }),
+      { a: 0, b: 0 }
+    );
+  const upcoming = nextExam();
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-6 animate-in fade-in duration-200">
@@ -179,12 +189,6 @@ export const Home: React.FC = () => {
         <div className="flex items-center gap-3.5">
           <BrandLogo className="w-11 h-11 rounded-xl p-1 bg-surface-container-high border border-outline-variant/30 shrink-0" />
           <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block w-2 h-2 rounded-full bg-primary" />
-              <span className="font-mono-code text-xs text-on-surface-variant font-medium uppercase tracking-wider">
-                PHILNITS FE / AP Engine
-              </span>
-            </div>
             <h1 className="text-xl sm:text-2xl font-bold text-on-surface tracking-tight">
               Dashboard
             </h1>
@@ -238,6 +242,35 @@ export const Home: React.FC = () => {
         </div>
       </div>
 
+      {/* Ready-made question sets: one click starts a session */}
+      <section aria-labelledby="home-sets" className="flex flex-col gap-3">
+        <h2 id="home-sets" className="text-sm font-bold text-on-surface">Question sets</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {(['frequent', 'recall', 'solving', 'mock'] as const).map((kind) => {
+            const info = SET_INFO[kind];
+            const count = kind === 'mock' ? null : meta?.set_counts?.[kind];
+            return (
+              <Link
+                key={kind}
+                to={`/quiz/set/${kind}`}
+                className="press-scale group flex items-start gap-3 rounded-xl border border-outline-variant/25 bg-surface-container-low p-4 transition-colors hover:border-primary/40 hover:bg-surface-container"
+              >
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary" aria-hidden="true">
+                  <span className="material-symbols-outlined text-[20px]">{info.icon}</span>
+                </span>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="flex items-baseline gap-2">
+                    <span className="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">{info.title}</span>
+                    {count != null && <span className="font-mono-code text-xs text-on-surface-variant tabular-nums">{Number(count).toLocaleString()}</span>}
+                  </span>
+                  <span className="text-xs leading-snug text-on-surface-variant">{info.blurb}</span>
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
       {/* Minimalist Metric Cards */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Metric 1: Item Bank */}
@@ -255,8 +288,8 @@ export const Home: React.FC = () => {
               <CountUp to={meta?.total_questions || 3609} duration={1.2} separator="," />
             </div>
             <div className="text-xs text-on-surface-variant font-mono-code mt-1">
-              <span className="whitespace-nowrap">FE: 2,189</span> <span aria-hidden="true">•</span>{' '}
-              <span className="whitespace-nowrap">AP: 1,420</span>
+              <span className="whitespace-nowrap">Subject A {bankSplit.a.toLocaleString()}</span> <span aria-hidden="true">•</span>{' '}
+              <span className="whitespace-nowrap">Subject B {bankSplit.b.toLocaleString()}</span>
             </div>
           </div>
         </div>
@@ -605,39 +638,32 @@ export const Home: React.FC = () => {
 
         )}
 
-        {/* Syllabus Scope (4 cols) */}
-        <div className={`${firstRun ? 'lg:col-span-12' : 'lg:col-span-4'} rounded-xl bg-surface-container-low p-5 sm:p-6 border border-outline-variant/20 flex flex-col gap-4`}>
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-base text-on-surface">Syllabus Scope</h2>
-            <span className="font-mono text-xs text-primary uppercase">IPA Standard</span>
+        {/* Next exam (4 cols): format, dates and syllabus live on the About PhilNITS page */}
+        <Link
+          to="/philnits"
+          className={`${firstRun ? 'lg:col-span-12' : 'lg:col-span-4'} group rounded-xl bg-surface-container-low p-5 sm:p-6 border border-outline-variant/20 hover:border-tertiary/40 flex flex-col gap-4 transition-colors`}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-semibold text-base text-on-surface">Next PhilNITS exam</h2>
+            <span className="w-9 h-9 rounded-lg bg-tertiary/12 text-tertiary flex items-center justify-center" aria-hidden="true">
+              <span className="material-symbols-outlined text-[20px]">event</span>
+            </span>
           </div>
-
-          <div className={`grid gap-2 ${firstRun ? 'sm:grid-cols-2' : ''}`}>
-            {[
-              { name: 'Subject A', detail: '60 questions · 90 min', note: 'Multiple choice across technology, management and strategy' },
-              { name: 'Subject B', detail: '20 questions · 100 min', note: 'Algorithms, programming and information security problems' },
-            ].map((p) => (
-              <div key={p.name} className="p-3.5 rounded-xl bg-surface-container border border-outline-variant/20 flex flex-col gap-1">
-                <div className="flex items-center justify-between gap-3 text-xs font-mono font-bold text-on-surface">
-                  <span>{p.name}</span>
-                  <span className="text-primary whitespace-nowrap">{p.detail}</span>
-                </div>
-                <p className="text-[11px] font-mono-code text-on-surface-variant pt-0.5">{p.note}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-[11px] font-mono-code text-on-surface-variant">
-            Current PhilNITS FE format. Pass both subjects with at least 60% each.
-          </p>
-
-          <Link
-            to="/analytics"
-            className="w-full py-2 rounded-xl bg-surface-container hover:bg-surface-container-high text-on-surface font-semibold text-xs flex items-center justify-center gap-1.5 transition-all border border-outline-variant/20 shadow-sm"
-          >
-            <span className="material-symbols-outlined text-[15px] text-primary">assessment</span>
-            <span>Diagnostic Report</span>
-          </Link>
-        </div>
+          {upcoming ? (
+            <div className="flex flex-col gap-1">
+              <time dateTime={upcoming.iso} className="text-lg font-bold text-on-surface">
+                {upcoming.date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}
+              </time>
+              <span className="font-mono-code text-sm font-semibold text-tertiary">{daysLeftLabel(upcoming.daysLeft)}</span>
+            </div>
+          ) : (
+            <p className="text-sm text-on-surface-variant">Held every April and October.</p>
+          )}
+          <span className="mt-auto inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+            Exam format, dates and syllabus
+            <span className="material-symbols-outlined text-[18px] transition-transform group-hover:translate-x-0.5" aria-hidden="true">arrow_forward</span>
+          </span>
+        </Link>
       </section>
     </div>
   );

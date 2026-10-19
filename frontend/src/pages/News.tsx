@@ -1,5 +1,6 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { RELEASES, UNRELEASED, type Release } from '../data/releases';
+import { markNewsSeen } from '../services/newsSeen';
 
 type ChangeType = Release['changes'][number]['type'];
 type Entry = Omit<Release, 'version'> & { version?: string };
@@ -77,9 +78,9 @@ const ReleaseCard: React.FC<{ release: Entry; current: boolean }> = ({ release: 
             </span>
           )}
           {current && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/12 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true" />
-              You&rsquo;re on this
+            <span className="news-current-tag inline-flex items-center gap-1 rounded-full bg-primary/12 py-0.5 pl-1.5 pr-2.5 text-[11px] font-semibold text-primary">
+              <span className="news-sparkle material-symbols-outlined text-[15px]" aria-hidden="true">auto_awesome</span>
+              Your version
             </span>
           )}
           {!r.version && (
@@ -182,22 +183,21 @@ const ReleaseCard: React.FC<{ release: Entry; current: boolean }> = ({ release: 
 };
 
 export const News: React.FC = () => {
+  // Opening the page clears the navbar's unread dot
+  useEffect(() => {
+    markNewsSeen();
+  }, []);
+
   // Newest first: unreleased updates (if any) sit above the latest version
   const entries: Entry[] = [...(UNRELEASED && UNRELEASED.changes.length > 0 ? [UNRELEASED] : []), ...RELEASES];
 
   return (
     <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8 enter-rise">
-      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display-lg text-2xl sm:text-3xl font-bold tracking-tight text-on-surface">
-            What's new in SLACKR
-          </h1>
-          <p className="text-sm text-on-surface-variant mt-1">How SLACKR has grown, newest first.</p>
-        </div>
-        <span className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-full border border-outline-variant/30 bg-surface-container-low px-3 py-1 font-mono-code text-xs text-on-surface-variant">
-          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">deployed_code</span>
-          You're on v{__APP_VERSION__}
-        </span>
+      <header>
+        <h1 className="font-display-lg text-2xl sm:text-3xl font-bold tracking-tight text-on-surface">
+          What's new in SLACKR
+        </h1>
+        <p className="text-sm text-on-surface-variant mt-1">How SLACKR has grown, newest first.</p>
       </header>
 
       {entries.length === 0 ? (
@@ -218,7 +218,7 @@ export const News: React.FC = () => {
                 <span
                   aria-hidden="true"
                   className={`hidden sm:block absolute -left-8 top-6 w-[23px] h-[23px] rounded-full border-4 border-surface-container-lowest ${
-                    current ? 'bg-primary' : r.version ? 'bg-outline-variant' : 'bg-interactive-sky'
+                    current ? 'news-node-current bg-primary' : r.version ? 'bg-outline-variant' : 'bg-interactive-sky'
                   }`}
                 />
                 <ReleaseCard release={r} current={current} />

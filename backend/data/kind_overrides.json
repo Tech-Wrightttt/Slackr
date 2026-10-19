@@ -1,0 +1,4 @@
+{
+  "_comment": "Question id -> \"recall\" or \"solving\". Overrides the rules in parsers/question_classifier.py where they guess wrong.",
+  "2016S_FE_25": "recall"
+}

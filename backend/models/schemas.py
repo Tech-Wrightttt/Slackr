@@ -28,11 +28,19 @@ class QuestionDetail(BaseModel):
     fallback_choices: List[str] = Field(default_factory=list)
     correct: str
     correct_display: str
+    # Subject B / PM cards with several blanks: each blank's label and correct letter
+    blanks: List[Dict[str, str]] = Field(default_factory=list)
     explanation: str
     image_paths: List[str] = Field(default_factory=list)
     all_images: List[str] = Field(default_factory=list)
     is_image_based: bool
     created: Optional[str] = ""
+    # Build-time labels (scripts/generate_index.py)
+    kind: Optional[str] = None  # 'recall' | 'solving'
+    weight_tier: Optional[int] = None  # 1 light .. 3 heavy, for the estimated mock score
+    repeat_group: Optional[str] = None
+    repeat_count: int = 1  # distinct exam years this question (or a near copy) appeared in
+    choices_exact: Optional[bool] = None  # letters from the text or the exam PDF, not estimated
 
 
 class CustomQuestionsRequest(BaseModel):

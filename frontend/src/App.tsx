@@ -20,12 +20,16 @@ const QuizCustom = lazy(() => import('./pages/QuizCustom').then((m) => ({ defaul
 const QuizSpacedRepetition = lazy(() =>
   import('./pages/QuizSpacedRepetition').then((m) => ({ default: m.QuizSpacedRepetition }))
 );
+const QuizSet = lazy(() => import('./pages/QuizSet').then((m) => ({ default: m.QuizSet })));
+const QuizExam = lazy(() => import('./pages/QuizExam').then((m) => ({ default: m.QuizExam })));
+const SessionReportPage = lazy(() => import('./pages/SessionReportPage').then((m) => ({ default: m.SessionReportPage })));
 const Analytics = lazy(() => import('./pages/Analytics').then((m) => ({ default: m.Analytics })));
 const QuestionHistory = lazy(() =>
   import('./pages/QuestionHistory').then((m) => ({ default: m.QuestionHistory }))
 );
 const Profile = lazy(() => import('./pages/Profile').then((m) => ({ default: m.Profile })));
 const News = lazy(() => import('./pages/News').then((m) => ({ default: m.News })));
+const AboutPhilnits = lazy(() => import('./pages/AboutPhilnits').then((m) => ({ default: m.AboutPhilnits })));
 const NotFound = lazy(() => import('./pages/NotFound').then((m) => ({ default: m.NotFound })));
 const Terms = lazy(() => import('./pages/Legal').then((m) => ({ default: m.Terms })));
 const Privacy = lazy(() => import('./pages/Legal').then((m) => ({ default: m.Privacy })));
@@ -44,7 +48,7 @@ const LoadingFallback: React.FC = () => (
 );
 
 // App routes that open behind the launch sign-up prompt. Legal pages and unknown paths (404) skip it.
-const PROMPTED_ROUTE = /^\/($|quiz\/|analytics|history\/|profile|news|settings)/;
+const PROMPTED_ROUTE = /^\/($|quiz\/|analytics|history\/|report\/|profile|news|settings)/;
 const isKnownRoute = (path: string) => PROMPTED_ROUTE.test(path);
 
 // Main app chrome. Accounts are optional: guests and signed-in profiles see the same app.
@@ -95,12 +99,12 @@ const AppShell: React.FC = () => {
       <footer className="w-full bg-surface-container-low dark:bg-obsidian-surface-dim border-t border-outline-variant/20 py-5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-3 font-mono-code text-xs text-on-surface-variant text-center md:text-left">
           <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
-            <span className="font-label-caps text-primary uppercase font-bold">SLACKR CORE</span>
-            <span>PHILNITS FE / AP Academic Telemetry Engine</span>
+            <span className="font-label-caps text-primary uppercase font-bold">SLACKR</span>
+            <Link to="/philnits" className="hover:text-primary underline-offset-2 hover:underline">
+              Offline reviewer for the PhilNITS FE exam
+            </Link>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-[11px]">
-            <span>IndexedDB: Active</span>
-            <span aria-hidden="true">•</span>
             <Link to="/news" className="hover:text-primary underline-offset-2 hover:underline">
               v{__APP_VERSION__} (Offline-First)
             </Link>
@@ -175,10 +179,14 @@ export const App: React.FC = () => {
               <Route path="/quiz/combined" element={<QuizCombined />} />
               <Route path="/quiz/custom" element={<QuizCustom />} />
               <Route path="/quiz/srs" element={<QuizSpacedRepetition />} />
+              <Route path="/quiz/exam" element={<QuizExam />} />
+              <Route path="/quiz/set/:kind" element={<QuizSet />} />
+              <Route path="/report/:id" element={<SessionReportPage />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/history/:id" element={<QuestionHistory />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/news" element={<News />} />
+              <Route path="/philnits" element={<AboutPhilnits />} />
               <Route path="/legal/terms" element={<Terms />} />
               <Route path="/legal/privacy" element={<Privacy />} />
               <Route path="/settings" element={<Navigate to="/profile" replace />} />

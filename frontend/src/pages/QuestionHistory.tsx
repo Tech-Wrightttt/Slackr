@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { QuestionsService } from '../services/questionsService';
 import { StatsDbService } from '../services/statsDb';
 import { MarkdownRenderer } from '../components/MarkdownRenderer';
-import { QuestionCard } from '../components/QuestionCard';
+import { QuestionCard, type SubmittedAnswer } from '../components/QuestionCard';
 import { ZoomableImage } from '../components/ZoomableImage';
 import type { QuestionData, AttemptRecord, SRScheduleRecord } from '../db/schema';
 
@@ -36,22 +36,11 @@ export const QuestionHistory: React.FC = () => {
     loadData();
   }, [id]);
 
-  const handleAnswerSubmitted = async (
-    questionId: string,
-    topic: string,
-    selectedAnswer: string,
-    isCorrect: boolean,
-    timeSeconds: number,
-    confidence: number
-  ): Promise<{ schedule: SRScheduleRecord }> => {
-    const res = await StatsDbService.recordAttempt(
-      questionId,
-      topic,
-      selectedAnswer,
-      isCorrect,
-      timeSeconds,
-      confidence
-    );
+  const handleAnswerSubmitted = async (a: SubmittedAnswer): Promise<{ schedule: SRScheduleRecord }> => {
+    const res = await StatsDbService.recordAttempt(a.questionId, a.topic, a.selected, a.isCorrect, a.timeSeconds, a.confidence ?? 3, {
+      choiceSwitches: a.choiceSwitches,
+      mode: 'practice',
+    });
     await loadData();
     return { schedule: res.schedule };
   };
