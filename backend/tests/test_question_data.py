@@ -172,3 +172,31 @@ class TestAudit:
         assert "leftover_markdown" in audit_question({"options": {"a": "$x", "b": "y", "c": "z", "d": "w"}, "correct": "a"})
         assert audit_question({"options": {}, "is_image_based": True, "correct": "", "fallback_choices": list("abcdefgh"),
                                "blanks": [{"label": "A", "correct": "h"}]}) == []
+
+
+class TestContentOverrides:
+    """content_overrides.json: hand fixes for vault text and answer keys that are wrong upstream."""
+
+    def test_listed_fields_replace_parsed_values(self):
+        from scripts.generate_index import apply_content_overrides
+
+        qs = {
+            "2022S_FE_AM_1": {"question": "old", "correct": "a"},
+            "2024S_FE-A_27": {"explanation": "netstat", "correct": "b"},
+            "2024S_FE-A_35": {"correct": "![answer](/files/x.png)", "correct_display": "![answer](/files/x.png)"},
+        }
+        assert apply_content_overrides(qs) == 3
+        assert "$A \cdot B$" in qs["2022S_FE_AM_1"]["question"]
+        assert "brute force" in qs["2024S_FE-A_27"]["explanation"] and "netstat" not in qs["2024S_FE-A_27"]["explanation"]
+        # The answer key was a picture; it becomes a gradable letter
+        assert qs["2024S_FE-A_35"]["correct"] == "a" and qs["2024S_FE-A_35"]["correct_display"] == "a"
+        assert not any(k.startswith("_") for q in qs.values() for k in q)
+
+    def test_unknown_field_fails_the_build(self, tmp_path, monkeypatch):
+        import scripts.generate_index as gi
+
+        (tmp_path / "data").mkdir()
+        (tmp_path / "data" / "content_overrides.json").write_text('{"X": {"answer": "a"}}', encoding="utf-8")
+        monkeypatch.setattr(gi, "backend_dir", tmp_path)
+        with pytest.raises(ValueError, match="unknown fields"):
+            gi.apply_content_overrides({"X": {}})

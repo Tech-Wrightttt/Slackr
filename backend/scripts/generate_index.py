@@ -59,6 +59,34 @@ def apply_choice_map(questions: dict) -> int:
     return count
 
 
+CONTENT_FIELDS = {"question", "explanation", "correct", "correct_display"}
+
+
+def apply_content_overrides(questions: dict) -> int:
+    """
+    Hand fixes from content_overrides.json for vault text or answer keys that are wrong upstream.
+    Each listed field replaces the parsed value; keys starting with "_" are notes. Returns how many
+    questions changed. An unknown field fails the build so a typo can't silently do nothing.
+    """
+    path = backend_dir / "data" / "content_overrides.json"
+    if not path.exists():
+        return 0
+    count = 0
+    for qid, entry in json.loads(path.read_text(encoding="utf-8")).items():
+        if qid.startswith("_"):
+            continue
+        fields = {k: v for k, v in entry.items() if not k.startswith("_")}
+        unknown = set(fields) - CONTENT_FIELDS
+        if unknown:
+            raise ValueError(f"content_overrides.json: {qid} has unknown fields {sorted(unknown)}")
+        if qid not in questions:
+            print(f"Warning: content_overrides.json lists {qid}, which is not in the vault")
+            continue
+        questions[qid].update(fields)
+        count += 1
+    return count
+
+
 def generate_index():
     print("==================================================")
     print("SLACKR - Generating Questions Index & Asset Manifest")
@@ -139,6 +167,10 @@ def generate_index():
 
     # Convert to indexed dictionary
     questions = {q["id"]: q for q in parsed_list}
+
+    # Hand fixes for vault content that is wrong upstream (stems, explanations, answer keys)
+    fixed = apply_content_overrides(questions)
+    print(f"Content overrides applied: {fixed} questions")
 
     # Build-time labels: recall vs solving, mock-score weight tier, and repeats across exam years
     overrides = load_overrides(backend_dir / "data" / "kind_overrides.json")

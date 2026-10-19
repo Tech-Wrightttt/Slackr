@@ -3,6 +3,7 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { ZoomableImage } from './ZoomableImage';
+import { remarkLineBreaks } from './remarkLineBreaks';
 
 interface MarkdownRendererProps {
   content: string;
@@ -11,7 +12,7 @@ interface MarkdownRendererProps {
 
 // Must stay module-level: inline component functions get a new identity every render,
 // which makes React remount ZoomableImage and wipe its zoom/fullscreen state.
-const REMARK_PLUGINS = [remarkMath];
+const REMARK_PLUGINS = [remarkMath, remarkLineBreaks];
 const REHYPE_PLUGINS = [rehypeKatex];
 
 const COMPONENTS: Components = {

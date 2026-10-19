@@ -26,6 +26,7 @@ node_modules/
 # Inputs to generate_index.py (hand fixes + exact choices read from the exam PDFs)
 !backend/data/choice_map.json
 !backend/data/choice_overrides.json
+!backend/data/content_overrides.json
 !backend/data/kind_overrides.json
 # Question bank + sorting/catalog data the deployed app needs (no user data)
 !frontend/public/data/questions_index.json

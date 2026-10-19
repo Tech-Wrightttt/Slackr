@@ -582,6 +582,8 @@ def parse_markdown_file(file_path: Path) -> Optional[Dict[str, Any]]:
         
     cleaned_question_block = "\n".join(q_lines).strip()
     question_stem, options, is_image_based = parse_options_and_stem(cleaned_question_block)
+    # Some stems were pasted with the paper's own number ("Q8. There are..."); the card already shows it
+    question_stem = re.sub(r'^Q\s?\d+\.\s+', '', question_stem)
 
     # Collect images
     all_images = extract_image_paths(cleaned_question_block + "\n" + explanation)

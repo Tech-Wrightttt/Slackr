@@ -980,7 +980,7 @@ body:has([role='dialog'][aria-modal='true']) .draw-fab {
 /* Long-form markdown (explanations). The app has no typography plugin, so `prose-*` utilities are no-ops:
    give paragraphs, lists, rules and display math real rhythm here. */
 .md-flow > * + * { margin-top: 0.75em; }
-.md-flow p { margin: 0; }
+/* Paragraph margins come from `.md-flow > * + *` above; Tailwind preflight already zeroes the browser default */
 .md-flow h1, .md-flow h2, .md-flow h3, .md-flow h4 { font-weight: 700; color: var(--color-on-surface); line-height: 1.3; margin-top: 1.25em; }
 .md-flow h1 { font-size: 1.2em; } .md-flow h2 { font-size: 1.1em; } .md-flow h3, .md-flow h4 { font-size: 1em; }
 .md-flow ul, .md-flow ol { padding-left: 1.4em; }

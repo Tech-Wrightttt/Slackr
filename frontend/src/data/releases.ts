@@ -20,6 +20,27 @@ export const UNRELEASED: Omit<Release, 'version'> | null = null;
 
 export const RELEASES: Release[] = [
   {
+    version: '2.0.1',
+    date: '2026-10-19',
+    title: 'Fixes from your bug reports',
+    summary:
+      'Every report sent from the app was checked against the official ITPEC question and answer papers. This update fixes the ones 2.0.0 had not covered yet. Thank you for reporting them.',
+    highlights: [
+      'Lists and formulas in questions keep their own lines instead of running into one paragraph.',
+      'Three questions with wrong text, a wrong explanation or an unreadable answer key are corrected.',
+      'Stray “Q8.” labels are gone from the start of 217 questions.',
+    ],
+    changes: [
+      { area: 'Questions', type: 'fixed', text: 'Line breaks in questions, choices and explanations now show, so “(i) … (ii) …” lists and expressions on their own line no longer run together.' },
+      { area: 'Questions', type: 'fixed', text: 'Paragraphs in a question have space between them again.' },
+      { area: 'Questions', type: 'fixed', text: 'Removed the leftover question number (“Q8.”) that started 217 questions, since the card already shows it.' },
+
+      { area: 'Corrected questions', type: 'fixed', text: '2022 April Morning Q1: the question now says A·B is the AND operation, as in the official paper.' },
+      { area: 'Corrected questions', type: 'fixed', text: '2024 April Subject A Q27: replaced the explanation, which belonged to a different question, with one on brute force attacks.' },
+      { area: 'Corrected questions', type: 'fixed', text: '2024 April Subject A Q35: the answer key was a picture and could not be graded. It is now the official answer, a.' },
+    ],
+  },
+  {
     version: '2.0.0',
     date: '2026-10-19',
     title: 'Timed exams, session reports and exact afternoon choices',
