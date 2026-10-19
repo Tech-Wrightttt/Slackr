@@ -79,7 +79,7 @@ SLACKR is a two-layer system built around **offline-first** operation:
 
 ### Build-Time Question Labels
 
-`generate_index.py` adds fields the frontend only reads (rules in `backend/parsers/question_classifier.py`, manual fixes in `backend/data/kind_overrides.json`): `kind` (`recall` | `solving`), `weight_tier` (1-3, for the mock score), `repeat_group` / `repeat_count` (near-identical stems across exam years, via TF-IDF), and `blanks` (Subject B / PM cards answered per blank, e.g. `A=c, B=e`). Image-only questions take their exact letters from `choice_map.json` + `choice_overrides.json` (`fallback_choices` for one answer, `blanks[].choices` per blank); `choices_exact: false` marks the ones still estimated. `metadata_summary.json` carries `set_counts` for the Home question sets.
+`generate_index.py` adds fields the frontend only reads (rules in `backend/parsers/question_classifier.py`, manual fixes in `backend/data/kind_overrides.json`): `kind` (`recall` | `solving`), `weight_tier` (1-3, for the mock score), `repeat_group` / `repeat_count` (near-identical stems across exam years, via TF-IDF), and `blanks` (Subject B / PM cards answered per blank, e.g. `A=c, B=e`). Image-only questions take their exact letters from `choice_map.json` + `choice_overrides.json` (`fallback_choices` for one answer, `blanks[].choices` per blank); `choices_exact: false` marks the ones still estimated. Vault text or answer keys that are wrong upstream (checked against the official PDFs) are fixed in `backend/data/content_overrides.json` (`question`, `explanation`, `correct`, `correct_display` per id), applied before labelling; drop an entry once PelNETS fixes it. `metadata_summary.json` carries `set_counts` for the Home question sets.
 
 ### Question ID Format
 

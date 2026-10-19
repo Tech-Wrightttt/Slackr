@@ -493,7 +493,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 Q{question.number || questionNumber}
               </span>
               <div className="font-body-stem text-base sm:text-[17px] text-on-surface leading-relaxed flex-1 break-words">
-                {question.question && <MarkdownRenderer content={question.question} />}
+                {question.question && <MarkdownRenderer content={question.question} className="md-flow" />}
               </div>
             </div>
 

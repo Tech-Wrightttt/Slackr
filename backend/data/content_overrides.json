@@ -1,0 +1,19 @@
+{
+  "_comment": "Hand fixes for vault content that is wrong upstream (PelNETS), checked against the official ITPEC question and answer PDFs. Shape: {\"<id>\": {\"question\" | \"explanation\" | \"correct\" | \"correct_display\": \"...\", \"_why\": \"...\"}}. Each field replaces the parsed value; generate_index.py applies these before labelling and grading. Remove an entry once the vault is fixed upstream.",
+
+  "2022S_FE_AM_1": {
+    "_why": "Bug report #9. The stem said the AND operation is written as the answer expression; the official paper says A・B.",
+    "question": "For logical variables $A$ and $B$, which of the following is equivalent to the NOR operation on $A$ and $B$? Here, $A + B$, $A \\cdot B$, and $\\overline{A}$ are OR, AND, and NOT operations on the corresponding variables, respectively."
+  },
+
+  "2024S_FE-A_27": {
+    "_why": "Bug report #10. The vault explanation belongs to a netstat question. Official answer: b.",
+    "explanation": "### Explanation\n\nA **brute force attack** (exhaustive key search) tries every possible key, one after another. With a known pair of plaintext and ciphertext, the attacker encrypts the plaintext with each candidate key and stops when the result matches the ciphertext. It needs no weakness in the algorithm, only time, which is why longer keys are the defence: every extra bit doubles the number of keys to test.\n\n### Why the Others Won't Fit\n\n**a)** Watching how the ciphertext changes when the plaintext is changed by a fixed amount is **differential cryptanalysis**.\n\n**c)** Solving equations that describe how plaintext, ciphertext and key relate is an **algebraic attack**.\n\n**d)** Using a statistical correlation between bits of the plaintext and bits of the ciphertext is **linear cryptanalysis**.\n\n---\n\n# References\n- ITPEC FE Subject A, April 2024, Q27 (official answer: b)"
+  },
+
+  "2024S_FE-A_35": {
+    "_why": "Bug report #18. The vault stores the answer as a picture, so the app could not grade it. Official answer: a.",
+    "correct": "a",
+    "correct_display": "a"
+  }
+}
