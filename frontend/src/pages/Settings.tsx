@@ -5,6 +5,7 @@ import { StatsDbService } from '../services/statsDb';
 import { OfflineService } from '../services/offlineService';
 import type { SRAlgorithm } from '../services/srsEngine';
 import { db } from '../db';
+import { ExamService } from '../services/examService';
 import { isPelnetsExport } from '../services/pelnetsImport';
 
 export const Settings: React.FC = () => {
@@ -27,7 +28,25 @@ export const Settings: React.FC = () => {
     setInstallPrompt,
     offlineDownload,
     isOffline,
+    oneAttemptLimit,
+    shuffleChoices,
+    reviewShowsPreviousAnswer,
+    scribbleErase,
+    strictExam,
+    setPracticePref,
   } = useStore();
+  const [examLocks, setExamLocks] = useState<number | null>(null);
+  useEffect(() => {
+    db.examAttempts.count().then(setExamLocks);
+  }, []);
+  const handleResetExams = async () => {
+    if (!examLocks) return;
+    if (!confirm(`Reset all ${examLocks} exam attempt${examLocks === 1 ? '' : 's'}? Every set can be taken as an exam again. Your answer history and reports stay.`)) return;
+    await ExamService.resetAttempts();
+    setExamLocks(0);
+    setStatusNotification('Exam attempts reset. Every set can be taken again.');
+    setTimeout(() => setStatusNotification(null), 4000);
+  };
 
   const [storageUsage, setStorageUsage] = useState<{ usageMb: number; quotaMb: number }>({
     usageMb: 0,
@@ -139,7 +158,9 @@ export const Settings: React.FC = () => {
       db.topicStats.clear(),
       db.deferred.clear(),
       db.sessions.clear(),
+      db.examAttempts.clear(),
     ]);
+    setExamLocks(0);
     setShowResetModal(false);
     setStatusNotification('All user attempts and review schedules have been reset.');
     await loadStorageEstimate();
@@ -539,6 +560,98 @@ export const Settings: React.FC = () => {
               <option value={40}>40 Questions</option>
               <option value={80}>80 Questions (Full Paper)</option>
             </select>
+          </div>
+
+          <label className="flex items-center justify-between gap-4 cursor-pointer pt-3">
+            <div>
+              <div className="font-bold">One Attempt per Question</div>
+              <div className="text-on-surface-variant text-[11px]">
+                An answered question stays locked for the rest of the session. Off: a Try again button appears (a retry logs a new attempt).
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={oneAttemptLimit}
+              onChange={(e) => setPracticePref('oneAttemptLimit', e.target.checked)}
+              className="h-4 w-4 rounded accent-primary cursor-pointer"
+            />
+          </label>
+
+          <label className="flex items-center justify-between gap-4 cursor-pointer pt-3">
+            <div>
+              <div className="font-bold">Show My Answer When Going Back</div>
+              <div className="text-on-surface-variant text-[11px]">
+                Returning to an answered question shows your pick and the feedback instead of a blank card. Always on while One Attempt is on.
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={reviewShowsPreviousAnswer}
+              onChange={(e) => setPracticePref('reviewShowsPreviousAnswer', e.target.checked)}
+              className="h-4 w-4 rounded accent-primary cursor-pointer"
+            />
+          </label>
+
+          <label className="flex items-center justify-between gap-4 cursor-pointer pt-3">
+            <div>
+              <div className="font-bold">Shuffle Answer Choices</div>
+              <div className="text-on-surface-variant text-[11px]">
+                Random choice order per session that stays put when you go back. Choices like "all of the above" keep their order.
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={shuffleChoices}
+              onChange={(e) => setPracticePref('shuffleChoices', e.target.checked)}
+              className="h-4 w-4 rounded accent-primary cursor-pointer"
+            />
+          </label>
+
+          <label className="flex items-center justify-between gap-4 cursor-pointer pt-3">
+            <div>
+              <div className="font-bold">Scribble to Erase (Draw Mode)</div>
+              <div className="text-on-surface-variant text-[11px]">
+                A quick zigzag with the pen over your ink erases it. Turn off if you shade areas on purpose.
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={scribbleErase}
+              onChange={(e) => setPracticePref('scribbleErase', e.target.checked)}
+              className="h-4 w-4 rounded accent-primary cursor-pointer"
+            />
+          </label>
+
+          <label className="flex items-center justify-between gap-4 cursor-pointer pt-3">
+            <div>
+              <div className="font-bold">Strict Exams (No Pausing)</div>
+              <div className="text-on-surface-variant text-[11px]">
+                Timed exams cannot be paused, like the real sitting.
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={strictExam}
+              onChange={(e) => setPracticePref('strictExam', e.target.checked)}
+              className="h-4 w-4 rounded accent-primary cursor-pointer"
+            />
+          </label>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4 pt-3">
+            <div>
+              <div className="font-bold">Reset Exam Attempts</div>
+              <div className="text-on-surface-variant text-[11px]">
+                {examLocks ? `${examLocks} set${examLocks === 1 ? ' is' : 's are'} locked after an exam. Resetting unlocks them; history and reports stay.` : 'No sets are locked by a finished exam.'}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleResetExams}
+              disabled={!examLocks}
+              className="self-start sm:self-auto min-h-[36px] rounded-lg border border-outline-variant/30 bg-surface-container px-3 text-xs font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-40 cursor-pointer"
+            >
+              Reset all
+            </button>
           </div>
         </div>
       </div>

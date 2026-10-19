@@ -1,6 +1,7 @@
 import { db } from '../db';
 import type { AttemptRecord } from '../db/schema';
 import { QuestionsService } from './questionsService';
+import { computeYearDetail, type YearDetail } from './yearDetail';
 
 export interface ExamTypeBucket {
   totalAttempts: number;
@@ -699,5 +700,18 @@ export class AnalyticsEngine {
         accuracyPercent: attemptedAll > 0 ? Math.round((correctAll / attemptedAll) * 100) : 0,
       },
     };
+  }
+
+  /** Detailed progress for one exam year (the year stats panel); one query on that year's attempts */
+  static async getYearDetail(year: string): Promise<YearDetail> {
+    const questions = await QuestionsService.getQuestionsByYear(year, 'all');
+    const [attempts, topicStats] = await Promise.all([
+      db.attempts.where('questionId').anyOf(questions.map((q) => q.id)).toArray(),
+      db.topicStats.toArray(),
+    ]);
+    // Every year's average comes from the running topic totals, so no second scan of attempts
+    const totalTime = topicStats.reduce((s, t) => s + t.totalTimeSeconds, 0);
+    const totalAttempts = topicStats.reduce((s, t) => s + t.totalAttempts, 0);
+    return computeYearDetail(year, questions, attempts, totalAttempts ? totalTime / totalAttempts : null);
   }
 }

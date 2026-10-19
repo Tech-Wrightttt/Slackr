@@ -1,0 +1,3 @@
+{
+  "_comment": "Hand-checked choice letters for image-only questions the PDF reader cannot map (see build_choice_map.py --report). Same shape as choice_map.json: {\"<id>\": {\"choices\": [\"a\", ...]}} or {\"<id>\": {\"blanks\": {\"<blank label>\": [\"a\", ...]}}}. Applied on top of choice_map.json by generate_index.py."
+}

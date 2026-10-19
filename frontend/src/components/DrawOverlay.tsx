@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useStore } from '../store/useStore';
+import { boundsOf, isScribble, isTap, strokeTouchesBox, DOUBLE_TAP_MS, DOUBLE_TAP_PX } from './drawGestures';
 
 type Tool = 'pen' | 'highlighter' | 'eraser';
 
@@ -86,6 +87,7 @@ export const DrawOverlay: React.FC = () => {
   const drawMode = useStore((s) => s.drawMode);
   const setDrawMode = useStore((s) => s.setDrawMode);
   const theme = useStore((s) => s.theme);
+  const scribbleErase = useStore((s) => s.scribbleErase);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tool, setTool] = useState<Tool>('pen');
@@ -95,6 +97,12 @@ export const DrawOverlay: React.FC = () => {
   const bump = () => setVersion((v) => v + 1);
 
   const historyRef = useRef<Stroke[][]>([]);
+  // Snapshots undo stepped back from; any new change empties it (standard editor rule)
+  const redoRef = useRef<Stroke[][]>([]);
+  // Last touch/pen tap, so a second quick tap nearby undoes instead of drawing
+  const lastTapRef = useRef<{ at: number; x: number; y: number } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<number>(0);
   // Gesture state lives in refs: pointer events fire far too often for React state
   const g = useRef({
     mode: null as null | 'draw' | 'erase' | 'pan',
@@ -104,8 +112,11 @@ export const DrawOverlay: React.FC = () => {
     pointers: new Map<number, { x: number; y: number }>(),
     lastPan: { x: 0, y: 0 },
     penSeen: false,
+    downAt: 0,
+    pointerType: '' as string,
   });
   const frame = useRef(0);
+  const actionsRef = useRef({ undo: (): boolean => false, redo: () => {} });
 
   const strokes = () => (drawKey ? sketches.get(drawKey) ?? [] : []);
   const setStrokes = (next: Stroke[]) => {
@@ -167,8 +178,22 @@ export const DrawOverlay: React.FC = () => {
         setDrawMode(false);
         return;
       }
+      const target = e.target as HTMLElement | null;
+      if (target?.closest?.('input, textarea, [contenteditable="true"]')) return;
+      // Ctrl+Z undoes; Ctrl+Y or Ctrl+Shift+Z redoes (Cmd on macOS)
+      if (e.ctrlKey || e.metaKey) {
+        const key = e.key.toLowerCase();
+        const isRedo = key === 'y' || (key === 'z' && e.shiftKey);
+        if (isRedo || key === 'z') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (isRedo) actionsRef.current.redo();
+          else actionsRef.current.undo();
+          return;
+        }
+      }
       // Keys aimed at the tool bar or toggle still work (Enter/Space on a focused tool)
-      if ((e.target as HTMLElement | null)?.closest?.('[data-draw-ui]')) return;
+      if (target?.closest?.('[data-draw-ui]')) return;
       e.preventDefault();
       e.stopPropagation();
     };
@@ -176,18 +201,29 @@ export const DrawOverlay: React.FC = () => {
     return () => window.removeEventListener('keydown', onKey, { capture: true });
   }, [drawMode, setDrawMode]);
 
-  // New question: fresh undo history; ink color follows the theme
+  // New question: fresh undo and redo history; ink color follows the theme
   useEffect(() => {
     historyRef.current = [];
+    redoRef.current = [];
+    lastTapRef.current = null;
     bump();
   }, [drawKey]);
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
   useEffect(() => {
     paint();
   }, [theme, paint]);
 
+  // Every change goes through here: it snapshots for undo and drops the redo branch
   const pushHistory = () => {
     historyRef.current.push(strokes());
     if (historyRef.current.length > HISTORY_LIMIT) historyRef.current.shift();
+    redoRef.current = [];
+  };
+
+  const showToast = (text: string) => {
+    setToast(text);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 1200);
   };
 
   const centroid = () => {
@@ -235,6 +271,8 @@ export const DrawOverlay: React.FC = () => {
     e.currentTarget.setPointerCapture(e.pointerId);
     s.pointerId = e.pointerId;
     s.erasedThisGesture = false;
+    s.downAt = e.timeStamp;
+    s.pointerType = e.pointerType;
     if (tool === 'eraser') {
       s.mode = 'erase';
       eraseAt(e.clientX, e.clientY);
@@ -287,24 +325,75 @@ export const DrawOverlay: React.FC = () => {
     if (s.mode === 'draw' && s.current) {
       const cur = s.current;
       s.current = null;
-      if (!cancelled) {
-        pushHistory();
-        setStrokes([...strokes(), cur]);
-        bump();
-      }
+      if (!cancelled) commitStroke(cur, e.timeStamp);
       schedulePaint();
     }
     s.mode = null;
     s.pointerId = -1;
   };
 
+  const commitStroke = (cur: Stroke, upAt: number) => {
+    const s = g.current;
+    // Touch and pen: a second quick tap next to the first undoes, and neither tap leaves a dot
+    if (s.pointerType === 'touch' || s.pointerType === 'pen') {
+      if (isTap(upAt - s.downAt, cur.points)) {
+        const tap = { at: upAt, x: cur.points[0]!, y: cur.points[1]! };
+        const last = lastTapRef.current;
+        if (last && tap.at - last.at <= DOUBLE_TAP_MS && Math.hypot(tap.x - last.x, tap.y - last.y) <= DOUBLE_TAP_PX) {
+          lastTapRef.current = null;
+          // Drop the first tap's dot without making it redoable, then undo the stroke before it
+          const beforeDot = historyRef.current.pop();
+          if (beforeDot) setStrokes(beforeDot);
+          if (undo()) showToast('Undone');
+          else bump();
+          return;
+        }
+        lastTapRef.current = tap;
+      } else {
+        lastTapRef.current = null;
+      }
+    }
+
+    // Scribbling over ink with the pen erases what it covers; the scribble itself is dropped too
+    if (scribbleErase && cur.tool === 'pen' && isScribble(cur.points)) {
+      const box = boundsOf(cur.points);
+      const before = strokes();
+      const keep = before.filter((st) => !strokeTouchesBox(st.points, box, (st.size + cur.size) / 2));
+      if (keep.length < before.length) {
+        pushHistory();
+        setStrokes(keep);
+        bump();
+        showToast(`Erased ${before.length - keep.length}`);
+        return;
+      }
+    }
+
+    pushHistory();
+    setStrokes([...strokes(), cur]);
+    bump();
+  };
+
+  /** Returns false when there was nothing to undo */
   const undo = () => {
     const prev = historyRef.current.pop();
-    if (!prev) return;
+    if (!prev) return false;
+    redoRef.current.push(strokes());
     setStrokes(prev);
     schedulePaint();
     bump();
+    return true;
   };
+
+  const redo = () => {
+    const next = redoRef.current.pop();
+    if (!next) return;
+    historyRef.current.push(strokes());
+    setStrokes(next);
+    schedulePaint();
+    bump();
+  };
+  // The key handler is bound once per draw session; it reaches the latest undo/redo through here
+  actionsRef.current = { undo, redo };
 
   const clearAll = () => {
     if (!strokes().length) return;
@@ -318,6 +407,7 @@ export const DrawOverlay: React.FC = () => {
 
   const strokeCount = strokes().length;
   const canUndo = historyRef.current.length > 0;
+  const canRedo = redoRef.current.length > 0;
 
   return createPortal(
     <>
@@ -405,8 +495,25 @@ export const DrawOverlay: React.FC = () => {
 
           <span className="mx-0.5 hidden h-6 w-px shrink-0 bg-outline-variant/50 sm:block" aria-hidden="true" />
 
-          <button type="button" aria-label="Undo" title="Undo" disabled={!canUndo} onClick={undo} className="press-scale draw-tool">
+          <button
+            type="button"
+            aria-label="Undo"
+            title="Undo (Ctrl+Z, or double-tap with a finger or pen)"
+            disabled={!canUndo}
+            onClick={() => undo()}
+            className="press-scale draw-tool"
+          >
             <span className="material-symbols-outlined text-[20px]">undo</span>
+          </button>
+          <button
+            type="button"
+            aria-label="Redo"
+            title="Redo (Ctrl+Y or Ctrl+Shift+Z)"
+            disabled={!canRedo}
+            onClick={redo}
+            className="press-scale draw-tool"
+          >
+            <span className="material-symbols-outlined text-[20px]">redo</span>
           </button>
           <button
             type="button"
@@ -418,6 +525,15 @@ export const DrawOverlay: React.FC = () => {
           >
             <span className="material-symbols-outlined text-[20px]">delete_sweep</span>
           </button>
+        </div>
+      )}
+
+      {toast && (
+        <div
+          role="status"
+          className="draw-toast pointer-events-none fixed left-1/2 z-[9999] -translate-x-1/2 rounded-full bg-on-surface px-4 py-2 text-sm font-semibold text-surface shadow-lg"
+        >
+          {toast}
         </div>
       )}
 

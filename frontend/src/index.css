@@ -62,6 +62,12 @@
   --color-on-error: var(--color-on-error);
   --color-on-error-container: var(--color-on-error-container);
 
+  --color-success: var(--color-success);
+  --color-success-container: var(--color-success-container);
+  --color-on-success-container: var(--color-on-success-container);
+  --color-error-soft: var(--color-error-soft);
+  --color-on-error-soft: var(--color-on-error-soft);
+
   --font-mono-code: "JetBrains Mono", monospace;
   --font-mono-timer: "JetBrains Mono", monospace;
   --font-label-caps: "JetBrains Mono", monospace;
@@ -117,6 +123,13 @@
   --color-on-error: #ffffff;
   --color-on-error-container: #93000a;
 
+  /* Answer states: tinted containers whose text clears 4.5:1 (AA) */
+  --color-success: #047857;
+  --color-success-container: #d1fae5;
+  --color-on-success-container: #064e3b;
+  --color-error-soft: #ffdad6;
+  --color-on-error-soft: #8c0009;
+
   /* Status accents: deeper shades on paper so text and icons clear 4.5:1 on light surfaces */
   --color-mastery-emerald: #047857;
   --color-confidence-amber: #b45309;
@@ -168,6 +181,12 @@
   --color-error-container: #FEDAD6;
   --color-on-error: #690005;
   --color-on-error-container: #ffdad6;
+
+  --color-success: #34d399;
+  --color-success-container: #0b3b2c;
+  --color-on-success-container: #b7f5d8;
+  --color-error-soft: #45161a;
+  --color-on-error-soft: #ffd9d6;
 
   --color-mastery-emerald: #10B981;
   --color-confidence-amber: #F59E0B;
@@ -688,6 +707,75 @@ img {
   display: none;
 }
 
+/* Answer choices. The state sits in data-state; an icon and a label carry it too, never colour alone. */
+.choice {
+  border: 2px solid color-mix(in srgb, var(--color-outline-variant) 45%, transparent);
+  background: var(--color-surface-container-low);
+  color: var(--color-on-surface);
+  transition: background-color 150ms ease, border-color 150ms ease, opacity 150ms ease, transform 120ms var(--ease-out);
+}
+.choice[data-state='idle']:hover {
+  background: var(--color-surface-container);
+  border-color: var(--color-outline-variant);
+}
+.choice[data-state='selected'] {
+  border-color: var(--color-primary);
+  background: var(--color-surface-container-high);
+}
+.choice[data-state='correct'] {
+  border-color: var(--color-success);
+  background: var(--color-success-container);
+  color: var(--color-on-success-container);
+}
+.choice[data-state='wrong'] {
+  border-color: var(--color-error);
+  background: var(--color-error-soft);
+  color: var(--color-on-error-soft);
+}
+.choice[data-state='muted'] {
+  opacity: 0.6;
+}
+.choice-key {
+  background: var(--color-surface-container-high);
+  color: var(--color-on-surface);
+}
+.choice[data-state='selected'] .choice-key {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+}
+.choice[data-state='correct'] .choice-key {
+  background: var(--color-success);
+  color: var(--color-success-container);
+}
+.choice[data-state='wrong'] .choice-key {
+  background: var(--color-error);
+  color: var(--color-error-soft);
+}
+/* The brighter dark-theme red needs near-black text to keep the letter at 4.5:1 */
+.dark .choice[data-state='wrong'] .choice-key {
+  color: #2a0a0c;
+}
+.choice-tag {
+  border: 1px solid currentColor;
+}
+
+/* "Undone" / "Erased 2": a short note under the navbar, clear of the tool bar */
+.draw-toast {
+  top: calc(5rem + env(safe-area-inset-top, 0px));
+  animation: draw-toast-in 160ms var(--ease-out);
+}
+@keyframes draw-toast-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .draw-toast {
+    animation: none;
+  }
+}
+
 .draw-tool {
   display: inline-flex;
   flex-shrink: 0;
@@ -795,11 +883,98 @@ body:has([role='dialog'][aria-modal='true']) .draw-fab {
 }
 }
 
-/* News: the newest release sits on a soft wash of the brand green */
+/* Desktop navbar: the current section gets a short brand-green bar under its label */
+.nav-item[aria-current='page']::after,
+.nav-item[data-active]::after {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: -0.75rem;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--color-primary);
+}
+.nav-item:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+.practice-menu {
+  transform-origin: top left;
+  transition: opacity 140ms var(--ease-out), transform 140ms var(--ease-out);
+}
+@starting-style {
+  .practice-menu {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .practice-menu { transform: none; }
+  }
+}
+
+/* Compact controls stay compact with a mouse but grow to a 44px thumb target on touch screens (Android phones, tablets).
+   .tap grows the box; .tap-area keeps the look and extends the hit area (for switches). */
+@media (pointer: coarse) {
+  .tap {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .tap-area::after {
+    content: '';
+    position: absolute;
+    inset: -10px;
+  }
+}
+
+/* News: the version you're on sits on a wash of the brand green and breathes a soft green glow */
 .news-latest {
   background:
-    radial-gradient(120% 60% at 0% 0%, color-mix(in oklab, var(--color-primary) 9%, transparent), transparent 70%),
+    radial-gradient(120% 60% at 0% 0%, color-mix(in oklab, var(--color-primary) 12%, transparent), transparent 70%),
     var(--color-surface-container-low);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-primary) 22%, transparent),
+    0 10px 36px -14px color-mix(in oklab, var(--color-primary) 55%, transparent);
+  animation: news-glow 3.6s ease-in-out infinite alternate;
+}
+@keyframes news-glow {
+  to {
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--color-primary) 40%, transparent),
+      0 14px 48px -12px color-mix(in oklab, var(--color-primary) 75%, transparent);
+  }
+}
+/* Sparkle on the "Your version" tag: a short twinkle, then rest */
+.news-sparkle {
+  display: inline-block;
+  font-variation-settings: 'FILL' 1;
+  animation: news-twinkle 2.8s var(--ease-out) infinite;
+}
+@keyframes news-twinkle {
+  0%, 70%, 100% { transform: scale(1) rotate(0); opacity: 1; }
+  80% { transform: scale(1.3) rotate(18deg); opacity: 0.75; }
+  90% { transform: scale(0.9) rotate(-6deg); opacity: 1; }
+}
+/* Timeline node for the version you're on: a ring that ripples out */
+.news-node-current::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 2px solid var(--color-primary);
+  animation: news-ripple 2.4s var(--ease-out) infinite;
+}
+@keyframes news-ripple {
+  from { transform: scale(0.85); opacity: 0.7; }
+  to { transform: scale(1.9); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .news-latest,
+  .news-sparkle,
+  .news-node-current::after { animation: none; }
+  .news-node-current::after { opacity: 0.35; transform: none; }
 }
 
 /* Long-form markdown (explanations). The app has no typography plugin, so `prose-*` utilities are no-ops:

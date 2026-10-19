@@ -182,6 +182,18 @@ export default defineConfig(({ mode }) => {
       __APP_VERSION__: JSON.stringify(version),
     },
     plugins: [
+      // __APP_VERSION__ is read once at startup: restart the dev server when package.json changes (a version bump)
+      {
+        name: 'restart-on-version-bump',
+        apply: 'serve',
+        configureServer(server) {
+          const pkgPath = path.resolve(__dirname, 'package.json');
+          server.watcher.add(pkgPath);
+          server.watcher.on('change', (file) => {
+            if (path.resolve(file) === pkgPath) server.restart();
+          });
+        },
+      },
       serveDiagramFiles(),
       serveLearningResources(),
       serveAnalyticalBreakdowns(),

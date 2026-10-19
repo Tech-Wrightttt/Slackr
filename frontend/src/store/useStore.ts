@@ -34,6 +34,17 @@ interface AppState {
   autoAdvance: boolean;
   sessionLength: number;
   hideAnswersInCustomQuiz: boolean;
+  /** Practice: an answered question stays read-only; off shows "Try again" */
+  oneAttemptLimit: boolean;
+  /** Practice: show choices in a stable random order per session */
+  shuffleChoices: boolean;
+  /** Practice: going back to an answered question shows your answer and feedback */
+  reviewShowsPreviousAnswer: boolean;
+  /** Draw mode: a zigzag over strokes erases them */
+  scribbleErase: boolean;
+  /** Exam mode: no pausing */
+  strictExam: boolean;
+  setPracticePref: (key: PracticePrefKey, val: boolean) => void;
   installPrompt: any | null;
   /** Draw mode stays on across questions until the user turns it off */
   drawMode: boolean;
@@ -64,6 +75,29 @@ interface AppState {
   setHideAnswersInCustomQuiz: (val: boolean) => void;
   setInstallPrompt: (evt: any) => void;
 }
+
+export type PracticePrefKey = 'oneAttemptLimit' | 'shuffleChoices' | 'reviewShowsPreviousAnswer' | 'scribbleErase' | 'strictExam';
+
+const PRACTICE_PREF_DEFAULTS: Record<PracticePrefKey, boolean> = {
+  oneAttemptLimit: true,
+  shuffleChoices: false,
+  reviewShowsPreviousAnswer: true,
+  scribbleErase: true,
+  strictExam: false,
+};
+
+const prefStorageKey = (key: PracticePrefKey) => `slackr_pref_${key}`;
+
+const readPracticePrefs = () => {
+  const prefs = { ...PRACTICE_PREF_DEFAULTS };
+  for (const key of Object.keys(prefs) as PracticePrefKey[]) {
+    try {
+      const saved = localStorage.getItem(prefStorageKey(key));
+      if (saved === '1' || saved === '0') prefs[key] = saved === '1';
+    } catch {}
+  }
+  return prefs;
+};
 
 const getInitialTheme = (): ThemeMode => {
   if (typeof window !== 'undefined') {
@@ -124,6 +158,13 @@ export const useStore = create<AppState>((set, get) => ({
   autoAdvance: false,
   sessionLength: 20,
   hideAnswersInCustomQuiz: false,
+  ...readPracticePrefs(),
+  setPracticePref: (key, val) => {
+    try {
+      localStorage.setItem(prefStorageKey(key), val ? '1' : '0');
+    } catch {}
+    set({ [key]: val } as Pick<AppState, PracticePrefKey>);
+  },
   installPrompt: null,
   drawMode: false,
   setDrawMode: (on) => set({ drawMode: on }),

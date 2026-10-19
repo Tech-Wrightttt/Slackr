@@ -23,6 +23,10 @@ node_modules/
 !frontend/public/data/learning_resources.json
 !backend/data/analytical_breakdowns.json
 !backend/data/learning_resources.json
+# Inputs to generate_index.py (hand fixes + exact choices read from the exam PDFs)
+!backend/data/choice_map.json
+!backend/data/choice_overrides.json
+!backend/data/kind_overrides.json
 # Question bank + sorting/catalog data the deployed app needs (no user data)
 !frontend/public/data/questions_index.json
 !frontend/public/data/metadata_summary.json
@@ -39,3 +43,7 @@ backend/data/user_stats.json
 # Build
 dist/
 build/
+
+# Automated test reports (scripts/run_tests.py)
+test-reports/
+.coverage

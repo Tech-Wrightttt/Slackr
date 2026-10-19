@@ -217,7 +217,7 @@ export const Profile: React.FC = () => {
             </p>
           </div>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 [&>*]:min-w-0">
           {LEGAL_LINKS.map((l) => (
             <Link
               key={l.to}

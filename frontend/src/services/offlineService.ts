@@ -3,7 +3,7 @@ import { useStore, OFFLINE_STATE_KEY, type OfflinePhase } from '../store/useStor
 // Must stay in sync with public/sw.js
 export const OFFLINE_CACHES = {
   app: 'slackr-app-v7',
-  data: 'slackr-data-v2',
+  data: 'slackr-data-v3',
   images: 'slackr-images-v2',
   fonts: 'slackr-fonts-v1',
 } as const;

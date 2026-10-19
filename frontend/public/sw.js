@@ -1,6 +1,6 @@
 // Cache names must stay in sync with src/services/offlineService.ts (OFFLINE_CACHES)
 const APP_CACHE = 'slackr-app-v7';
-const DATA_CACHE = 'slackr-data-v2';
+const DATA_CACHE = 'slackr-data-v3';
 const IMAGE_CACHE = 'slackr-images-v2';
 const FONT_CACHE = 'slackr-fonts-v1';
 const KEEP_CACHES = [APP_CACHE, DATA_CACHE, IMAGE_CACHE, FONT_CACHE];

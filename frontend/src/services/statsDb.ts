@@ -1,5 +1,5 @@
 import { db } from '../db';
-import type { AttemptRecord, SRScheduleRecord, TopicStatRecord, DeferredRecord, SessionRecord } from '../db/schema';
+import type { AttemptRecord, SRScheduleRecord, TopicStatRecord, DeferredRecord, SessionRecord, QuizMode } from '../db/schema';
 import { SRSEngine, type SRAlgorithm } from './srsEngine';
 
 export class StatsDbService {
@@ -18,7 +18,8 @@ export class StatsDbService {
     selectedAnswer: string,
     isCorrect: boolean,
     timeSeconds: number,
-    confidence: number = 3
+    confidence: number = 3,
+    extra: { choiceSwitches?: number; mode?: QuizMode } = {}
   ): Promise<{ attempt: AttemptRecord; schedule: SRScheduleRecord }> {
     const nowIso = new Date().toISOString();
 
@@ -30,6 +31,8 @@ export class StatsDbService {
       timeSeconds: Math.round(timeSeconds * 10) / 10,
       confidence,
       timestamp: nowIso,
+      ...(extra.choiceSwitches ? { choiceSwitches: extra.choiceSwitches } : {}),
+      ...(extra.mode ? { mode: extra.mode } : {}),
     };
 
     // 1. Save attempt
@@ -158,6 +161,31 @@ export class StatsDbService {
       completedAt: new Date().toISOString(),
       isCompleted: true,
     });
+  }
+
+  /** Saves a finished session with its per-question log (the after-session report reads it back) */
+  static async saveCompletedSession(record: Omit<SessionRecord, 'id'>): Promise<number> {
+    return db.sessions.add(record as SessionRecord);
+  }
+
+  static getSession(id: number): Promise<SessionRecord | undefined> {
+    return db.sessions.get(id);
+  }
+
+  /** The latest finished session on the same set before this one, for the "vs last time" comparison */
+  static async getPreviousSession(record: Pick<SessionRecord, 'sessionType' | 'filterKey' | 'startedAt'>) {
+    const same = await db.sessions
+      .where('filterKey')
+      .equals(record.filterKey)
+      .filter((s) => s.sessionType === record.sessionType && s.isCompleted && !!s.log && s.startedAt < record.startedAt)
+      .toArray();
+    return same.sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0] ?? null;
+  }
+
+  /** Finished sessions that kept a report, newest first */
+  static async getRecentReports(limit = 20): Promise<SessionRecord[]> {
+    const rows = await db.sessions.orderBy('startedAt').reverse().filter((s) => s.isCompleted && !!s.log).limit(limit).toArray();
+    return rows;
   }
 
   static async getSessionsByFilter(sessionType?: string, filterKey?: string): Promise<SessionRecord[]> {

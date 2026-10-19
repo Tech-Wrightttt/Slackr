@@ -261,6 +261,41 @@ def parse_filename(filename: str) -> Dict[str, Any]:
     }
 
 
+# A whole line wrapped in bold or underscore emphasis: **a) text**
+BOLD_LINE = re.compile(r'^(\s*)(\*\*|__)(.*?)\2\s*$')
+
+
+def strip_line_emphasis(line: str) -> str:
+    """Drops bold that wraps a choice line, or that opens on one line and closes lines later."""
+    line = BOLD_LINE.sub(r'\1\3', line)
+    # Only the label in bold: **a)** text
+    line = re.sub(r'^(\s*)\*\*(\(?[a-hA-H][).])\*\*', r'\1\2', line)
+    if line.count('**') % 2 == 1:
+        if line.lstrip().startswith('**'):
+            line = line.replace('**', '', 1)
+        else:
+            line = re.sub(r'\*\*\s*$', '', line)
+    return line
+
+
+def split_inline_options(options: Dict[str, str]) -> Dict[str, str]:
+    """Splits choices written on one line, e.g. 'a) 12,000 b) 20,000 c) 21,000'."""
+    out: Dict[str, str] = {}
+    for key in sorted(options):
+        text = options[key]
+        current = key
+        while True:
+            nxt = chr(ord(current) + 1)
+            m = re.search(r'\s\(?' + nxt + r'\)\s+', text)
+            if not m or nxt in options:
+                break
+            out[current] = text[:m.start()].strip()
+            text = text[m.end():]
+            current = nxt
+        out[current] = text.strip()
+    return out
+
+
 def parse_options_and_stem(question_text: str) -> Tuple[str, Dict[str, str], bool]:
     """
     Parses options (e.g., a) ..., b) ...) from question text.
@@ -278,7 +313,8 @@ def parse_options_and_stem(question_text: str) -> Tuple[str, Dict[str, str], boo
     # or a. Option text
     # or (a) Option text
     # Choices can go from a to h (or even i/j for PM questions)
-    option_regex = re.compile(r'^\s*(?:\(?([a-hA-H])\)|\b([a-hA-H])\.)\s+(.+)$')
+    # The text may also start on the next line ("a)" alone, then SQL or a code block)
+    option_regex = re.compile(r'^\s*(?:\(?([a-hA-H])\)|\b([a-hA-H])\.)(?:\s+(.+))?\s*$')
     
     stem_lines = []
     option_lines_found = False
@@ -286,25 +322,32 @@ def parse_options_and_stem(question_text: str) -> Tuple[str, Dict[str, str], boo
     current_opt_text = []
 
     for line in lines:
-        m = option_regex.match(line)
+        # Some notes bold the choice lines: **a) text**, or ** opening on a) and closing on d)
+        m = option_regex.match(strip_line_emphasis(line))
         if m:
             option_lines_found = True
             if current_opt:
-                options[current_opt.lower()] = " ".join(current_opt_text).strip()
+                options[current_opt.lower()] = "\n".join(current_opt_text).strip()
             current_opt = m.group(1) or m.group(2)
-            current_opt_text = [m.group(3).strip()]
+            current_opt_text = [(m.group(3) or '').strip()]
         elif current_opt and line.strip() and not line.strip().startswith('#'):
-            # Continuation of option text if indented or wrapped
-            current_opt_text.append(line.strip())
+            # Continuation of a wrapped or multi-line choice (code, pseudocode, table rows): keep the
+            # line breaks so Markdown renders it as written
+            current_opt_text.append(strip_line_emphasis(line).rstrip())
         else:
             if current_opt:
-                options[current_opt.lower()] = " ".join(current_opt_text).strip()
+                options[current_opt.lower()] = "\n".join(current_opt_text).strip()
                 current_opt = None
                 current_opt_text = []
             stem_lines.append(line)
 
     if current_opt:
-        options[current_opt.lower()] = " ".join(current_opt_text).strip()
+        options[current_opt.lower()] = "\n".join(current_opt_text).strip()
+
+    options = split_inline_options(options)
+    # Bare "a)" ... "d)" lines under an image: the choices live in the picture
+    if options and not any(options.values()):
+        options = {}
 
     stem_text = "\n".join(stem_lines).strip()
     
@@ -372,6 +415,86 @@ def parse_answer(ans_raw_lines: List[str]) -> Tuple[str, str]:
         return m_loose.group(1).lower(), ans_line
 
     return ans_line.strip().lower(), ans_line
+
+
+ANSWER_MARKUP = re.compile(r'\*\*|__|`')
+SUBQUESTION_PREFIX = re.compile(r'^Sub-?question\s*(\d*)\s*:?\s*', re.IGNORECASE)
+SINGLE_CHOICE = re.compile(r'^(?:Answer\s*:\s*)?\(?([a-jA-J])(?:\)|\.|\s*$)')
+BARE_LETTER_LIST = re.compile(r'^[a-jA-J](?:\s*,\s*[a-jA-J])+$')
+# "A: c) text", "A=e", "1A: d) text", "2=e": a blank label, then the chosen letter
+LABELLED_BLANK = re.compile(r'(?<![\w\[])(\d?[A-Z]|\d)\s*[:=]\s*\(?([a-jA-J])(?:\)|(?=\s*(?:,|;|$)))')
+
+
+def _answer_line_pairs(line: str) -> Tuple[List[Tuple[str, str]], bool]:
+    """(label, letter) pairs on one answer line, and whether the line was a subquestion header only."""
+    text = ANSWER_MARKUP.sub('', line).strip().lstrip('-*').strip()
+    if not text:
+        return [], False
+    sq = None
+    m = SUBQUESTION_PREFIX.match(text)
+    if m:
+        sq = m.group(1)
+        text = text[m.end():].strip()
+        if not text:
+            return [], True
+    prefix = f"SQ{sq} " if sq else ""
+    m = SINGLE_CHOICE.match(text)
+    if m and sq:
+        # "Subquestion 3: a) text": one choice answers the whole subquestion
+        return [(f"SQ{sq}", m.group(1).lower())], False
+    if BARE_LETTER_LIST.match(text):
+        letters = [x.strip().lower() for x in text.split(',')]
+        return [(f"{prefix}{i + 1}", x) for i, x in enumerate(letters)], False
+    pairs = [(f"{prefix}{lbl}", letter.lower()) for lbl, letter in LABELLED_BLANK.findall(text)]
+    return pairs, False
+
+
+def parse_answer_block(ans_raw_lines: List[str]) -> Tuple[str, str, List[Dict[str, str]], int]:
+    """
+    Reads the answer at the top of the card back.
+    Returns (correct, correct_display, blanks, lines_used). `blanks` lists each blank's label and
+    letter when the card asks for several answers (Subject B / PM blanks), else it is empty.
+    """
+    start = next((i for i, line in enumerate(ans_raw_lines) if line.strip()), None)
+    if start is None:
+        return "", "", [], 0
+
+    first = ANSWER_MARKUP.sub('', ans_raw_lines[start]).strip().lstrip('|').strip()
+    # A single choice ("c) 14.0", "**Answer: C**") answers the whole card
+    single = None if SUBQUESTION_PREFIX.match(first) else SINGLE_CHOICE.match(first)
+    if single:
+        return single.group(1).lower(), ans_raw_lines[start].strip(), [], start + 1
+
+    # Otherwise collect blank answers line by line until the explanation starts
+    pairs: List[Tuple[str, str]] = []
+    used = start + 1
+    for i in range(start, len(ans_raw_lines)):
+        line = ans_raw_lines[i]
+        if re.match(r'^\s*(#{1,6}\s|---\s*$)', line):
+            break
+        if not line.strip():
+            continue
+        found, header = _answer_line_pairs(line)
+        if not found and not header:
+            break
+        pairs.extend(found)
+        used = i + 1
+
+    if len(pairs) >= 2:
+        seen: Dict[str, int] = {}
+        blanks = []
+        for label, letter in pairs:
+            seen[label] = seen.get(label, 0) + 1
+            blanks.append({"label": label if seen[label] == 1 else f"{label}#{seen[label]}", "correct": letter})
+        correct = ", ".join(f"{b['label']}={b['correct']}" for b in blanks)
+        display = "\n".join(line.strip() for line in ans_raw_lines[start:used] if line.strip())
+        return correct, display, blanks, used
+    if len(pairs) == 1:
+        display = "\n".join(line.strip() for line in ans_raw_lines[start:used] if line.strip())
+        return pairs[0][1], display, [], used
+
+    correct, display = parse_answer(ans_raw_lines[start:start + 1])
+    return correct, display, [], start + 1
 
 
 def clean_explanation(explanation_text: str) -> str:
@@ -445,19 +568,10 @@ def parse_markdown_file(file_path: Path) -> Optional[Dict[str, Any]]:
 
     # Split answer and explanation
     ans_lines = raw_ans_and_expl.splitlines()
-    correct, correct_display = parse_answer(ans_lines)
-    
-    # Locate where the explanation begins (usually after answer line or ### Explanation)
-    expl_lines = []
-    found_first_non_empty = False
-    for line in ans_lines:
-        if not found_first_non_empty:
-            if line.strip():
-                found_first_non_empty = True
-            continue
-        expl_lines.append(line)
-        
-    explanation = clean_explanation("\n".join(expl_lines))
+    correct, correct_display, blanks, answer_lines_used = parse_answer_block(ans_lines)
+
+    # The explanation starts after the answer line(s)
+    explanation = clean_explanation("\n".join(ans_lines[answer_lines_used:]))
 
     # Clean question stem: remove leading # QuestionID header
     q_lines = raw_question.splitlines()
@@ -475,12 +589,16 @@ def parse_markdown_file(file_path: Path) -> Optional[Dict[str, Any]]:
 
     # Determine fallback choices for questions where options are in diagrams or extended
     fallback_choices = ["a", "b", "c", "d"]
+    all_opts = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+    answer_letters = [b["correct"] for b in blanks] or ([correct] if len(correct) == 1 else [])
+    answer_letters = [x for x in answer_letters if x in all_opts]
     if options:
         fallback_choices = sorted(list(options.keys()))
-    elif correct and len(correct) == 1 and correct in 'abcdefghij':
-        # Ensure correct choice is included
-        max_letter = max('d', correct)
-        all_opts = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j']
+    elif answer_letters:
+        # Subject B / PM choices sit in the image and often run to g or h; AM papers use a-d.
+        # Always offer at least that range and never cut off the correct letter.
+        floor = 'h' if meta["paper"] in ("FE-B", "PM") else 'd'
+        max_letter = max([floor] + answer_letters)
         fallback_choices = all_opts[:all_opts.index(max_letter) + 1]
 
     # 3-Way Deck Sorting Subdecks: e.g. ["networking/2024", "hardware/2024"]
@@ -507,6 +625,7 @@ def parse_markdown_file(file_path: Path) -> Optional[Dict[str, Any]]:
         "fallback_choices": fallback_choices,
         "correct": correct,
         "correct_display": correct_display,
+        "blanks": blanks,
         "explanation": explanation,
         "image_paths": question_images,
         "all_images": all_images,

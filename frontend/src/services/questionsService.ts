@@ -233,4 +233,32 @@ export class QuestionsService {
     const list = ids.map((id) => all[id]).filter(Boolean);
     return this.sortQuestionsStrict(list);
   }
+
+  /** The questions for these ids, in the given order (exams and saved reports keep their order) */
+  static async getQuestionsInOrder(ids: string[]): Promise<QuestionData[]> {
+    const all = await this.loadAllQuestions();
+    return ids.map((id) => all[id]).filter((q): q is QuestionData => !!q);
+  }
+
+  /** Recall-only or solving-only questions, by the build-time `kind` label */
+  static filterByKind(questions: QuestionData[], kind: QuestionKindFilter): QuestionData[] {
+    return kind === 'all' ? questions : questions.filter((q) => q.kind === kind);
+  }
+
+  /** Questions asked (or nearly copied) in at least `minCount` exam years, most repeated first */
+  static filterFrequentlyTested(questions: QuestionData[], minCount = 2): QuestionData[] {
+    const frequent = questions.filter((q) => (q.repeat_count ?? 1) >= minCount);
+    const ordered = this.sortQuestionsStrict(frequent);
+    return ordered.sort((a, b) => (b.repeat_count ?? 1) - (a.repeat_count ?? 1));
+  }
+
+  static async getFrequentlyTested(minCount = 2): Promise<QuestionData[]> {
+    return this.filterFrequentlyTested(Object.values(await this.loadAllQuestions()), minCount);
+  }
+
+  static async getByKind(kind: Exclude<QuestionKindFilter, 'all'>): Promise<QuestionData[]> {
+    return this.sortQuestionsStrict(this.filterByKind(Object.values(await this.loadAllQuestions()), kind));
+  }
 }
+
+export type QuestionKindFilter = 'all' | 'recall' | 'solving';

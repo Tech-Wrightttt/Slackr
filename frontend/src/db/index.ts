@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import type { AttemptRecord, SRScheduleRecord, TopicStatRecord, SettingRecord, DeferredRecord, SessionRecord, AccountRecord, ReportRecord } from './schema';
+import type { AttemptRecord, SRScheduleRecord, TopicStatRecord, SettingRecord, DeferredRecord, SessionRecord, AccountRecord, ReportRecord, ExamAttemptRecord } from './schema';
 
 export class SlackrDatabase extends Dexie {
   attempts!: Table<AttemptRecord, number>;
@@ -10,6 +10,7 @@ export class SlackrDatabase extends Dexie {
   sessions!: Table<SessionRecord, number>;
   accounts!: Table<AccountRecord, string>;
   reports!: Table<ReportRecord, number>;
+  examAttempts!: Table<ExamAttemptRecord, number>;
 
   constructor(name = 'SlackrDB') {
     super(name);
@@ -41,6 +42,11 @@ export class SlackrDatabase extends Dexie {
     // Bug reports and content flags: an outbox that survives offline use until the report is sent
     this.version(6).stores({
       reports: '++id, &clientId, status, kind, questionId, createdAt',
+    });
+
+    // Exam mode: one finished exam per set; the unique setKey locks the set until it is reset
+    this.version(7).stores({
+      examAttempts: '++id, &setKey, completedAt',
     });
   }
 }

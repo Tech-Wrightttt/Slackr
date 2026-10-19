@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { QuestionsService } from '../services/questionsService';
-import { StatsDbService } from '../services/statsDb';
-import { QuestionCard } from '../components/QuestionCard';
-import type { QuestionData, SRScheduleRecord } from '../db/schema';
+import { QuizSession } from '../components/QuizSession';
+import { ExamLaunchButton } from '../components/ExamLaunchButton';
+import type { QuestionData } from '../db/schema';
 
 export const QuizCombined: React.FC = () => {
   const [years, setYears] = useState<string[]>([]);
@@ -12,13 +12,6 @@ export const QuizCombined: React.FC = () => {
 
   const [matchingQuestions, setMatchingQuestions] = useState<QuestionData[]>([]);
   const [isQuizActive, setIsQuizActive] = useState<boolean>(false);
-  const [currentIndex, setCurrentIndex] = useState<number>(0);
-  const [sessionCompleted, setSessionCompleted] = useState<boolean>(false);
-  const [sessionStats, setSessionStats] = useState<{
-    correct: number;
-    incorrect: number;
-    totalTime: number;
-  }>({ correct: 0, incorrect: 0, totalTime: 0 });
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -54,49 +47,6 @@ export const QuizCombined: React.FC = () => {
   const handleStartQuiz = () => {
     if (matchingQuestions.length === 0) return;
     setIsQuizActive(true);
-    setCurrentIndex(0);
-    setSessionCompleted(false);
-    setSessionStats({ correct: 0, incorrect: 0, totalTime: 0 });
-  };
-
-  const handleAnswerSubmitted = async (
-    questionId: string,
-    topic: string,
-    selectedAnswer: string,
-    isCorrect: boolean,
-    timeSeconds: number,
-    confidence: number
-  ): Promise<{ schedule: SRScheduleRecord }> => {
-    const res = await StatsDbService.recordAttempt(
-      questionId,
-      topic,
-      selectedAnswer,
-      isCorrect,
-      timeSeconds,
-      confidence
-    );
-
-    setSessionStats((prev) => ({
-      correct: prev.correct + (isCorrect ? 1 : 0),
-      incorrect: prev.incorrect + (isCorrect ? 0 : 1),
-      totalTime: prev.totalTime + timeSeconds,
-    }));
-
-    return { schedule: res.schedule };
-  };
-
-  const handleNextQuestion = () => {
-    if (currentIndex + 1 < matchingQuestions.length) {
-      setCurrentIndex((prev) => prev + 1);
-    } else {
-      setSessionCompleted(true);
-    }
-  };
-
-  const handleRestartQuiz = () => {
-    setCurrentIndex(0);
-    setSessionCompleted(false);
-    setSessionStats({ correct: 0, incorrect: 0, totalTime: 0 });
   };
 
   // View 1: Setup Matrix Filters
@@ -171,6 +121,14 @@ export const QuizCombined: React.FC = () => {
               </div>
             </div>
 
+            <div className="flex flex-wrap items-center gap-2">
+            <ExamLaunchButton
+              questions={matchingQuestions}
+              setKey={`combined:${selectedYear}:${selectedTopic}`}
+              title={`Year ${selectedYear} · #${selectedTopic}`}
+              sessionType="combined"
+              filterKey={`${selectedYear}:${selectedTopic}`}
+            />
             <button
               type="button"
               onClick={handleStartQuiz}
@@ -180,6 +138,7 @@ export const QuizCombined: React.FC = () => {
               <span className="material-symbols-outlined text-[18px]">play_arrow</span>
               <span>Launch Matrix Session ({matchingQuestions.length})</span>
             </button>
+            </div>
           </div>
         </div>
 
@@ -216,103 +175,15 @@ export const QuizCombined: React.FC = () => {
   }
 
   // View 2: Active Session Interface
-  const currentQ = matchingQuestions[currentIndex];
-
-  if (sessionCompleted) {
-    const totalAnswered = sessionStats.correct + sessionStats.incorrect;
-    const accuracy = totalAnswered > 0 ? Math.round((sessionStats.correct / totalAnswered) * 100) : 0;
-
-    return (
-      <div className="max-w-3xl mx-auto px-4 py-12 text-center animate-in fade-in duration-300">
-        <div className="rounded-2xl border border-outline-variant/30 bg-surface-container-low p-8 shadow-2xl flex flex-col gap-6">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-mastery-emerald/15 text-mastery-emerald border border-mastery-emerald/30">
-            <span className="material-symbols-outlined text-4xl">emoji_events</span>
-          </div>
-
-          <div>
-            <span className="font-label-caps text-xs text-primary uppercase tracking-widest font-bold">
-              Matrix Session Complete
-            </span>
-            <h2 className="font-headline-md text-2xl sm:text-3xl font-bold text-on-surface mt-1">
-              Year {selectedYear} • #{selectedTopic}
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-3 gap-3 font-mono-code">
-            <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-4">
-              <span className="text-xs text-on-surface-variant uppercase">Accuracy</span>
-              <p className="mt-1 text-2xl font-bold text-mastery-emerald">{accuracy}%</p>
-            </div>
-            <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-4">
-              <span className="text-xs text-on-surface-variant uppercase">Score</span>
-              <p className="mt-1 text-2xl font-bold text-on-surface">
-                {sessionStats.correct} / {totalAnswered}
-              </p>
-            </div>
-            <div className="rounded-xl border border-outline-variant/20 bg-surface-container p-4">
-              <span className="text-xs text-on-surface-variant uppercase">Total Time</span>
-              <p className="mt-1 text-2xl font-bold text-interactive-sky">
-                {Math.round(sessionStats.totalTime)}s
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-            <button
-              onClick={handleRestartQuiz}
-              className="flex items-center gap-2 rounded-xl bg-primary hover:bg-primary-fixed-dim px-6 py-3 text-sm font-body-bold text-on-primary shadow-lg transition-all active:scale-95 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">replay</span>
-              <span>Retry Staged Matrix</span>
-            </button>
-            <button
-              onClick={() => setIsQuizActive(false)}
-              className="flex items-center gap-2 rounded-xl border border-outline-variant/30 bg-surface-container px-6 py-3 text-sm font-body-bold text-on-surface hover:bg-surface-container-high transition-all active:scale-95 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">tune</span>
-              <span>Reconfigure Filters</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4">
-      <div className="flex items-center justify-between pb-1 border-b border-outline-variant/20">
-        <button
-          onClick={() => setIsQuizActive(false)}
-          className="flex items-center gap-1.5 text-xs font-mono-code text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer"
-        >
-          <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-          <span>Exit Matrix (Year {selectedYear} • #{selectedTopic})</span>
-        </button>
-        <span className="font-mono-code text-xs text-on-surface-variant">
-          Question {currentIndex + 1} of {matchingQuestions.length}
-        </span>
-      </div>
-
-      {currentQ ? (
-        <QuestionCard
-          question={currentQ}
-          questionNumber={currentIndex + 1}
-          totalQuestions={matchingQuestions.length}
-          onAnswerSubmitted={handleAnswerSubmitted}
-          onNextQuestion={handleNextQuestion}
-          onPreviousQuestion={() => currentIndex > 0 && setCurrentIndex((p) => p - 1)}
-          onSkipQuestion={handleNextQuestion}
-          hasNext={currentIndex + 1 < matchingQuestions.length}
-          hasPrevious={currentIndex > 0}
-          questions={matchingQuestions}
-          currentIndex={currentIndex}
-          onSelectIndex={(idx) => setCurrentIndex(idx)}
-        />
-      ) : (
-        <div className="py-20 text-center text-on-surface-variant font-mono-code text-sm">
-          No questions found for this intersection.
-        </div>
-      )}
-    </div>
+    <QuizSession
+      key={`${selectedYear}:${selectedTopic}`}
+      questions={matchingQuestions}
+      sessionType="combined"
+      filterKey={`${selectedYear}:${selectedTopic}`}
+      title={`Year ${selectedYear} · #${selectedTopic}`}
+      exitLabel={`Exit Matrix (Year ${selectedYear} • #${selectedTopic})`}
+      onExit={() => setIsQuizActive(false)}
+    />
   );
 };
