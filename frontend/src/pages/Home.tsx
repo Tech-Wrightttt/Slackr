@@ -13,6 +13,7 @@ import { ActivityCalendar } from '../components/ActivityCalendar';
 import { DailySetModal } from '../components/DailySetModal';
 import { CountUp } from '../components/reactbits';
 import { BrandLogo } from '../components/BrandLogo';
+import { OnlineNow } from '../components/OnlineNow';
 import { Mascot } from '../components/Mascot';
 import { StreakMark, streakLabel } from '../components/StreakMark';
 
@@ -240,6 +241,7 @@ export const Home: React.FC = () => {
               : 'Spaced repetition deck synchronized'}
           </span>
         </div>
+        <OnlineNow />
       </div>
 
       {/* Ready-made question sets: one click starts a session */}

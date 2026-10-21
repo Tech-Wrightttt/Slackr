@@ -16,6 +16,8 @@ interface ExamLaunchButtonProps {
   minutes?: number;
   className?: string;
   compact?: boolean;
+  /** Shorter text where space is tight (phones, two-up button rows) */
+  label?: string;
 }
 
 /** Builds the exam for a set and opens it. Cards that can only be self-graded are left out. */
@@ -43,6 +45,7 @@ export const ExamLaunchButton: React.FC<ExamLaunchButtonProps> = ({
   minutes,
   className = '',
   compact = false,
+  label = 'Take as timed exam',
 }) => {
   const navigate = useNavigate();
   const disabled = !load && !questions?.length;
@@ -63,7 +66,7 @@ export const ExamLaunchButton: React.FC<ExamLaunchButtonProps> = ({
       } ${className}`}
     >
       <span className="material-symbols-outlined text-[18px]" aria-hidden="true">timer</span>
-      Take as timed exam
+      {label}
     </button>
   );
 };

@@ -25,7 +25,18 @@ export class AccountApiError extends Error {
 
 const ENABLED_KEY = 'slackr_accounts_enabled';
 
-async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
+const FIELD_LABELS: Record<string, string> = { question_ids: 'Questions', title: 'Title', description: 'Description' };
+
+/** FastAPI's 422 list -> one readable line naming the field ("Questions: List should have at most 500 items...") */
+function validationMessage(detail: Array<{ loc?: unknown[]; msg?: string }>): string {
+  const first = detail[0];
+  if (!first?.msg) return 'Check the form and try again.';
+  const field = (first.loc ?? []).filter((p): p is string => typeof p === 'string' && p !== 'body').at(0);
+  return field ? `${FIELD_LABELS[field] ?? field}: ${first.msg}` : first.msg;
+}
+
+/** JSON call to SLACKR's own API with the session cookies; throws AccountApiError with the server's message. */
+export async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
     res = await fetch(apiUrl(path), {
@@ -40,7 +51,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   const payload = await res.json().catch(() => null);
   if (!res.ok) {
     const detail = payload?.detail;
-    const message = typeof detail === 'string' ? detail : Array.isArray(detail) ? 'Check the form and try again.' : 'Something went wrong.';
+    const message = typeof detail === 'string' ? detail : Array.isArray(detail) ? validationMessage(detail) : 'Something went wrong.';
     // 502/503/504 from a proxy with no backend behind it count as unreachable
     throw new AccountApiError(message, res.status >= 502 && !detail ? 0 : res.status);
   }

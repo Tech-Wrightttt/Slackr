@@ -317,10 +317,23 @@ class TestApiBranches:
         assert client.post("/api/account/signout", headers={"origin": "https://ok.example"}).status_code == 200
 
     def test_require_admin_open_locally(self, monkeypatch):
-        """Local mode without a token allows edits."""
+        """A bare local setup (no admin login, token or Supabase admin key) allows edits."""
         monkeypatch.setattr(main, "ADMIN_TOKEN", "")
         monkeypatch.setattr(main, "IS_HOSTED", False)
+        monkeypatch.setenv("SLACKR_ADMIN_PASSWORD_HASH", "")
+        monkeypatch.setenv("SUPABASE_ADMIN_KEY", "")
         assert main.require_admin(_FakeRequest({})) is None
+
+    def test_require_admin_closed_locally_once_admin_configured(self, monkeypatch):
+        """With an admin login configured, local edits need the admin session too."""
+        from routers import admin
+
+        monkeypatch.setattr(main, "ADMIN_TOKEN", "")
+        monkeypatch.setattr(main, "IS_HOSTED", False)
+        monkeypatch.setenv("SLACKR_ADMIN_PASSWORD_HASH", admin.hash_password("pw", iterations=1000))
+        with pytest.raises(HTTPException) as e:
+            main.require_admin(_FakeRequest({}))
+        assert e.value.status_code == 403
 
     def test_require_admin_hosted_without_token(self, monkeypatch):
         """Hosted mode without a token refuses edits."""
@@ -339,6 +352,19 @@ class TestApiBranches:
         else:
             with pytest.raises(HTTPException):
                 main.require_admin(_FakeRequest({"authorization": supplied}))
+
+    def test_require_admin_accepts_admin_session(self, monkeypatch):
+        """A signed admin console cookie allows edits even when hosted without a token."""
+        from routers import admin
+
+        monkeypatch.setenv("SLACKR_ADMIN_PASSWORD_HASH", admin.hash_password("pw", iterations=1000))
+        monkeypatch.setattr(main, "ADMIN_TOKEN", "")
+        monkeypatch.setattr(main, "IS_HOSTED", True)
+        expires = int(datetime.now().timestamp()) + 60
+        good = {admin.ADMIN_COOKIE: f"{expires}.{admin._sign(expires)}"}
+        assert main.require_admin(_FakeRequest({}, good)) is None
+        with pytest.raises(HTTPException):
+            main.require_admin(_FakeRequest({}, {admin.ADMIN_COOKIE: f"{expires}.forged"}))
 
     def test_hosted_blocks_personal_data(self, client, monkeypatch):
         """The hosted-mode middleware returns 503 for personal-data routes only."""
@@ -381,5 +407,6 @@ class TestApiStatements:
 
 
 class _FakeRequest:
-    def __init__(self, headers):
+    def __init__(self, headers, cookies=None):
         self.headers = headers
+        self.cookies = cookies or {}

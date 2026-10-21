@@ -33,6 +33,9 @@ router = APIRouter()
 
 ACCESS_COOKIE = "slackr_at"
 REFRESH_COOKIE = "slackr_rt"
+# Admin console session (routers/admin.py). Ends whenever someone signs in, up or out of an online account,
+# so the admin console never carries over to whoever uses the browser next.
+ADMIN_COOKIE = "slackr_admin"
 COOKIE_PATH = "/api"
 REFRESH_MAX_AGE = 60 * 60 * 24 * 30  # refresh tokens are rotated on use; this only bounds an idle device
 USERNAME_RE = r"^[A-Za-z0-9_.-]{3,24}$"
@@ -159,6 +162,10 @@ def _set_session(request: Request, response: Response, session: Dict[str, Any]) 
         )
 
 
+def _end_admin_session(response: Response) -> None:
+    response.delete_cookie(ADMIN_COOKIE, path=COOKIE_PATH)
+
+
 def _clear_session(response: Response) -> None:
     response.delete_cookie(ACCESS_COOKIE, path=COOKIE_PATH)
     response.delete_cookie(REFRESH_COOKIE, path=COOKIE_PATH)
@@ -261,6 +268,7 @@ def sign_up(body: SignUpBody, request: Request, response: Response):
     needs_confirmation = "access_token" not in res
     if not needs_confirmation:
         _set_session(request, response, res)
+    _end_admin_session(response)
     return {"user": _public_user(user, body.username), "needsConfirmation": needs_confirmation}
 
 
@@ -276,6 +284,7 @@ def sign_in(body: SignInBody, request: Request, response: Response):
     except SupabaseError as err:
         _fail(err)
     _set_session(request, response, session)
+    _end_admin_session(response)
     return {"user": _public_user(user, username)}
 
 
@@ -327,6 +336,7 @@ def sign_out(request: Request, response: Response):
         except SupabaseError:
             pass  # cookies are cleared either way
     _clear_session(response)
+    _end_admin_session(response)
     return {"ok": True}
 
 

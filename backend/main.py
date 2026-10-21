@@ -21,6 +21,9 @@ from models.schemas import (
 )
 from services.stats_service import StatsService
 from routers.account import router as account_router
+from routers.admin import router as admin_router, admin_login_configured, is_admin_session
+from routers.community import router as community_router
+from services.supabase_gateway import SupabaseError, gateway
 from services.analytics_service import AnalyticsService
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -77,6 +80,9 @@ app.add_middleware(
 # Accounts, study-data backup and bug reports (Supabase is called server-side only)
 app.state.allowed_origins = ALLOWED_ORIGINS
 app.include_router(account_router)
+# Shared playlists, online count, and the admin console
+app.include_router(community_router)
+app.include_router(admin_router)
 
 
 @app.middleware("http")
@@ -93,10 +99,16 @@ async def block_shared_personal_data(request: Request, call_next):
 
 
 def require_admin(request: Request) -> None:
-    """Content edits: open in local mode unless a token is configured; hosted mode always needs the token."""
+    """Content edits: the signed-in admin console, or the admin token. Nobody else.
+
+    Only a bare local setup (no admin login, no token, no Supabase admin key) stays open, so the
+    maintainer can edit the JSON files on their own machine before anything is configured.
+    """
+    if is_admin_session(request):
+        return
     if not ADMIN_TOKEN:
-        if IS_HOSTED:
-            raise HTTPException(status_code=403, detail="Editing is disabled on this deployment.")
+        if IS_HOSTED or admin_login_configured() or gateway.admin_key:
+            raise HTTPException(status_code=403, detail="Only the admin can edit this.")
         return
     supplied = request.headers.get("authorization", "").removeprefix("Bearer ").strip()
     if not hmac.compare_digest(supplied, ADMIN_TOKEN):
@@ -457,8 +469,35 @@ LEARNING_RESOURCES_PATH = DATA_DIR / "learning_resources.json"
 FRONTEND_LEARNING_RESOURCES_PATH = BASE_DIR / "../frontend/public/data/learning_resources.json"
 
 
+def read_public_content(key: str) -> Optional[Dict[str, Any]]:
+    """Admin-edited copy from Supabase (0004), or None to fall back to the bundled JSON file."""
+    if not gateway.configured:
+        return None
+    try:
+        return gateway.get_public_content(key)
+    except SupabaseError:
+        return None
+
+
+def save_public_content(key: str, payload: Dict[str, Any], *paths: Path) -> str:
+    """Hosted: Supabase (the filesystem is read-only). Local without Supabase: the JSON files."""
+    if gateway.configured and gateway.admin_key:
+        try:
+            gateway.admin_put_content(key, payload)
+        except SupabaseError as err:
+            raise HTTPException(status_code=err.status, detail=err.message)
+        return "Saved for everyone"
+    for path in paths:
+        if path.parent.exists():
+            write_json(path, payload)
+    return f"Saved to {paths[0].name}"
+
+
 @app.get("/api/learning-resources")
 def get_learning_resources():
+    published = read_public_content("learning_resources")
+    if published is not None:
+        return published
     if LEARNING_RESOURCES_PATH.exists():
         with open(LEARNING_RESOURCES_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -471,12 +510,10 @@ def get_learning_resources():
 @app.post("/api/learning-resources")
 def save_learning_resources(payload: Dict[str, Any], request: Request):
     require_admin(request)
-    write_json(LEARNING_RESOURCES_PATH, payload)
-
-    if FRONTEND_LEARNING_RESOURCES_PATH.parent.exists():
-        write_json(FRONTEND_LEARNING_RESOURCES_PATH, payload)
-
-    return {"status": "success", "message": "Saved to learning_resources.json"}
+    message = save_public_content(
+        "learning_resources", payload, LEARNING_RESOURCES_PATH, FRONTEND_LEARNING_RESOURCES_PATH
+    )
+    return {"status": "success", "message": message}
 
 
 # ==========================================
@@ -489,6 +526,9 @@ FRONTEND_ANALYTICAL_BREAKDOWNS_PATH = BASE_DIR / "../frontend/public/data/analyt
 
 @app.get("/api/analytical-breakdowns")
 def get_analytical_breakdowns():
+    published = read_public_content("analytical_breakdowns")
+    if published is not None:
+        return published
     if ANALYTICAL_BREAKDOWNS_PATH.exists():
         with open(ANALYTICAL_BREAKDOWNS_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -501,11 +541,9 @@ def get_analytical_breakdowns():
 @app.post("/api/analytical-breakdowns")
 def save_analytical_breakdowns(payload: Dict[str, Any], request: Request):
     require_admin(request)
-    write_json(ANALYTICAL_BREAKDOWNS_PATH, payload)
-
-    if FRONTEND_ANALYTICAL_BREAKDOWNS_PATH.parent.exists():
-        write_json(FRONTEND_ANALYTICAL_BREAKDOWNS_PATH, payload)
-
-    return {"status": "success", "message": "Saved to analytical_breakdowns.json"}
+    message = save_public_content(
+        "analytical_breakdowns", payload, ANALYTICAL_BREAKDOWNS_PATH, FRONTEND_ANALYTICAL_BREAKDOWNS_PATH
+    )
+    return {"status": "success", "message": message}
 
 

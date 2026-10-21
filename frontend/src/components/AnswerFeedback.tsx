@@ -11,6 +11,7 @@ import {
   AnalyticalBreakdownService,
   type AnalyticalStep,
 } from '../services/analyticalBreakdownService';
+import { useStore } from '../store/useStore';
 
 interface AnswerFeedbackProps {
   isCorrect: boolean;
@@ -63,6 +64,8 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
 
   // Analytical Steps State
   const [steps, setSteps] = useState<AnalyticalStep[]>([]);
+  // Breakdowns and resource links are public content: only the admin console session edits them
+  const isAdmin = useStore((st) => st.isAdmin);
   const [isEditingSteps, setIsEditingSteps] = useState(false);
   const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null);
   const [stepSaveStatus, setStepSaveStatus] = useState<string | null>(null);
@@ -457,7 +460,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                       </span>
                     )}
 
-                    {!isEditingSteps ? (
+                    {!isAdmin ? null : !isEditingSteps ? (
                       <button
                         type="button"
                         onClick={() => setIsEditingSteps(true)}
@@ -504,6 +507,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                   <div className="py-10 flex flex-col items-center gap-3 text-center text-on-surface-variant rounded-2xl border border-dashed border-outline-variant/40 bg-surface-container/40">
                     <span className="material-symbols-outlined text-3xl text-on-surface-variant/40">pending_actions</span>
                     <p className="font-mono-code text-xs text-on-surface-variant/70">No breakdown steps for this question yet.</p>
+                    {isAdmin && (
                     <button
                       type="button"
                       onClick={() => { setIsEditingSteps(true); handleAddStep(); }}
@@ -512,6 +516,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                     >
                       + Add First Step
                     </button>
+                    )}
                   </div>
                 )}
 
@@ -849,7 +854,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
             <div>
               <h3 className="text-base sm:text-lg font-bold text-on-surface">Related Learning Resources</h3>
               <p className="text-[11px] sm:text-xs font-mono-code text-on-surface-variant">
-                Editable study links &amp; tutorials • Saved in JSON
+                Study links &amp; tutorials for this question and topic
               </p>
             </div>
           </div>
@@ -861,6 +866,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                 <span>{resourceSaveStatus}</span>
               </span>
             )}
+            {isAdmin && (
             <button
               onClick={handleOpenAddResourceForm}
               className="w-full sm:w-auto min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-primary hover:bg-primary-fixed-dim text-on-primary font-semibold text-xs transition shadow-xs cursor-pointer"
@@ -869,6 +875,7 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
               <span className="material-symbols-outlined text-[16px]">add_link</span>
               <span>Add Resource Link</span>
             </button>
+            )}
           </div>
         </div>
 
@@ -995,6 +1002,8 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                 </a>
 
                 <div className="flex items-center gap-1 shrink-0 text-on-surface-variant">
+                  {isAdmin && (
+                    <>
                   <button
                     onClick={(e) => handleOpenEditResourceForm(res, e)}
                     className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center hover:text-on-surface hover:bg-surface-container-high rounded-lg transition cursor-pointer"
@@ -1011,6 +1020,8 @@ export const AnswerFeedback: React.FC<AnswerFeedbackProps> = ({
                   >
                     <span className="material-symbols-outlined text-[16px]">delete</span>
                   </button>
+                    </>
+                  )}
                   <a
                     className="p-2 min-w-[38px] min-h-[38px] flex items-center justify-center hover:text-primary hover:bg-surface-container-high rounded-lg transition"
                     href={res.url}

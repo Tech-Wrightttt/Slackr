@@ -48,6 +48,9 @@ def _friendly(status: int, body: Any) -> SupabaseError:
         return SupabaseError(429, "Too many attempts. Wait a minute and try again.", code)
     if code in ("weak_password",) or "password" in text:
         return SupabaseError(422, raw or "Password is too weak.", code)
+    if code == "PGRST202":
+        # The function isn't in the database yet: a migration (e.g. 0004) hasn't been run
+        return SupabaseError(503, "This feature isn't set up on the server yet.", code)
     if status in (401, 403):
         return SupabaseError(401, "Your session expired. Sign in again.", code)
     return SupabaseError(status if 400 <= status < 600 else 502, raw or "Account service error.", code)
@@ -201,6 +204,72 @@ class SupabaseGateway:
             # 23505: already stored by an earlier attempt whose response was lost
             if err.code != "23505":
                 raise
+
+    # ── Shared playlists, presence, public content (0004) ──────────────────
+
+    def _rpc(self, name: str, args: Dict[str, Any], token: Optional[str] = None) -> Any:
+        _, res = self._request("POST", f"/rest/v1/rpc/{name}", token=token, body=args)
+        return res
+
+    @property
+    def admin_key(self) -> str:
+        return os.environ.get("SUPABASE_ADMIN_KEY", "")
+
+    def create_playlist(self, access_token: str, title: str, description: str, ids: list, visibility: str) -> str:
+        return self._rpc(
+            "create_playlist",
+            {"p_title": title, "p_description": description, "p_ids": ids, "p_visibility": visibility},
+            token=access_token,
+        )
+
+    def delete_my_playlist(self, access_token: str, code: str) -> bool:
+        return bool(self._rpc("delete_my_playlist", {"p_code": code}, token=access_token))
+
+    def my_playlists(self, access_token: str) -> list:
+        return self._rpc("my_playlists", {}, token=access_token) or []
+
+    def playlist_by_code(self, code: str) -> Optional[Dict[str, Any]]:
+        rows = self._rpc("playlist_by_code", {"p_code": code}) or []
+        return rows[0] if rows else None
+
+    def public_playlists(self, limit: int = 60) -> list:
+        return self._rpc("public_playlists", {"p_limit": limit}) or []
+
+    def presence_ping(self, client_id: str, access_token: Optional[str] = None) -> Dict[str, Any]:
+        """{"online": count, "users": [usernames]}. Before migration 0006 the function returned just the count."""
+        res = self._rpc("presence_ping", {"p_client": client_id}, token=access_token)
+        if isinstance(res, dict):
+            return {"online": int(res.get("online") or 0), "users": [str(u) for u in res.get("users") or []]}
+        return {"online": int(res or 0), "users": []}
+
+    def presence_leave(self, client_id: str) -> None:
+        self._rpc("presence_leave", {"p_client": client_id})
+
+    def get_public_content(self, key: str) -> Optional[Dict[str, Any]]:
+        return self._rpc("get_public_content", {"p_key": key})
+
+    # Admin calls carry the admin key; the functions refuse without it
+    def admin_save_playlist(self, code: Optional[str], title: str, description: str, ids: list,
+                            visibility: str, featured: bool) -> str:
+        return self._rpc(
+            "admin_save_playlist",
+            {
+                "p_key": self.admin_key, "p_code": code, "p_title": title, "p_description": description,
+                "p_ids": ids, "p_visibility": visibility, "p_featured": featured,
+            },
+        )
+
+    def admin_list_playlists(self) -> list:
+        return self._rpc("admin_list_playlists", {"p_key": self.admin_key}) or []
+
+    def admin_delete_playlist(self, code: str) -> bool:
+        return bool(self._rpc("admin_delete_playlist", {"p_key": self.admin_key, "p_code": code}))
+
+    def admin_presence(self) -> list:
+        return self._rpc("admin_presence", {"p_key": self.admin_key}) or []
+
+    def admin_put_content(self, key: str, data: Dict[str, Any]) -> None:
+        self._rpc("admin_put_content", {"p_key": self.admin_key, "p_content_key": key, "p_data": data})
 
 
 gateway = SupabaseGateway()
