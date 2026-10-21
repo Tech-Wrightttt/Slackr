@@ -7,6 +7,8 @@ import { StatsDbService } from './services/statsDb';
 import { AuthService } from './services/authService';
 import { ReportService } from './services/reportService';
 import { CloudSync } from './services/cloudSync';
+import { Presence, useOnlineCount } from './services/presence';
+import { AdminApi } from './services/communityApi';
 import type { SRAlgorithm } from './services/srsEngine';
 import { WifiOff } from 'lucide-react';
 import { Mascot } from './components/Mascot';
@@ -20,6 +22,7 @@ const QuizCustom = lazy(() => import('./pages/QuizCustom').then((m) => ({ defaul
 const QuizSpacedRepetition = lazy(() =>
   import('./pages/QuizSpacedRepetition').then((m) => ({ default: m.QuizSpacedRepetition }))
 );
+const QuizPlaylists = lazy(() => import('./pages/QuizPlaylists').then((m) => ({ default: m.QuizPlaylists })));
 const QuizSet = lazy(() => import('./pages/QuizSet').then((m) => ({ default: m.QuizSet })));
 const QuizExam = lazy(() => import('./pages/QuizExam').then((m) => ({ default: m.QuizExam })));
 const SessionReportPage = lazy(() => import('./pages/SessionReportPage').then((m) => ({ default: m.SessionReportPage })));
@@ -37,6 +40,19 @@ const SignIn = lazy(() => import('./pages/Auth').then((m) => ({ default: m.SignI
 const SignUp = lazy(() => import('./pages/Auth').then((m) => ({ default: m.SignUp })));
 const ForgotPassword = lazy(() => import('./pages/PasswordReset').then((m) => ({ default: m.ForgotPassword })));
 const ResetPassword = lazy(() => import('./pages/PasswordReset').then((m) => ({ default: m.ResetPassword })));
+const Admin = lazy(() => import('./pages/Admin').then((m) => ({ default: m.Admin })));
+
+/** Footer badge: how many people have SLACKR open right now (hidden offline or without a backend) */
+const OnlineCount: React.FC = () => {
+  const online = useOnlineCount();
+  if (online === null) return null;
+  return (
+    <span className="inline-flex items-center gap-1.5" title="Open tabs seen in the last 2 minutes">
+      <span className="h-1.5 w-1.5 rounded-full bg-mastery-emerald motion-safe:animate-pulse" aria-hidden="true" />
+      {online.toLocaleString()} online now
+    </span>
+  );
+};
 
 const LoadingFallback: React.FC = () => (
   <div className="flex min-h-[60vh] items-center justify-center text-on-surface-variant">
@@ -125,6 +141,7 @@ const AppShell: React.FC = () => {
             </a>
             <span aria-hidden="true">•</span>
             <span>© {new Date().getFullYear()}</span>
+            <OnlineCount />
           </div>
         </div>
       </footer>
@@ -133,7 +150,7 @@ const AppShell: React.FC = () => {
 };
 
 export const App: React.FC = () => {
-  const { setOffline, setCurrentAlgo, setAuth } = useStore();
+  const { setOffline, setCurrentAlgo, setAuth, setIsAdmin, currentUser } = useStore();
 
   useEffect(() => {
     StatsDbService.getSetting<SRAlgorithm>('spaced_repetition_algorithm', 'SM-2').then(setCurrentAlgo).catch(() => {});
@@ -144,8 +161,20 @@ export const App: React.FC = () => {
       .then(({ hasAccount, username }) => setAuth({ hasAccount, currentUser: username }))
       .catch(() => setAuth({ hasAccount: false, currentUser: null }))
       // Online backup: syncs now, on reconnect and after local changes (no-op offline or signed out)
-      .finally(() => CloudSync.start());
+      .finally(() => {
+        CloudSync.start();
+        // "Online now" heartbeat; after restore so signed-in tabs count under their username
+        Presence.start();
+      });
   }, [setAuth]);
+
+  // Content editors show only while this browser holds the admin session; the server ends that
+  // session whenever an online account signs in or out, so re-check on every account change
+  useEffect(() => {
+    AdminApi.me()
+      .then((r) => setIsAdmin(r.admin))
+      .catch(() => setIsAdmin(false));
+  }, [currentUser, setIsAdmin]);
 
   useEffect(() => {
     // Send bug reports queued while offline (or before the reporting backend existed)
@@ -172,12 +201,15 @@ export const App: React.FC = () => {
             <Route path="/signup" element={<SignUp />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            {/* Its own screen: the admin is not a study profile, so no app navigation or account menu */}
+            <Route path="/admin" element={<Admin />} />
             <Route element={<AppShell />}>
               <Route path="/" element={<Home />} />
               <Route path="/quiz/year" element={<QuizByYear />} />
               <Route path="/quiz/topic" element={<QuizByTopic />} />
               <Route path="/quiz/combined" element={<QuizCombined />} />
               <Route path="/quiz/custom" element={<QuizCustom />} />
+              <Route path="/quiz/playlists" element={<QuizPlaylists />} />
               <Route path="/quiz/srs" element={<QuizSpacedRepetition />} />
               <Route path="/quiz/exam" element={<QuizExam />} />
               <Route path="/quiz/set/:kind" element={<QuizSet />} />

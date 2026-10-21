@@ -63,6 +63,9 @@ interface AppState {
   /** Backend reports online accounts are configured (cached for offline launches) */
   accountsEnabled: boolean;
   setAccountsEnabled: (enabled: boolean) => void;
+  /** This browser holds the admin console session: shows the content editors (the server still checks) */
+  isAdmin: boolean;
+  setIsAdmin: (admin: boolean) => void;
   toggleTheme: () => void;
   setTheme: (theme: ThemeMode) => void;
   setOffline: (offline: boolean) => void;
@@ -184,6 +187,8 @@ export const useStore = create<AppState>((set, get) => ({
     }
   })(),
   setAccountsEnabled: (enabled) => set({ accountsEnabled: enabled }),
+  isAdmin: false,
+  setIsAdmin: (admin) => set({ isAdmin: admin }),
 
   toggleTheme: () => {
     const nextTheme = get().theme === 'dark' ? 'light' : 'dark';

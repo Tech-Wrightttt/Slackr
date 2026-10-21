@@ -82,8 +82,10 @@ export const scopedKey = (key: string, dataId: string | null = activeDataId) => 
 
 export const BOOKMARKS_KEY = scopedKey('slackr_bookmarks');
 export const CUSTOM_SETS_KEY = scopedKey('slackr_custom_quiz_sets');
+/** Share code of each custom set that was shared online, by set name */
+export const CUSTOM_SET_CODES_KEY = scopedKey('slackr_custom_set_codes');
 
-const PROFILE_KEYS = ['slackr_bookmarks', 'slackr_custom_quiz_sets', 'slackr_last_cloud_sync'];
+const PROFILE_KEYS = ['slackr_bookmarks', 'slackr_custom_quiz_sets', 'slackr_custom_set_codes', 'slackr_last_cloud_sync'];
 
 /** Deletes a non-default profile's study data from this device. Never call it for the open scope. */
 export async function deleteProfileData(dataId: string) {

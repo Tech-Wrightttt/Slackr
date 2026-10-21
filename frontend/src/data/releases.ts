@@ -20,6 +20,37 @@ export const UNRELEASED: Omit<Release, 'version'> | null = null;
 
 export const RELEASES: Release[] = [
   {
+    version: '2.1.0',
+    date: '2026-10-22',
+    title: 'Playlists, question previews and who is online',
+    summary:
+      'Save question sets as playlists, share them with a 6-character code, and pick up playlists from other reviewers. Preview any question before adding it to a set, and see how many people are studying right now.',
+    highlights: [
+      'A new Playlists page under Practice: practice, take as a timed exam, edit or share each saved set from one place.',
+      'Share a playlist as Public or Link only and get a code like K7Q2MX. Anyone can open it, practice it, or save a copy.',
+      'Tap any question in the Custom Builder to preview it, with the answer and explanation hidden until you ask.',
+      'See who is studying right now: the dashboard lists signed-in reviewers by username.',
+    ],
+    changes: [
+      { area: 'Playlists', type: 'new', text: 'Playlists page (Practice → Playlists) with two tabs: Yours, saved on this device and working offline, and Public, shared by other reviewers.' },
+      { area: 'Playlists', type: 'new', text: 'Start Practice or a Timed exam straight from a playlist, or open it in the Custom Builder to add and remove questions.' },
+      { area: 'Playlists', type: 'new', text: 'Share a playlist as Public (listed for everyone) or Link only (opens only with its code). Sharing needs an online account, so you can stop sharing at any time.' },
+      { area: 'Playlists', type: 'new', text: 'Open a code from the "Have a code?" box or a shared link to see its length, exam years and main topics before you practice or save it.' },
+      { area: 'Playlists', type: 'new', text: 'Picked by SLACKR: featured playlists appear at the top of the Public tab.' },
+      { area: 'Playlists', type: 'new', text: 'Save a public or shared playlist to Yours to keep a private copy that works offline.' },
+
+      { area: 'Custom Builder', type: 'new', text: 'Tap a question, or its ID, to preview the stem, diagrams and choices. Arrow keys or the arrows move through the results, and "Add to set" picks it without leaving the preview.' },
+      { area: 'Custom Builder', type: 'improved', text: 'The builder is back to picking questions: saved sets moved to the Playlists page, and "Save preset" is now "Save playlist".' },
+      { area: 'Custom Builder', type: 'improved', text: 'On phones the topic column hides so the question text has room.' },
+
+      { area: 'Everywhere', type: 'new', text: 'The dashboard shows how many people are studying now. Tap it to see signed-in reviewers by username; guests are only counted.' },
+      { area: 'Everywhere', type: 'new', text: 'The footer shows how many people have SLACKR open right now. It hides when you are offline.' },
+      { area: 'Everywhere', type: 'improved', text: 'Learning resource links and step-by-step breakdowns are now kept up to date by SLACKR for everyone, so the same links show on every device.' },
+      { area: 'Everywhere', type: 'fixed', text: 'Only SLACKR can change learning links and breakdowns. Edits made on one device no longer hide the shared versions.' },
+      { area: 'Everywhere', type: 'fixed', text: 'Form errors now say which field is wrong and why, instead of "Check the form and try again".' },
+    ],
+  },
+  {
     version: '2.0.1',
     date: '2026-10-19',
     title: 'Fixes from your bug reports',

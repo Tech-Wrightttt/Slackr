@@ -100,6 +100,10 @@ export class LocalJsonStore<T> {
         localStorage.removeItem(this.pendingKey);
         return true;
       }
+      if (res.status === 401 || res.status === 403) {
+        // Only the admin edits public content: drop the refused local edit so the shared copy loads again
+        localStorage.removeItem(this.pendingKey);
+      }
     } catch {
       // offline or no backend: stays pending, retried on reconnect
     }

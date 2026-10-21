@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link, Navigate, useLocation } from 'react-router-dom';
 import { QuestionsService, type QuestionKindFilter } from '../services/questionsService';
-import { db, CUSTOM_SETS_KEY } from '../db';
+import { db } from '../db';
 import { QuizSession } from '../components/QuizSession';
+import { QuestionPreview } from '../components/QuestionPreview';
+import { MINUTES_PER_QUESTION, Presets } from '../services/presets';
 import { ExamLaunchButton } from '../components/ExamLaunchButton';
 import { AdvancedSearchInput } from '../components/SearchHelperDropdown';
 import { HighlightText } from '../components/HighlightText';
@@ -13,8 +16,6 @@ import type { QuestionData } from '../db/schema';
 import { useStore } from '../store/useStore';
 
 const PAGE_SIZES = [25, 50, 100] as const;
-/** Planning estimate shown in the summary bar */
-const MINUTES_PER_QUESTION = 1.5;
 
 const selectClass =
   'w-full min-h-[40px] rounded-xl border border-outline-variant/30 bg-surface-container-low px-3 text-sm text-on-surface focus:border-primary focus:outline-none cursor-pointer';
@@ -44,8 +45,12 @@ export const QuizCustom: React.FC = () => {
   const [attemptedMap, setAttemptedMap] = useState<Record<string, boolean>>({});
   // A Set, so selections survive paging and filter changes
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [savedSets, setSavedSets] = useState<Record<string, string[]>>({});
   const [newSetName, setNewSetName] = useState<string>('');
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [notice, setNotice] = useState<React.ReactNode>(null);
+  const location = useLocation();
+  // "Edit" on the Playlists page opens a playlist here as the starting selection
+  const editing = (location.state as { load?: { name: string; ids: string[] } } | null)?.load;
 
   // Filters for question table
   const [yearFilter, setYearFilter] = useState<string>('all');
@@ -73,10 +78,6 @@ export const QuizCustom: React.FC = () => {
         }
         setAttemptedMap(aMap);
 
-        const saved = localStorage.getItem(CUSTOM_SETS_KEY);
-        if (saved) {
-          setSavedSets(JSON.parse(saved));
-        }
       } catch (err) {
         console.error('Failed to load questions:', err);
       } finally {
@@ -158,30 +159,32 @@ export const QuizCustom: React.FC = () => {
     setSearch('');
   };
 
+
   const handleSaveSet = () => {
-    if (!newSetName.trim() || selectedIds.size === 0) return;
-    const updated = {
-      ...savedSets,
-      [newSetName.trim()]: Array.from(selectedIds),
-    };
-    setSavedSets(updated);
-    localStorage.setItem(CUSTOM_SETS_KEY, JSON.stringify(updated));
+    const name = newSetName.trim();
+    if (!name || selectedIds.size === 0) return;
+    if (Presets.has(name) && name !== editing?.name && !window.confirm(`Replace your playlist "${name}"?`)) return;
+    Presets.save(name, Array.from(selectedIds));
     setNewSetName('');
+    setNotice(
+      <>
+        Saved "{name}" ({selectedIds.size} questions).{' '}
+        <Link to="/quiz/playlists" className="font-semibold text-primary underline-offset-2 hover:underline">
+          Open Playlists
+        </Link>{' '}
+        to practice or share it.
+      </>
+    );
   };
 
-  const handleDeleteSet = (name: string) => {
-    const updated = { ...savedSets };
-    delete updated[name];
-    setSavedSets(updated);
-    localStorage.setItem(CUSTOM_SETS_KEY, JSON.stringify(updated));
-  };
-
-  const handleLoadSet = (name: string) => {
-    const ids = savedSets[name];
-    if (ids) {
-      setSelectedIds(new Set(ids));
-    }
-  };
+  useEffect(() => {
+    if (loading || !editing) return;
+    const known = new Set(allQuestions.map((q) => q.id));
+    setSelectedIds(new Set(editing.ids.filter((id) => known.has(id))));
+    setNewSetName(editing.name.slice(0, 40));
+    setNotice(`Editing "${editing.name}". Change the selection, then Save playlist with the same name to update it.`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, editing]);
 
   // In exam order, whatever order they were picked in
   const selectedList = useMemo(() => allQuestions.filter((q) => selectedIds.has(q.id)), [allQuestions, selectedIds]);
@@ -205,16 +208,63 @@ export const QuizCustom: React.FC = () => {
     yearFilter !== 'all' || topicFilter !== 'all' || statusFilter !== 'all' || kindFilter !== 'all' || frequentOnly || !!search.trim();
   const estMinutes = Math.round(selectedIds.size * MINUTES_PER_QUESTION);
 
+  const previewQuestion = previewIndex !== null ? filteredQuestions[previewIndex] : undefined;
+
+  // Share links from before playlists had their own page: /quiz/custom?code=XXXXXX
+  const legacyCode = new URLSearchParams(location.search).get('code');
+  if (legacyCode) return <Navigate to={`/quiz/playlists?code=${encodeURIComponent(legacyCode)}`} replace />;
+
   // View 2: Custom Problem Sets Builder
   return (
     <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-32 flex flex-col gap-6 animate-in fade-in duration-300">
-      <header className="flex flex-col gap-1.5 max-w-2xl">
-        <h1 className="font-display-lg text-3xl sm:text-4xl font-bold text-on-surface tracking-tight">Custom Builder</h1>
+      {previewQuestion && previewIndex !== null && (
+        <QuestionPreview
+          question={previewQuestion}
+          position={previewIndex + 1}
+          total={filteredQuestions.length}
+          selected={selectedIds.has(previewQuestion.id)}
+          onToggleSelect={() => toggleSelect(previewQuestion.id)}
+          onPrev={previewIndex > 0 ? () => setPreviewIndex(previewIndex - 1) : undefined}
+          onNext={previewIndex < filteredQuestions.length - 1 ? () => setPreviewIndex(previewIndex + 1) : undefined}
+          onClose={() => {
+            // Keep the table on the page of the last previewed question
+            setPage(Math.floor(previewIndex / pageSize) + 1);
+            setPreviewIndex(null);
+          }}
+        />
+      )}
+
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-1.5 max-w-2xl">
+          <h1 className="font-display-lg text-3xl sm:text-4xl font-bold text-on-surface tracking-tight">Custom Builder</h1>
         <p className="font-body-base text-sm text-on-surface-variant leading-relaxed">
-          Filter the question bank, pick what you want, then practice it or take it as a timed exam. Selections stay while you
-          page and change filters.
+          Filter the question bank, pick what you want, then practice it or take it as a timed exam. Tap a question to preview
+          it. Selections stay while you page and change filters.
         </p>
+        </div>
+        <Link
+          to="/quiz/playlists"
+          className="press-scale inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 self-start rounded-xl border border-outline-variant/40 px-4 text-sm font-semibold text-on-surface hover:bg-surface-container sm:self-auto"
+        >
+          <span className="material-symbols-outlined text-[18px]" aria-hidden="true">queue_music</span>
+          Your playlists
+        </Link>
       </header>
+
+      {notice && (
+        <div role="status" className="flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/8 px-4 py-3 text-sm text-on-surface">
+          <span className="material-symbols-outlined text-[18px] text-primary" aria-hidden="true">queue_music</span>
+          <p className="flex-1">{notice}</p>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="Dismiss"
+            className="tap -my-2 -mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-on-surface-variant hover:bg-surface-container cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">close</span>
+          </button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[17rem_minmax(0,1fr)] gap-6 items-start">
         {/* Filters */}
@@ -316,33 +366,6 @@ export const QuizCustom: React.FC = () => {
             />
           </div>
 
-          {Object.keys(savedSets).length > 0 && (
-            <div className="flex flex-col gap-2 border-t border-outline-variant/20 pt-4">
-              <h3 className="text-xs font-semibold text-on-surface-variant">Saved presets</h3>
-              <ul className="flex flex-col gap-1">
-                {Object.entries(savedSets).map(([setName, qIds]) => (
-                  <li key={setName} className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => handleLoadSet(setName)}
-                      className="tap flex-1 min-h-[36px] truncate rounded-lg px-2 text-left text-sm text-on-surface hover:bg-surface-container cursor-pointer"
-                      title={`Select the ${qIds.length} questions in "${setName}"`}
-                    >
-                      {setName} <span className="text-on-surface-variant tabular-nums">({qIds.length})</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteSet(setName)}
-                      aria-label={`Delete preset ${setName}`}
-                      className="tap flex h-9 w-9 items-center justify-center rounded-lg text-on-surface-variant hover:text-error hover:bg-error/10 cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[16px]" aria-hidden="true">close</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </aside>
 
         {/* Results */}
@@ -403,7 +426,7 @@ export const QuizCustom: React.FC = () => {
                         <span className="sr-only">Selected</span>
                       </th>
                       <th className="px-3 py-3 font-semibold">Question</th>
-                      <th className="px-3 py-3 font-semibold">Topic</th>
+                      <th className="hidden sm:table-cell px-3 py-3 font-semibold">Topic</th>
                       <th className="hidden md:table-cell px-3 py-3 font-semibold">Type</th>
                       <th className="px-3 py-3 font-semibold text-right">Status</th>
                     </tr>
@@ -417,7 +440,7 @@ export const QuizCustom: React.FC = () => {
                       return (
                         <tr
                           key={q.id}
-                          onClick={() => toggleSelect(q.id)}
+                          onClick={() => setPreviewIndex(pageStart + rowIndex)}
                           className={`cursor-pointer transition-colors ${isSelected ? 'bg-primary/8' : 'hover:bg-surface-container/60'}`}
                         >
                           <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
@@ -431,9 +454,17 @@ export const QuizCustom: React.FC = () => {
                           </td>
                           <td className="px-3 py-3 max-w-md">
                             <div className="flex flex-col gap-0.5 min-w-0">
-                              <span className="font-mono-code text-xs font-bold text-primary">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPreviewIndex(pageStart + rowIndex);
+                                }}
+                                aria-label={`Preview ${q.id}`}
+                                className="self-start font-mono-code text-xs font-bold text-primary hover:underline underline-offset-2 cursor-pointer"
+                              >
                                 {match ? <HighlightText text={q.id} query={parsed} /> : q.id}
-                              </span>
+                              </button>
                               {match ? (
                                 <SearchMatchCell match={match} parsed={parsed} isBest={parsed.isPastedQuestion && safePage === 1 && rowIndex === 0} />
                               ) : (
@@ -443,7 +474,7 @@ export const QuizCustom: React.FC = () => {
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-3">
+                          <td className="hidden sm:table-cell px-3 py-3">
                             <span className="whitespace-nowrap rounded bg-surface-container-high px-2 py-0.5 text-xs text-tertiary">
                               {topicLabel(q.topics?.[0] || 'software')}
                             </span>
@@ -570,8 +601,8 @@ export const QuizCustom: React.FC = () => {
               >
                 <input
                   type="text"
-                  placeholder="Preset name"
-                  aria-label="Preset name"
+                  placeholder="Playlist name"
+                  aria-label="Playlist name"
                   value={newSetName}
                   onChange={(e) => setNewSetName(e.target.value)}
                   className="min-h-[40px] w-36 sm:w-44 rounded-lg border border-outline-variant/30 bg-surface-container-low px-3 text-sm text-on-surface placeholder:text-on-surface-variant/70 focus:border-primary focus:outline-none"
@@ -581,7 +612,7 @@ export const QuizCustom: React.FC = () => {
                   disabled={!newSetName.trim()}
                   className="min-h-[40px] rounded-lg bg-surface-container-high px-3 text-xs font-semibold text-on-surface hover:bg-surface-container-highest disabled:opacity-40 cursor-pointer"
                 >
-                  Save preset
+                  Save playlist
                 </button>
               </form>
               <ExamLaunchButton

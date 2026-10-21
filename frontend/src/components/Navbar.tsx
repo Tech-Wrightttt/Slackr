@@ -15,12 +15,13 @@ const compactCount = (n: number) => (n > 99 ? '99+' : String(n));
 const ROW_GAP = 12; // gap-3 between brand, nav and controls
 const NAV_INSET = 12; // ml-3 on the nav, on top of the gap after the brand
 
-/** The four ways to pick questions, grouped under one "Practice" menu so the bar stays short */
+/** The ways to pick questions, grouped under one "Practice" menu so the bar stays short */
 const PRACTICE_LINKS = [
   { to: '/quiz/year', label: 'Year Papers', icon: 'calendar_month', hint: 'Past papers by exam sitting' },
   { to: '/quiz/topic', label: 'Topics', icon: 'category', hint: 'Drill one syllabus area' },
   { to: '/quiz/combined', label: 'Combined', icon: 'filter_alt', hint: 'Mix years, papers and topics' },
   { to: '/quiz/custom', label: 'Custom Builder', icon: 'architecture', hint: 'Hand-pick questions and save sets' },
+  { to: '/quiz/playlists', label: 'Playlists', icon: 'queue_music', hint: 'Your saved sets, share codes, public picks' },
 ];
 
 const isPracticePath = (path: string) =>
