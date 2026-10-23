@@ -57,7 +57,7 @@ export const OnlineNow: React.FC = () => {
       </button>
 
       {open && (
-        <Sheet title="Studying now" subtitle={`${now.online.toLocaleString()} online · updates every minute`} icon="group" onClose={() => setOpen(false)}>
+        <Sheet title="Studying now" subtitle={`${now.online.toLocaleString()} online · updates every hour`} icon="group" onClose={() => setOpen(false)}>
           {users.length > 0 ? (
             <ul className="flex flex-col">
               {users.map((u) => (

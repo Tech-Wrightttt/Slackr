@@ -21,7 +21,7 @@ from algorithms.custom import CustomSRSAlgorithm
 from services.stats_service import StatsService
 from services.analytics_service import AnalyticsService
 from fastapi.testclient import TestClient
-from main import app, startup_event
+from main import app, load_questions
 
 
 def run_tests():
@@ -174,7 +174,7 @@ def run_tests():
 
     # 7. Test FastAPI Endpoints
     print("\n--- 7. Testing FastAPI Endpoints ---")
-    startup_event()
+    load_questions()
     client = TestClient(app)
 
     h_resp = client.get("/api/health")
