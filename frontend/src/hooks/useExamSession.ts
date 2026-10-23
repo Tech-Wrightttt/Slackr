@@ -27,6 +27,12 @@ export const examLog = (progress: ExamProgress): SessionQuestionLog[] =>
     };
   });
 
+/** Adds time spent on a question to its entry, creating an unanswered one if needed */
+const withTime = (answers: Record<string, ExamAnswer>, id: string, ms: number): Record<string, ExamAnswer> => {
+  const prev = answers[id] ?? { choice: null, flagged: false, timeSeconds: 0, choiceSwitches: 0, touchedCorrect: false };
+  return { ...answers, [id]: { ...prev, timeSeconds: prev.timeSeconds + Math.max(0, ms) / 1000 } };
+};
+
 /**
  * One timed exam. The countdown is wall-clock based (see examClock), progress is written to
  * IndexedDB on every change so a reload resumes where it was, and time running out submits.
@@ -71,25 +77,15 @@ export function useExamSession(questionsById: Record<string, QuestionData>) {
   );
 
   const submit = useCallback(
-    async (p: ExamProgress, openAnswered = false) => {
+    async (p: ExamProgress) => {
       if (submittingRef.current) return;
       submittingRef.current = true;
       try {
         const t = Date.now();
         const clock = pauseClock(p.clock, t);
-        // Submitting early (or the time running out) leaves the open question unanswered; it keeps
-        // the time spent on it and any flag
+        // The open question keeps its pick (if any) and the time spent on it this visit
         const openId = p.spec.questionIds[p.index];
-        const answers = { ...p.answers };
-        if (openId && !openAnswered) {
-          answers[openId] = {
-            choice: null,
-            flagged: answers[openId]?.flagged ?? false,
-            timeSeconds: (elapsedMs(clock, t) - p.questionOpenedAtMs) / 1000,
-            choiceSwitches: 0,
-            touchedCorrect: false,
-          };
-        }
+        const answers = openId ? withTime(p.answers, openId, elapsedMs(clock, t) - p.questionOpenedAtMs) : p.answers;
         const final: ExamProgress = { ...p, answers, clock };
 
         // Exam answers count fully in stats and SRS, marked as exam attempts
@@ -143,36 +139,51 @@ export function useExamSession(questionsById: Record<string, QuestionData>) {
     return () => clearInterval(id);
   }, [status, progress, submit]);
 
-  /** Saves the pick for the open question (or a skip) and moves on; the last one submits */
-  const answer = useCallback(
-    (entry: Omit<ExamAnswer, 'timeSeconds' | 'flagged'> | null) => {
+  /** Opens another question, like the real exam: any order, any number of times until submitting */
+  const goTo = useCallback(
+    (index: number) => {
       if (!progress || status !== 'running') return;
-      const t = Date.now();
-      const used = elapsedMs(progress.clock, t);
+      if (index < 0 || index >= progress.spec.questionIds.length || index === progress.index) return;
+      const used = elapsedMs(progress.clock, Date.now());
       const id = progress.spec.questionIds[progress.index]!;
-      const prev = progress.answers[id];
-      const stored: ExamAnswer = {
-        choice: entry?.choice ?? null,
-        choiceSwitches: entry?.choiceSwitches ?? 0,
-        touchedCorrect: entry?.touchedCorrect ?? false,
-        confidence: entry?.confidence,
-        isCorrect: entry?.isCorrect,
-        flagged: prev?.flagged ?? false,
-        timeSeconds: (used - progress.questionOpenedAtMs) / 1000,
-      };
-      const next: ExamProgress = {
+      commit({
         ...progress,
-        answers: { ...progress.answers, [id]: stored },
-        index: progress.index + 1,
+        answers: withTime(progress.answers, id, used - progress.questionOpenedAtMs),
+        index,
         questionOpenedAtMs: used,
-      };
-      if (next.index >= progress.spec.questionIds.length) {
-        void submit({ ...next, index: progress.spec.questionIds.length - 1 }, true);
-      } else {
-        commit(next);
-      }
+      });
     },
-    [progress, status, commit, submit]
+    [progress, status, commit]
+  );
+
+  /** Saves (or changes) the pick for the open question, then opens the next one; the last stays open */
+  const answer = useCallback(
+    (entry: Omit<ExamAnswer, 'timeSeconds' | 'flagged'>) => {
+      if (!progress || status !== 'running') return;
+      const used = elapsedMs(progress.clock, Date.now());
+      const id = progress.spec.questionIds[progress.index]!;
+      const timed = withTime(progress.answers, id, used - progress.questionOpenedAtMs);
+      const prev = timed[id]!;
+      const last = progress.index + 1 >= progress.spec.questionIds.length;
+      commit({
+        ...progress,
+        answers: {
+          ...timed,
+          [id]: {
+            choice: entry.choice,
+            choiceSwitches: entry.choiceSwitches,
+            touchedCorrect: entry.touchedCorrect,
+            confidence: entry.confidence,
+            isCorrect: entry.isCorrect,
+            flagged: prev.flagged,
+            timeSeconds: prev.timeSeconds,
+          },
+        },
+        index: last ? progress.index : progress.index + 1,
+        questionOpenedAtMs: used,
+      });
+    },
+    [progress, status, commit]
   );
 
   const toggleFlag = useCallback(() => {
@@ -210,6 +221,7 @@ export function useExamSession(questionsById: Record<string, QuestionData>) {
     start,
     resume,
     answer,
+    goTo,
     toggleFlag,
     togglePause,
     submitNow: () => progress && submit(progress),
