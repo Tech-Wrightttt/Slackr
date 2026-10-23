@@ -22,8 +22,9 @@ type View =
   | { kind: 'review'; spec: ExamSetSpec; questions: QuestionData[] };
 
 /**
- * Timed exam on one set: forward only, answers lock on moving on, no feedback until the end,
- * skipped questions count as wrong. One exam per set until it is reset.
+ * Timed exam on one set, run like the real CBT: move to any question in any order and change a pick
+ * until you submit, no feedback until the end, unanswered questions count as wrong. One exam per
+ * set until it is reset.
  */
 export const QuizExam: React.FC = () => {
   const location = useLocation();
@@ -185,7 +186,7 @@ export const QuizExam: React.FC = () => {
         </div>
         <ul className="flex flex-col gap-2.5 rounded-2xl border border-outline-variant/30 bg-surface-container-low p-5 text-sm text-on-surface">
           {[
-            ['arrow_forward', 'Forward only: an answer locks when you move on.'],
+            ['swap_horiz', 'Move freely: skip, go back and change any answer until you submit.'],
             ['visibility_off', 'No feedback until the end. Then you get the full report.'],
             ['remove_done', 'Skipped questions count as wrong.'],
             ['timer', 'The clock keeps running in the background. At 0 the exam submits itself.'],
@@ -225,6 +226,7 @@ export const QuizExam: React.FC = () => {
   const p = exam.progress;
   if (!p) return null;
   const current = byId[p.spec.questionIds[p.index] ?? ''];
+  const currentAnswer = current ? p.answers[current.id] : undefined;
   const paused = exam.status === 'paused';
   const lowTime = exam.remaining < 5 * 60_000;
   const answeredCount = Object.values(p.answers).filter((a) => a.choice !== null).length;
@@ -293,7 +295,22 @@ export const QuizExam: React.FC = () => {
           paused={paused}
           flagged={!!p.answers[current.id]?.flagged}
           onToggleFlag={exam.toggleFlag}
+          onSelectIndex={exam.goTo}
           hasNext={p.index + 1 < p.spec.questionIds.length}
+          hasPrevious={p.index > 0}
+          onPreviousQuestion={() => exam.goTo(p.index - 1)}
+          savedAnswer={
+            currentAnswer && currentAnswer.choice !== null
+              ? {
+                  selected: currentAnswer.choice,
+                  isCorrect: !!currentAnswer.isCorrect,
+                  timeSeconds: currentAnswer.timeSeconds,
+                  confidence: currentAnswer.confidence,
+                  choiceSwitches: currentAnswer.choiceSwitches,
+                  touchedCorrect: currentAnswer.touchedCorrect,
+                }
+              : null
+          }
           onAnswerSubmitted={async (a) => {
             exam.answer({
               choice: a.selected,
@@ -303,8 +320,8 @@ export const QuizExam: React.FC = () => {
               confidence: a.confidence,
             });
           }}
-          onSkipQuestion={() => exam.answer(null)}
-          onNextQuestion={() => exam.answer(null)}
+          onSkipQuestion={() => exam.goTo(p.index + 1)}
+          onNextQuestion={() => exam.goTo(p.index + 1)}
         />
       ) : (
         <div className="py-20 text-center text-on-surface-variant font-mono-code text-sm">This question is missing from the question bank.</div>

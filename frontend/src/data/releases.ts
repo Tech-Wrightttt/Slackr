@@ -20,6 +20,29 @@ export const UNRELEASED: Omit<Release, 'version'> | null = null;
 
 export const RELEASES: Release[] = [
   {
+    version: '2.1.1',
+    date: '2026-10-23',
+    title: 'Timed exams like the real one, and fixed 2024 Subject B pages',
+    summary:
+      'Timed exams now work like the real computer-based test: skip, come back and change any answer until you submit. Seven 2024 April Subject B questions showed the pages of a neighbouring question; each now shows its own pages from the official paper.',
+    highlights: [
+      'Timed exams are no longer forward only. Skip a question, go back, or jump to any number from the question grid.',
+      'Change an answer any time before you submit; your pick is still selected when you come back to it.',
+      '2024 April Subject B Q12, Q13 and Q16–Q20 now show the right pages.',
+    ],
+    changes: [
+      { area: 'Timed exam', type: 'improved', text: 'Move freely, as on the real exam: Previous, Skip and the question grid open any question in any order until you submit.' },
+      { area: 'Timed exam', type: 'improved', text: 'Answers stay open: your saved pick shows when you return, and you can change it. Only the answer you leave when you submit counts.' },
+      { area: 'Timed exam', type: 'improved', text: 'Skipping a question you already answered keeps your answer. Questions still unanswered at the end count as wrong.' },
+      { area: 'Timed exam', type: 'improved', text: 'The last question now saves without ending the exam. Use Submit exam when you are done, or let the clock run out.' },
+      { area: 'Timed exam', type: 'fixed', text: 'Time per question in the report adds up every visit, not just the last one.' },
+
+      { area: 'Corrected questions', type: 'fixed', text: '2024 April Subject B Q12 showed the first page of Q13 under its own. It now shows only its page.' },
+      { area: 'Corrected questions', type: 'fixed', text: '2024 April Subject B Q13 was missing its first page (the description). It now shows all three pages.' },
+      { area: 'Corrected questions', type: 'fixed', text: '2024 April Subject B Q16 also showed Q17’s page, Q17 to Q19 showed the next question’s pages, and Q20 was missing its first page. Each now shows its own pages, checked against the official paper.' },
+    ],
+  },
+  {
     version: '2.1.0',
     date: '2026-10-22',
     title: 'Playlists, question previews and who is online',

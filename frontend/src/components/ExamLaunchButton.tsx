@@ -60,7 +60,7 @@ export const ExamLaunchButton: React.FC<ExamLaunchButtonProps> = ({
         const exam = buildExamSpec(list, { setKey, title, sessionType, filterKey, minutes });
         navigate('/quiz/exam', { state: { exam } });
       }}
-      title="Forward only, no feedback until the end, one attempt until reset"
+      title="Move freely, no feedback until the end, one attempt until reset"
       className={`press-scale inline-flex items-center justify-center gap-1.5 rounded-lg border border-tertiary/35 bg-tertiary/8 font-body-bold text-tertiary shadow-sm hover:border-tertiary/60 hover:bg-tertiary/14 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer ${
         compact ? 'tap min-h-[36px] px-3 text-xs' : 'min-h-[44px] px-4 text-sm'
       } ${className}`}

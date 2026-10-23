@@ -11,7 +11,7 @@ backend_dir = current_dir.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-from parsers.markdown_parser import parse_markdown_file, REGISTERED_TOPICS
+from parsers.markdown_parser import parse_markdown_file, extract_image_paths, REGISTERED_TOPICS
 from parsers.question_classifier import classify_kind, weight_tier, load_overrides, repeat_groups
 
 
@@ -82,7 +82,12 @@ def apply_content_overrides(questions: dict) -> int:
         if qid not in questions:
             print(f"Warning: content_overrides.json lists {qid}, which is not in the vault")
             continue
-        questions[qid].update(fields)
+        q = questions[qid]
+        q.update(fields)
+        # A replaced stem can point at different pages (vault images filed under the wrong question)
+        if "question" in fields:
+            q["image_paths"] = extract_image_paths(q["question"])
+            q["all_images"] = extract_image_paths(q["question"] + "\n" + q.get("explanation", ""))
         count += 1
     return count
 

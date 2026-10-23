@@ -15,5 +15,40 @@
     "_why": "Bug report #18. The vault stores the answer as a picture, so the app could not grade it. Official answer: a.",
     "correct": "a",
     "correct_display": "a"
+  },
+
+  "2024S_FE-B_12": {
+    "_why": "Vault page images are filed one page late from Q12 on, so Q12 showed a neighbouring question. The official paper has Q12 on page 18; these are the vault files that hold those pages.",
+    "question": "![2024S_FE-B_Q12_p1.png](/files/2024S_FE-B_Q12_p1.png)"
+  },
+
+  "2024S_FE-B_13": {
+    "_why": "Vault page images are filed one page late from Q12 on, so Q13 showed a neighbouring question. The official paper has Q13 on pages 19-21; these are the vault files that hold those pages.",
+    "question": "![2024S_FE-B_Q12_p2.png](/files/2024S_FE-B_Q12_p2.png)\n![2024S_FE-B_Q13_p1.png](/files/2024S_FE-B_Q13_p1.png)\n![2024S_FE-B_Q13_p2.png](/files/2024S_FE-B_Q13_p2.png)"
+  },
+
+  "2024S_FE-B_16": {
+    "_why": "Vault page images are filed one page late from Q12 on, so Q16 showed a neighbouring question. The official paper has Q16 on page 25; these are the vault files that hold those pages.",
+    "question": "![2024S_FE-B_Q16_p1.png](/files/2024S_FE-B_Q16_p1.png)"
+  },
+
+  "2024S_FE-B_17": {
+    "_why": "Vault page images are filed one page late from Q12 on, so Q17 showed a neighbouring question. The official paper has Q17 on page 26; these are the vault files that hold those pages.",
+    "question": "![2024S_FE-B_Q16_p2.png](/files/2024S_FE-B_Q16_p2.png)"
+  },
+
+  "2024S_FE-B_18": {
+    "_why": "Vault page images are filed one page late from Q12 on, so Q18 showed a neighbouring question. The official paper has Q18 on pages 27-28; these are the vault files that hold those pages.",
+    "question": "![2024S_FE-B_Q17_p1.png](/files/2024S_FE-B_Q17_p1.png)\n![2024S_FE-B_Q17_p2.png](/files/2024S_FE-B_Q17_p2.png)"
+  },
+
+  "2024S_FE-B_19": {
+    "_why": "Vault page images are filed one page late from Q12 on, so Q19 showed a neighbouring question. The official paper has Q19 on pages 29-30; these are the vault files that hold those pages.",
+    "question": "![2024S_FE-B_Q18_p1.png](/files/2024S_FE-B_Q18_p1.png)\n![2024S_FE-B_Q18_p2.png](/files/2024S_FE-B_Q18_p2.png)"
+  },
+
+  "2024S_FE-B_20": {
+    "_why": "Vault page images are filed one page late from Q12 on, so Q20 showed a neighbouring question. The official paper has Q20 on pages 31-32; these are the vault files that hold those pages.",
+    "question": "![2024S_FE-B_Q19_full.png](/files/2024S_FE-B_Q19_full.png)\n![2024S_FE-B_Q20_full.png](/files/2024S_FE-B_Q20_full.png)"
   }
 }

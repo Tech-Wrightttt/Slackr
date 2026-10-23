@@ -68,7 +68,7 @@ interface QuestionCardProps {
   shuffleSeed?: string | null;
   /** Session pause: freezes the timer and hides the question */
   paused?: boolean;
-  /** Exam: no feedback, no going back, no defer; picks can be flagged */
+  /** Exam: no feedback, no defer; picks stay editable until the exam is submitted and can be flagged */
   variant?: 'practice' | 'exam';
   flagged?: boolean;
   onToggleFlag?: () => void;
@@ -149,17 +149,19 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const submittedForRef = useRef<string | null>(null);
   const retryRef = useRef(resetToken);
 
-  // Load the question: a fresh card, or this session's earlier answer when coming back to it
+  // Load the question: a fresh card, or this session's earlier answer when coming back to it.
+  // An exam pick comes back selected but still open, as on the real exam.
   useEffect(() => {
-    const saved = savedAnswer;
-    if (saved && submittedForRef.current === question.id && retryRef.current === resetToken) return;
+    const saved = isExam ? null : savedAnswer;
+    const pickedBefore = savedAnswer;
+    if (pickedBefore && submittedForRef.current === question.id && retryRef.current === resetToken) return;
     submittedForRef.current = null;
     retryRef.current = resetToken;
-    setSelectedChoice(saved && !hasBlanks ? saved.selected : null);
-    setBlankPicks(saved && hasBlanks ? parseBlankPicks(saved.selected) : {});
-    setChoiceSwitches(saved?.choiceSwitches ?? 0);
-    touchedCorrectRef.current = saved?.touchedCorrect ?? false;
-    setConfidence(saved?.confidence ?? null);
+    setSelectedChoice(pickedBefore && !hasBlanks ? pickedBefore.selected : null);
+    setBlankPicks(pickedBefore && hasBlanks ? parseBlankPicks(pickedBefore.selected) : {});
+    setChoiceSwitches(pickedBefore?.choiceSwitches ?? 0);
+    touchedCorrectRef.current = pickedBefore?.touchedCorrect ?? false;
+    setConfidence(pickedBefore?.confidence ?? null);
     setConfidenceWarn(false);
     setIsSubmitted(!!saved);
     setIsCorrect(saved?.isCorrect ?? false);
@@ -223,7 +225,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const finalize = async (correct: boolean, selected: string, finalTime: number) => {
     submittedForRef.current = question.id;
     setIsCorrect(correct);
-    setIsSubmitted(true);
+    // Exam picks stay open: the exam clock owns the time and the pick can still change
+    if (!isExam) setIsSubmitted(true);
     setAwaitingSelfGrade(false);
     const result = await onAnswerSubmitted({
       questionId: question.id,
@@ -255,10 +258,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       return;
     }
 
-    freezeTimer();
-    const finalTime = bankedRef.current;
-    setElapsedTime(finalTime);
-    setTimerStopped(true);
+    if (!isExam) {
+      freezeTimer();
+      setElapsedTime(bankedRef.current);
+      setTimerStopped(true);
+    }
+    const finalTime = isExam ? readTimer() : bankedRef.current;
 
     if (hasBlanks) {
       await finalize(isBlanksCorrect(question, blankPicks), formatBlankPicks(question, blankPicks), finalTime);
@@ -323,7 +328,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const correctCount = answeredKeys.filter((k) => combinedAnswerMap[k]?.isCorrect).length;
   const incorrectCount = answeredKeys.filter((k) => combinedAnswerMap[k] && !combinedAnswerMap[k]?.isCorrect).length;
   const pendingCount = Math.max(0, totalItemCount - correctCount - incorrectCount);
-  const progressPercent = Math.min(100, Math.round((questionNumber / totalItemCount) * 100));
+  // Exams move freely, so progress there is questions answered, not the position in the set
+  const examAnswered = isExam ? questions.filter((q) => combinedAnswerMap[q.id]).length : 0;
+  const progressCount = isExam ? examAnswered : questionNumber;
+  const progressPercent = Math.min(100, Math.round((progressCount / totalItemCount) * 100));
 
   // Exam answers stay hidden until the end; practice shows them once submitted
   const revealed = isSubmitted && !isExam;
@@ -731,19 +739,15 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 
             {/* Navigation Action Footer */}
             <div className="flex flex-wrap sm:flex-nowrap items-center justify-between pt-3 gap-2.5 sm:gap-3 border-t border-outline-variant/20">
-              {!isExam ? (
-                <button
-                  type="button"
-                  onClick={onPreviousQuestion}
-                  disabled={!hasPrevious && currentIndex === 0}
-                  className="px-3.5 sm:px-4 py-2.5 min-h-[44px] rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-body-bold text-sm flex items-center justify-center gap-1.5 sm:gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-                  <span>Previous</span>
-                </button>
-              ) : (
-                <span className="text-xs font-mono-code text-on-surface-variant">Answers lock when you move on</span>
-              )}
+              <button
+                type="button"
+                onClick={onPreviousQuestion}
+                disabled={(!hasPrevious && currentIndex === 0) || (isExam && paused)}
+                className="px-3.5 sm:px-4 py-2.5 min-h-[44px] rounded-lg bg-surface-container hover:bg-surface-container-high text-on-surface font-body-bold text-sm flex items-center justify-center gap-1.5 sm:gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+                <span>Previous</span>
+              </button>
 
               <div className="flex flex-wrap items-center gap-2 sm:gap-3 ml-auto">
                 {onRetry && revealed && (
@@ -757,7 +761,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   </button>
                 )}
 
-                {onSkipQuestion && !isSubmitted && !awaitingSelfGrade && (
+                {onSkipQuestion && !isSubmitted && !awaitingSelfGrade && (!isExam || hasNext) && (
                   <button
                     type="button"
                     onClick={onSkipQuestion}
@@ -815,8 +819,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     disabled={!readyToSubmit || paused}
                     className="px-5 py-2.5 min-h-[46px] rounded-lg bg-primary text-on-primary hover:bg-primary-fixed-dim font-body-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-transform active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   >
-                    <span>{isExam ? (hasNext ? 'Save & Next' : 'Save & Finish') : 'Submit & Proceed'}</span>
-                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                    <span>{isExam ? (hasNext ? 'Save & Next' : 'Save answer') : 'Submit & Proceed'}</span>
+                    <span className="material-symbols-outlined text-[18px]">{isExam && !hasNext ? 'check' : 'arrow_forward'}</span>
                   </button>
                 ) : (
                   !isExam && (
@@ -870,7 +874,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 Exam Progress Gauge
               </span>
               <span className="font-mono-code text-xs text-primary font-body-bold">
-                {questionNumber} / {totalItemCount} ({progressPercent}%)
+                {progressCount} / {totalItemCount}{isExam ? ' answered' : ''} ({progressPercent}%)
               </span>
             </div>
 
@@ -938,7 +942,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               </div>
             </div>
 
-            {/* Compact Numerical Grid (8 columns); exams only move forward, so the grid is read-only there */}
+            {/* Compact Numerical Grid (8 columns); in exams it jumps to any question, answered ones shown neutral */}
             <div className="grid grid-cols-8 gap-1.5 max-h-[440px] overflow-y-auto pr-1">
               {Array.from({ length: totalItemCount }).map((_, idx) => {
                 const qNum = idx + 1;
@@ -968,13 +972,13 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   <button
                     key={idx}
                     type="button"
-                    disabled={isExam}
+                    disabled={isExam && paused}
                     onClick={() => {
                       if (onSelectIndex) {
                         onSelectIndex(idx);
                       }
                     }}
-                    className={`relative h-8 rounded font-mono-code text-xs flex items-center justify-center transition-all ${isExam ? 'cursor-default' : 'cursor-pointer'} ${pillClass}`}
+                    className={`relative h-8 rounded font-mono-code text-xs flex items-center justify-center transition-all cursor-pointer disabled:cursor-default ${pillClass}`}
                     title={`Question ${qNum}${isBookmarked ? ' • Bookmarked' : ''}`}
                     aria-label={`Question ${qNum}${isBookmarked ? ', bookmarked' : ''}`}
                   >
