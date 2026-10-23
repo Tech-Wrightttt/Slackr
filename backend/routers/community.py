@@ -10,7 +10,7 @@ playlists never leave the device (they are the Custom Builder's local presets).
   GET    /api/playlists/{code}      one playlist with its question IDs
   POST   /api/playlists             {title, description, question_ids, visibility} -> {code}
   DELETE /api/playlists/{code}      remove one of your own
-  POST   /api/presence              {client_id} -> {online, users}; called every minute by each open tab
+  POST   /api/presence              {client_id} -> {online, users}; called once an hour by each open tab
                                     (users = usernames of signed-in people online; guests are only counted)
   POST   /api/presence/leave        {client_id}; sent when the tab closes
 """
@@ -135,5 +135,5 @@ def presence_leave(body: PresenceBody):
     try:
         gateway.presence_leave(body.client_id)
     except SupabaseError:
-        pass  # the row ages out in 2 minutes anyway
+        pass  # the row ages out in 65 minutes anyway
     return {"ok": True}

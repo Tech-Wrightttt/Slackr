@@ -3,8 +3,8 @@ import { apiUrl } from '../config/env';
 import { call } from './accountApi';
 
 /**
- * "Online now": each open tab pings the backend every minute while visible and online. The reply is
- * how many tabs pinged in the last 2 minutes, plus the usernames of signed-in people among them.
+ * "Online now": each open tab pings the backend once an hour while visible and online. The reply is
+ * how many tabs pinged in the last 65 minutes, plus the usernames of signed-in people among them.
  * Without a backend (offline, plain static host) it stays null and nothing is shown.
  */
 
@@ -14,11 +14,12 @@ export interface OnlineSnapshot {
   users: string[];
 }
 
-const PING_MS = 60_000;
+const PING_MS = 60 * 60_000;
 const CLIENT_KEY = 'slackr_presence_client';
 
 let snapshot: OnlineSnapshot | null = null;
 let timer: number | undefined;
+let lastPing = 0;
 let started = false;
 const listeners = new Set<() => void>();
 
@@ -47,6 +48,7 @@ const active = () => document.visibilityState === 'visible' && navigator.onLine;
 
 async function ping() {
   if (!active()) return;
+  lastPing = Date.now();
   try {
     const res = await call<{ online: number; users?: string[] }>('POST', '/api/presence', { client_id: clientId });
     setSnapshot({ online: res.online, users: res.users ?? [] });
@@ -76,7 +78,8 @@ export const Presence = {
     schedule();
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        void ping();
+        // Tab switching must not ping more often than the hourly interval
+        if (Date.now() - lastPing >= PING_MS) void ping();
         schedule();
       } else {
         window.clearInterval(timer);

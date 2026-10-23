@@ -54,6 +54,15 @@ ADMIN_TOKEN = os.environ.get("SLACKR_ADMIN_TOKEN", "")
 _origins = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 ALLOWED_ORIGINS = _origins or ([] if IS_HOSTED else ["*"])
 
+# Routes that read questions_db; everything else skips loading it
+QUESTION_BANK_PREFIXES = (
+    "/api/questions",
+    "/api/years",
+    "/api/topics",
+    "/api/attempts",
+    "/api/spaced-repetition",
+)
+
 PERSONAL_DATA_PREFIXES = (
     "/api/attempts",
     "/api/spaced-repetition",
@@ -92,8 +101,9 @@ async def block_shared_personal_data(request: Request, call_next):
             status_code=503,
             content={"detail": "Personal stats are stored on your device in hosted mode. Cloud sync is not enabled yet."},
         )
-    # Serverless platforms may skip ASGI startup events, so load the question bank on first use
-    if not questions_db and request.url.path.startswith("/api/"):
+    # Load the question bank only for routes that read it. On Vercel it is a 7.6 MB fetch from the
+    # frontend service per function instance, so presence pings, accounts and playlists must not pay it.
+    if not questions_db and request.url.path.startswith(QUESTION_BANK_PREFIXES):
         await asyncio.to_thread(load_questions)
     return await call_next(request)
 
@@ -133,11 +143,6 @@ if FILES_DIR.exists():
 questions_db: Dict[str, Any] = {}
 stats_service: StatsService = StatsService()
 analytics_service: AnalyticsService = AnalyticsService(stats_service)
-
-
-@app.on_event("startup")
-def startup_event():
-    load_questions()
 
 
 def load_questions() -> None:
